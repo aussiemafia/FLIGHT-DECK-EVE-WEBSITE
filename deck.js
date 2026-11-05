@@ -653,7 +653,13 @@ function animateHatches(px,pz,dt){
    const lateral=Math.abs(dx*door.ux+dz*door.uz),normal=Math.abs(dz*door.ux-dx*door.uz);
    const near=lateral<218&&normal<(door.openness>0?290:240)&&(!door.interlock||door.interlock.openness===0);
    const change=(near?2.7:-1.65)*dt;
+   const previous=door.openness;
    door.openness=Math.max(0,Math.min(1,door.openness+change));
+   const direction=Math.sign(door.openness-previous);
+   if(direction!==(door.motion||0)){
+     door.motion=direction;
+     window.dispatchEvent(new CustomEvent('hatchmotion',{detail:{door,direction}}));
+   }
  }
 }
 function hatchHit(ex,ey,ez,dx,dy,dz){

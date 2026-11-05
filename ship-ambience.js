@@ -41,11 +41,54 @@
     master.gain.setTargetAtTime(muted || document.hidden ? 0 : volume / 100, now, 0.18);
   }
 
+  const doorRecording = document.currentScript?.dataset.doorRecording;
+  const movingHatches = new Map();
+  let doorBuffer, doorLoading;
+  function loadDoorSound() {
+    if (!doorRecording || doorBuffer || doorLoading) return;
+    doorLoading = fetch(doorRecording)
+      .then(response => {
+        if (!response.ok) throw new Error('Door recording unavailable');
+        return response.arrayBuffer();
+      })
+      .then(bytes => audio.decodeAudioData(bytes))
+      .then(buffer => { doorBuffer = buffer; })
+      .catch(() => {})
+      .finally(() => { doorLoading = false; });
+  }
+  window.addEventListener('hatchmotion', ({detail: {door, direction}}) => {
+    if (!audio) return;
+    const now = audio.currentTime;
+    const previous = movingHatches.get(door);
+    if (previous) {
+      const envelope = previous.gain.gain;
+      envelope.cancelScheduledValues(now);
+      envelope.setValueAtTime(.85 * Math.min(1, (now - previous.started) / .025), now);
+      previous.gain.gain.linearRampToValueAtTime(0, now + .055);
+      previous.source.stop(now + .06);
+      movingHatches.delete(door);
+    }
+    if (!direction || muted || document.hidden) return;
+    if (!doorBuffer) { loadDoorSound(); return; }
+    const source = audio.createBufferSource(), gain = audio.createGain();
+    source.buffer = doorBuffer;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(.85, now + .025);
+    source.connect(gain); gain.connect(master);
+    movingHatches.set(door, { source, gain, started: now });
+    source.onended = () => {
+      if (movingHatches.get(door)?.source === source) movingHatches.delete(door);
+      source.disconnect(); gain.disconnect();
+    };
+    source.start(now, .14);
+  });
+
   function build() {
     audio = new AudioEngine();
     master = audio.createGain();
     master.gain.value = 0;
     master.connect(audio.destination);
+    loadDoorSound();
     engines = audio.createGain(); engines.connect(master);
     filter = audio.createBiquadFilter(); filter.type = 'lowpass'; filter.Q.value = .6;
     filter.connect(engines);
