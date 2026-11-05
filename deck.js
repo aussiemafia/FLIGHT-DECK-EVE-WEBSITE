@@ -760,7 +760,7 @@ document.addEventListener('click',e=>{
 $('use').onclick=()=>{if(target)activateStation(target)};
 window.addEventListener('keydown',e=>{
  if(panel.open)return;
- if(['KeyW','KeyS','KeyA','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();keys.add(e.code)}
+ if(['KeyW','KeyS','KeyA','KeyD','ShiftLeft','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();keys.add(e.code)}
  if(e.code==='KeyE'&&!e.repeat){if(seated)standUp();else if(target)activateStation(target);}
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();drag=false});
@@ -814,7 +814,8 @@ function frame(now){
  const dt=Math.max(0,Math.min(.075,(now-previous)/1000));previous=now;
  animateHatches(x,z,dt);
  const f=Number(keys.has('KeyW'))-Number(keys.has('KeyS')),r=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
- const step=dt*315/Math.max(1,Math.hypot(f,r));
+ const speed=keys.has('ShiftLeft')?630:315;
+ const step=dt*speed/Math.max(1,Math.hypot(f,r));
  yaw+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.6;
  pitch=clamp(pitch+(Number(keys.has('ArrowDown'))-Number(keys.has('ArrowUp')))*dt*1.3,-1.22,1.22);
  const steps=Math.max(1,Math.ceil(step/25));
