@@ -15,12 +15,12 @@ function plane(type,w,h,x,y,z,ry=0,rx=0) {
   return el;
 }
 // The forward glass and each instrument housing occupy separate planes.
-const horizon=plane('horizon',4800,2050,0,-265,-2550);
+
 plane('crest-glass',620,295,-376,-372,-806);
 plane('orbital',850,310,-830,-135,-2340);
 plane('drifting',830,335,470,-105,-2100);
 const glass=plane('canopy',1586,590,0,-281,-800);
-plane('metal',1586,402,0,215,-800);
+panelWall(1586,402,0,215,-800,0);
 plane('rail',1586,38,0,20,-790);
 const housings=[
   {left:100,top:505,w:510,h:375,x:-485,y:165,z:-450,angle:20,shape:'8% 4%,86% 1%,100% 70%,92% 100%,13% 96%,0 16%'},
@@ -46,31 +46,27 @@ function openRecord(id,title) {
   document.exitPointerLock?.(); keys.clear();
   $('label').textContent=title;
   panel.querySelector('iframe').src='archive/index.html#'+id;
-  panel.showModal();
+  panel.showModal(); $('close').focus();
 }
 function wire(button,item) {
   button.dataset.station=item[1]; button.dataset.route=item[0]; button.setAttribute('aria-label',item[1]);
-  button.onclick=event=>{if(!event.detail || !dragged)activateStation(button)};
+  button.onclick=event=>{event.stopPropagation(); if(!event.detail || !dragged)activateStation(button)};
 }
 groups.slice(0,3).forEach((list,g)=>list.forEach((item,i)=>{
   const [x,y,w,h]=rows[g],b=document.createElement('button');
   b.className='hot'; Object.assign(b.style,{left:(x-housings[g].left+(g===0?5:g===1?-6:-4)*i)+'px',top:(y-housings[g].top+h*i)+'px',width:w+'px',height:h+'px'});
-  wire(b,item);monitors[g].append(b);
+  b.textContent=item[1]+'　›';wire(b,item);monitors[g].append(b);
 }));
+monitors.forEach((monitor,index)=>wire(monitor,groups[index][0]));
 plane('deck',1586,2000,0,416,200,0,90);
 plane('overhead',1586,2000,0,-576,200,0,-90);
 
 for(const side of [-1,1]){
   const angle=side*-90;
-  plane('metal',2000,992,side*793,-80,200,angle);
+  windowWall(2000,992,side*793,-80,200,angle,[-715,-235,235,715],340,260,-270);
   for(const z of [-570,20,610,1100]){
     plane('rail',42,985,side*755,-80,z,angle);
     plane('strip',7,280,side*752,-280,z,angle);
-  }
-  for(const z of [-290,380,920]){
-    const glass=plane('porthole',460,208,side*783,-295,z,angle);
-    glass.style.backgroundPosition=(side*20+50)+'% '+(z/20+35)+'%';
-    plane('rail',460,24,side*766,-177,z,angle);
   }
   plane('strip',1850,6,side*760,370,190,angle);
   plane('strip',9,1950,side*585,415,200,0,90);
@@ -82,10 +78,12 @@ function terminal(title,list,x,z,angle){
    s.style.transform+=' scale(.68)';
    s.classList.add('room-console');
  }
- const heading=document.createElement('h2');heading.textContent=title;s.append(heading);
+ const heading=document.createElement('button');heading.className='screen-title';heading.textContent=title;wire(heading,list[0]);s.append(heading);
  list.forEach(item=>{const b=document.createElement('button');b.className='station-row';b.textContent=item[1]+'　›';wire(b,item);s.append(b)});
+ wire(s,list[0]);
  const rad=angle*Math.PI/180;
- plane('switches',480,108,x+Math.sin(rad)*31,209,z+Math.cos(rad)*31,angle,52);
+ const switches=plane('switches',480,108,x+Math.sin(rad)*31,209,z+Math.cos(rad)*31,angle,52);
+ for(const item of list){const key=document.createElement('button');key.textContent=item[1];wire(key,item);switches.append(key);}
  plane('rail',484,142,x,312,z,angle);
 }
 terminal('NAVIGATION',groups[0],-700,-65,90);
@@ -107,16 +105,38 @@ for(const z of [-700,-50,580,1080]){
    plane('lamp',230,18,x,-495,z,0,-90);
  }
 }
-for(const side of [-1,1]){
- for(const pz of [140,820]){
-  const cx=side*460;
-  block('rail',cx,355,pz,52,119,54);
-  block('seat',cx,270,pz,144,48,118);
-  block('seat',cx,151,pz+49,146,207,36);
-  block('seat',cx,32,pz+52,92,49,37);
-  for(const sign of [-1,1])block('rail',cx+sign*78,226,pz-5,17,18,100);
- }
+const seats=[];
+function addChair(cx,pz){
+  seats.push({cx,pz});
+  const firstPart=world.children.length;
+  block('chair-mount',cx,381,pz,130,68,133);
+  block('chair-shell',cx,302,pz,150,82,150);
+  block('cushion',cx,258,pz-12,132,20,118);
+  block('chair-shell',cx,161,pz+58,156,206,42);
+  plane('chair-upholstery',130,170,cx,160,pz+35,180);
+  block('cushion',cx,44,pz+58,97,38,45);
+  for(const sign of [-1,1]){
+    block('chair-mount',cx+sign*79,244,pz+8,16,73,92);
+    block('armrest',cx+sign*78,200,pz-2,26,17,116);
+  }
+  for(const side of [-1,1]){
+    const wing=plane('shoulder-wing',36,124,cx+side*65,140,pz+28,180+side*26,-8);
+    wing.style.borderRadius='12px 12px 6px 6px';
+    block('piston',cx+side*45,340,pz+39,13,69,17);
+  }
+  block('armrest',cx+78,181,pz-36,11,29,14);
+  plane('chair-keypad',22,56,cx-78,190,pz-23,0,90);
+  const station=plane('seat-control',128,38,cx,153,pz+81);
+  const button=document.createElement('button');button.textContent='Sit at station';
+  button.dataset.seat=[cx,pz].join(',');button.dataset.station='Sit at station';
+  button.onclick=()=>activateStation(button);station.append(button);
+  for(const body of Array.from(world.children).slice(firstPart)){
+    if(!body.matches('.cushion,.chair-shell,.chair-upholstery,.armrest,.shoulder-wing,.chair-keypad'))continue;
+    body.dataset.seat=button.dataset.seat;body.dataset.station='Sit at station';
+    body.onclick=()=>{if(!dragged)activateStation(body)};
+  }
 }
+for(const side of [-1,1]){for(const pz of [140,820])addChair(side*460,pz); addChair(side*845,2910);}
 for(const h of housings){
  const rad=h.angle*Math.PI/180;
  plane('strip',h.w*.6,4,h.x+Math.sin(rad)*10,325,h.z+Math.cos(rad)*10,h.angle);
@@ -134,8 +154,32 @@ function clad(el,cols,rows,zone){
 const floorY=416, roomHeight=640, passageStart=1200, passageEnd=3560;
 const roomCentreZ = 2540, roomDepth = 1560, roomWidth = 1020;
 function panelWall(w,h,x,y,z,angle) {
- const wall=plane('metal partition',w,h,x,y,z,angle);
- return wall;
+ // Keep the interior face at its design coordinate and extrude outward 20 cm.
+ const depth=49, a=angle*Math.PI/180, nx=Math.sin(a), nz=Math.cos(a);
+ plane('metal',w,h,x,y,z,angle);
+ plane('hull-back',w,h,x-depth*nx,y,z-depth*nz,angle+180);
+ const mx=x-depth*nx/2,mz=z-depth*nz/2;
+ for(const sign of [-1,1]){
+   plane('hull-edge',depth,h,mx+sign*w*Math.cos(a)/2,y,mz-sign*w*Math.sin(a)/2,angle+sign*90);
+   plane('hull-edge',w,depth,mx,y+sign*h/2,mz,angle,-sign*90);
+ }
+}
+function windowWall(w,h,x,y,z,angle,centres,opening,height,glassY){
+ const a=angle*Math.PI/180;
+ function section(width,high,u,v){
+   if(width>.1&&high>.1)panelWall(width,high,x+u*Math.cos(a),v,z-u*Math.sin(a),angle);
+ }
+ const top=y-h/2,bottom=y+h/2,upper=glassY-height/2,lower=glassY+height/2;
+ section(w,upper-top,0,(upper+top)/2);
+ section(w,bottom-lower,0,(lower+bottom)/2);
+ let cursor=-w/2;
+ for(const u of centres){
+   const edge=u-opening/2;
+   section(edge-cursor,height,(edge+cursor)/2,glassY);
+   plane('viewport',opening,height,x+u*Math.cos(a),glassY,z-u*Math.sin(a),angle);
+   cursor=u+opening/2;
+ }
+ section(w/2-cursor,height,(w/2+cursor)/2,glassY);
 }
 function bulkhead(x,z,span,height,opening,angle) {
  const wing=(span-opening)/2;
@@ -153,7 +197,7 @@ function plaque(title,x,y,z,angle,width=330) {
 }
 bulkhead(0,passageStart,1586,992,360,180);
 plaque('AFT  /  STATION ACCESS',0,-165,1195,180,420);
-plaque('FLIGHT DECK',0,-162,1205,0);
+plaque('FLIGHT DECK',0,-162,1252,0);
 function floorAndCeiling(w,d,x,z){
  const floor=plane('extension-floor',w,d,x,floorY,z,0,90);
  const ceiling=plane('extension-ceiling',w,d,x,floorY-roomHeight,z,0,-90);
@@ -161,7 +205,7 @@ function floorAndCeiling(w,d,x,z){
  clad(ceiling,Math.ceil(w/600),Math.ceil(d/600),'ceiling-tile');
 }
 floorAndCeiling(490,passageEnd-passageStart,0,(passageStart+passageEnd)/2);
-panelWall(490,roomHeight,0,floorY-roomHeight/2,passageEnd,180);
+windowWall(490,roomHeight,0,floorY-roomHeight/2,passageEnd,180,[0],320,180,-94);
 plaque('← NAVIGATION LAB   /   INTELLIGENCE →',0,5,passageEnd-4,180,470);
 for(const side of [-1,1]){
  const inner=245*side,outer=(245+roomWidth)*side,mid=(inner+outer)/2;
@@ -173,15 +217,13 @@ for(const side of [-1,1]){
  panelWall(360,roomHeight-545,inner,floorY-roomHeight+(roomHeight-545)/2,roomCentreZ,facing);
  floorAndCeiling(roomWidth,roomDepth,mid,roomCentreZ);
  for(const [offset,angle] of [[-1,0],[1,180]]){
-  panelWall(roomWidth,roomHeight,mid,floorY-roomHeight/2,roomCentreZ+offset*roomDepth/2,angle);
+  windowWall(roomWidth,roomHeight,mid,floorY-roomHeight/2,roomCentreZ+offset*roomDepth/2,angle,[-243,243],360,230,-68);
  }
- panelWall(roomDepth,roomHeight,outer,floorY-roomHeight/2,roomCentreZ,facing);
+ windowWall(roomDepth,roomHeight,outer,floorY-roomHeight/2,roomCentreZ,facing,[-496,496],365,230,-68);
  const name=side===1?'NAVIGATION LAB':'INTELLIGENCE';
  plaque(name,inner-side*5,-165,roomCentreZ,facing);
  plaque(name,outer-side*5,-150,roomCentreZ,facing,450);
  terminal(name,groups[side===1?0:1],outer-side*32,roomCentreZ,facing);
- const viewport=plane('porthole observation',600,250,mid,-55,roomCentreZ-roomDepth/2+4);
- viewport.style.backgroundPosition=side===1?'90% 40%':'15% 60%';
  for(const z of [1900,2210,2850,3160]){
   plane('lamp passage-light',165,14,inner-side*3,-160,z,facing);
  }
@@ -191,12 +233,13 @@ function corridorStation(title,item,side,z){
  const mark=document.createElement('strong');mark.textContent=title;
  const status=document.createElement('div');status.className='status-wave';
  const button=document.createElement('button');button.textContent=item[1]+'  ›';
- wire(button,item);face.append(mark,status,button);
+ wire(face,item);wire(button,item);button.replaceChildren(mark,status,document.createTextNode(item[1]+'  ›'));face.append(button);
 }
 corridorStation('CARGO CONTROL',groups[2][1],1,1770);
 corridorStation('SENSOR CONTROL',groups[2][3],-1,1850);
 const navDisplay=plane('course-display',560,116,0,-34,-776);
 navDisplay.innerHTML='<strong>VIEW BEARING</strong><span class="bearing">000°</span><div class="scale-ticks"></div>';
+const navKey=document.createElement('button');navKey.className='bearing-key';wire(navKey,groups[0][1]);navKey.append(...navDisplay.childNodes);navDisplay.append(navKey);
 const aftMarker=plane('plaque',350,43,0,198,-790);
 aftMarker.textContent='STATION ACCESS  ·  AFT';
 
@@ -219,9 +262,15 @@ function labelProjection(){
 }
 labelProjection();
 holoAction.onclick=()=>openRecord(...projected);
+hologram.dataset.station='Open projection';hologram.onclick=e=>{if(e.target!==holoAction)openRecord(...projected)};
 let messageTimer;
 function activateStation(control){
- if(control===holoAction){openRecord(...projected);return;}
+ if(control.dataset.seat){
+   const [sx,sz]=control.dataset.seat.split(',').map(Number);
+   if(seated)standUp();
+   seated={x:sx,z:sz};x=sx;z=sz-8;yaw=0;pitch=0;keys.clear();$('stand').hidden=false;view.focus();return;
+ }
+ if(control===hologram||control===holoAction){openRecord(...projected);return;}
  projected=[control.dataset.route,control.dataset.station];
  labelProjection();
  const brief={
@@ -254,15 +303,28 @@ function activateStation(control){
  notice.textContent=projected[1]+' projected · Centre of flight deck';
  notice.hidden=false;clearTimeout(messageTimer);
  messageTimer=setTimeout(()=>notice.hidden=true,6000);
+ openRecord(...projected);
 }
 const keys=new Set(), clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 let x=0,z=520,yaw=0,pitch=0,drag=false,dragged=false,totalDrag=0,target=null,previous=performance.now();
-function helm(){x=0;z=520;yaw=0;pitch=0;keys.clear();view.focus()}
+let seated=null;
+function standUp(){
+ if(!seated)return;
+ x=seated.x;z=seated.z-160;seated=null;$('stand').hidden=true;keys.clear();view.focus();
+}
+$('stand').onclick=standUp;
+function helm(){standUp();x=0;z=520;yaw=0;pitch=0;keys.clear();view.focus()}
 $('reset').onclick=helm;
+const recordFrame=panel.querySelector('iframe');
+recordFrame.addEventListener('load',()=>{
+ try{recordFrame.contentWindow.addEventListener('keydown',e=>{
+   if(e.key==='Escape' && panel.open){e.preventDefault();panel.close();}
+ },true)}catch{}
+});
 $('close').onclick=()=>panel.close();panel.onclose=()=>{dragged=false;view.focus()};
 $('walk').onclick=async()=>{view.focus();try{await view.requestPointerLock()}catch{$('walk').textContent='Drag to look'}};
 document.onpointerlockchange=()=>{$('walk').textContent=document.pointerLockElement?'Mouse look active':'Enter mouse look';keys.clear()};
-view.onpointerdown=e=>{drag=!e.target.closest('button');dragged=false;totalDrag=0};
+view.onpointerdown=e=>{drag=!e.target.closest('button,[data-station]');dragged=false;totalDrag=0};
 window.addEventListener('pointerup',()=>{drag=false});
 window.addEventListener('pointermove',e=>{
  if(panel.open||(!drag&&!document.pointerLockElement))return;
@@ -270,18 +332,18 @@ window.addEventListener('pointermove',e=>{
  if(totalDrag>4)dragged=true;
  yaw+=e.movementX*.0022;pitch=clamp(pitch+e.movementY*.0022,-1.22,1.22);
 });
-document.addEventListener('click',e=>{if(document.pointerLockElement&&target&&e.target===view)activateStation(target)});
+document.addEventListener('click',e=>{if(document.pointerLockElement && target && !panel.open){e.stopImmediatePropagation();activateStation(target)}},true);
 
 $('use').onclick=()=>{if(target)activateStation(target)};
 window.addEventListener('keydown',e=>{
  if(panel.open)return;
  if(['KeyW','KeyS','KeyA','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();if(!keys.size)previous=performance.now();keys.add(e.code)}
- if(e.code==='KeyE'&&!e.repeat&&target)activateStation(target);
+ if(e.code==='KeyE'&&!e.repeat){if(seated)standUp();else if(target)activateStation(target);}
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();drag=false});
 function isClear(px,pz){
  const radius=42;
- if(Math.hypot(px,pz-holoZ)<163)return false;
+
  if(pz < -650 || pz > passageEnd-radius)return false;
  if(pz < passageStart-radius && Math.abs(px)>610)return false;
  if(Math.abs(pz-passageStart)<=radius && Math.abs(px)>180-radius)return false;
@@ -293,7 +355,7 @@ function isClear(px,pz){
   if(distance>=245+radius && Math.abs(pz-roomCentreZ)>roomDepth/2-radius)return false;
  }
 
- if ([140,820].some(seatZ=>Math.abs(pz-seatZ)<92 && Math.abs(Math.abs(px)-460)<105))return false;
+ if (seats.some(({cx,pz:sz})=>Math.abs(pz-sz)<92 && Math.abs(px-cx)<105))return false;
  return housings.every(h=>{
   const a=h.angle*Math.PI/180,dx=px-h.x,dz=pz-h.z;
   return Math.abs(dx*Math.cos(a)-dz*Math.sin(a))>h.w*.48+22 || Math.abs(dx*Math.sin(a)+dz*Math.cos(a)+22)>73;
@@ -308,20 +370,21 @@ function frame(now){
  yaw+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.6;
  pitch=clamp(pitch+(Number(keys.has('ArrowDown'))-Number(keys.has('ArrowUp')))*dt*1.3,-1.22,1.22);
  const steps=Math.max(1,Math.ceil(step/25));
- for(let i=0;i<steps && (f||r);i++){
+ for(let i=0;i<steps && !seated && (f||r);i++){
   const nextX=x+(Math.sin(yaw)*f+Math.cos(yaw)*r)*step/steps;
   const nextZ=z+(-Math.cos(yaw)*f+Math.sin(yaw)*r)*step/steps;
   if(isClear(nextX,z))x=nextX;
   if(isClear(x,nextZ))z=nextZ;
  }
  hologram.style.transform='translate3d(0,91px,'+holoZ+'px) rotateY('+Math.atan2(x,z-holoZ)+'rad)';
- world.style.transform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+((r||f)?Math.sin(now*.012)*2:0)+'px,'+(-z)+'px)';
- target=panel.open?null:document.elementsFromPoint(innerWidth/2,innerHeight/2).find(el=>el.dataset.station);
+ world.style.transform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(seated?-105:((r||f)?Math.sin(now*.012)*2:0))+'px,'+(-z)+'px)';
+ target=panel.open?null:document.elementFromPoint(innerWidth/2,innerHeight/2)?.closest('[data-station]');
  $('use').hidden=!target;if(target)$('use').textContent='E　'+target.dataset.station;
  const sector=z<1200?'Flight deck':Math.abs(x)<245?'Aft passage':x>0?'Navigation lab':'Intelligence';
  $('sector').textContent=sector;
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
  navDisplay.querySelector('.bearing').textContent=String(degrees).padStart(3,'0')+'°';
+ if(window.drawExterior)window.drawExterior(now,yaw,pitch,parseFloat(view.style.perspective));
  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
