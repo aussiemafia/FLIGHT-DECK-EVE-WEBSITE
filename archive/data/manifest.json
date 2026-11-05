@@ -1,0 +1,122 @@
+[
+  {
+    "url": "https://www.triff.tools/api/data/c1_combat_sites_clean.json",
+    "file": "c1_combat_sites_clean.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/c1_datarelic_sites_clean.json",
+    "file": "c1_datarelic_sites_clean.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/c2_combat_sites_clean.json",
+    "file": "c2_combat_sites_clean.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/c2_datarelic_sites_clean.json",
+    "file": "c2_datarelic_sites_clean.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/c3_combat_sites_clean.json",
+    "file": "c3_combat_sites_clean.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/c3_datarelic_sites_clean.json",
+    "file": "c3_datarelic_sites_clean.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/c4_combat_sites_clean.json",
+    "file": "c4_combat_sites_clean.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/c4_datarelic_sites_clean.json",
+    "file": "c4_datarelic_sites_clean.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/c5_combat_sites_clean.json",
+    "file": "c5_combat_sites_clean.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/c5_datarelic_sites_clean.json",
+    "file": "c5_datarelic_sites_clean.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/c6_combat_sites_clean.json",
+    "file": "c6_combat_sites_clean.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/c6_datarelic_sites_clean.json",
+    "file": "c6_datarelic_sites_clean.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/mining_crystals.json",
+    "file": "mining_crystals.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/mining_modules.json",
+    "file": "mining_modules.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/data/mining_ship_bonuses.json",
+    "file": "mining_ship_bonuses.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/wormholes",
+    "file": "wormholes.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/gas-calc",
+    "file": "gas-calc.json",
+    "status": "unavailable"
+  },
+  {
+    "url": "https://www.triff.tools/api/ore-calc",
+    "file": "ore-calc.json",
+    "status": "unavailable"
+  },
+  {
+    "url": "https://www.triff.tools/api/reaction-calc",
+    "file": "reaction-calc.json",
+    "status": "unavailable"
+  },
+  {
+    "url": "https://www.triff.tools/api/ore-planner/ores",
+    "file": "ores.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/pos/towers",
+    "file": "towers.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/pos/module-groups",
+    "file": "module-groups.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/wh-structure-stats/types",
+    "file": "types.json",
+    "status": "saved"
+  },
+  {
+    "url": "https://www.triff.tools/api/wh-structure-stats/window",
+    "file": "window.json",
+    "status": "saved"
+  }
+]

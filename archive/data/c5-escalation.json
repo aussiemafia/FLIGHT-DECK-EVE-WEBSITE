@@ -1,0 +1,20 @@
+{
+  "wave": "Upgraded Avengers",
+  "ships": [
+    {
+      "qty": 3,
+      "name": "Upgraded Avenger",
+      "dps": 1210,
+      "alpha": 0,
+      "ehp": 1400000.0,
+      "sig": 30000.0,
+      "orbit_velocity": "300 m/s",
+      "distance": "20km",
+      "special": {
+        "Scram": 15,
+        "Neut": 75,
+        "Web": 1
+      }
+    }
+  ]
+}

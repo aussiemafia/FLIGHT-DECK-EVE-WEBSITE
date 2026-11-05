@@ -1,0 +1,42 @@
+[Kronos, Marauders IV No Dread]
+
+Capacitor Power Relay II
+Corpii A-Type Explosive Coating
+Corpii C-Type Multispectrum Coating
+Federation Navy Magnetic Field Stabilizer
+Federation Navy Magnetic Field Stabilizer
+Core X-Type Large Armor Repairer
+Core X-Type Large Armor Repairer
+
+Republic Fleet Large Cap Battery
+Republic Fleet Large Cap Battery
+Shadow Serpentis Tracking Computer, Optimal Range Script
+Cap Recharger II
+Cap Recharger II
+
+Neutron Blaster Cannon II, Void L
+Neutron Blaster Cannon II, Void L
+Neutron Blaster Cannon II, Void L
+Neutron Blaster Cannon II, Void L
+Bastion Module I
+Imperial Navy Large EMP Smartbomb
+Imperial Navy Large EMP Smartbomb
+
+Large Capacitor Control Circuit II
+Large Capacitor Control Circuit II
+
+Mid-grade Asklepian Alpha
+Mid-grade Asklepian Beta
+Mid-grade Asklepian Gamma
+Mid-grade Asklepian Delta
+Mid-grade Asklepian Epsilon
+Inherent Implants 'Noble' Repair Systems RS-603
+Zainou 'Deadeye' Trajectory Analysis TA-703
+Inherent Implants 'Squire' Capacitor Management EM-803
+Eifyr and Co. 'Gunslinger' Surgical Strike SS-903
+Zainou 'Deadeye' Large Hybrid Turret LH-1003
+
+Synth Frentix Booster
+
+Null L x8900
+Void L x19941

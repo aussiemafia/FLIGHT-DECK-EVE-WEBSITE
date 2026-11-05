@@ -1,0 +1,46 @@
+[Loki, U2 SHIELD]
+Damage Control II
+Ballistic Control System II
+Ballistic Control System II
+
+Caldari Navy Large Shield Extender
+Caldari Navy Large Shield Extender
+Caldari Navy Large Shield Extender
+50MN Y-T8 Compact Microwarpdrive
+Caldari Navy Stasis Webifier
+Multispectrum Shield Hardener II
+Multispectrum Shield Hardener II
+
+Small Ghoul Compact Energy Nosferatu
+Small Ghoul Compact Energy Nosferatu
+Heavy Assault Missile Launcher II
+Heavy Assault Missile Launcher II
+Heavy Assault Missile Launcher II
+Heavy Assault Missile Launcher II
+Heavy Assault Missile Launcher II
+
+Medium Ancillary Current Router I
+Medium Warhead Calefaction Catalyst I
+Medium Core Defense Field Extender II
+
+Loki Core - Immobility Drivers
+Loki Defensive - Augmented Durability
+Loki Offensive - Launcher Efficiency Configuration
+Loki Propulsion - Wake Limiter
+
+Warrior II x8
+
+Inferno Rage Heavy Assault Missile x2500
+Mjolnir Rage Heavy Assault Missile x2830
+Mjolnir Javelin Heavy Assault Missile x2500
+Missile Range Script x1
+Guristas Scourge Heavy Assault Missile x2500
+Nanite Repair Paste x175
+Core Scanner Probe I x8
+Missile Precision Script x1
+Synth Crash Booster x1
+Agency 'Pyrolancea' DB7 Dose III x1
+Loki Defensive - Covert Reconfiguration x1
+Core Probe Launcher I x8
+Enduring Interdiction Nullifier x1
+Mobile Depot x1

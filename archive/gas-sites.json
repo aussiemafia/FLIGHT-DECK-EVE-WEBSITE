@@ -1,0 +1,237 @@
+{
+  "Barren": {
+    "siteName": "Barren Perimeter Reservoir",
+    "rats": [
+      {
+        "qty": 3,
+        "name": "Emergent Patroller",
+        "class": "F",
+        "ehp": 3000.0,
+        "dps": 16,
+        "alpha": 115,
+        "sig": 35,
+        "orbit": "250 m/s",
+        "dist": "8,000 m"
+      },
+      {
+        "qty": 2,
+        "name": "Emergent Watchman",
+        "class": "F",
+        "ehp": 2000.0,
+        "dps": 12,
+        "alpha": 95,
+        "sig": 35,
+        "orbit": "275 m/s",
+        "dist": "5,000 m",
+        "neut": -3
+      }
+    ]
+  },
+  "Token": {
+    "siteName": "Token Perimeter Reservoir",
+    "rats": [
+      {
+        "qty": 2,
+        "name": "Emergent Escort",
+        "class": "F",
+        "ehp": 1300,
+        "dps": 23,
+        "alpha": 163,
+        "sig": 35,
+        "orbit": "300 m/s",
+        "dist": "5,000 m",
+        "web": 1
+      },
+      {
+        "qty": 1,
+        "name": "Awakened Watchman",
+        "class": "C",
+        "ehp": 8750,
+        "dps": 31,
+        "alpha": 266,
+        "sig": 150,
+        "orbit": "200 m/s",
+        "dist": "30,000 m",
+        "neut": -6
+      }
+    ]
+  },
+  "Minor": {
+    "siteName": "Minor Perimeter Reservoir",
+    "rats": [
+      {
+        "qty": 2,
+        "name": "Awakened Patroller",
+        "class": "C",
+        "ehp": 19167,
+        "dps": 42,
+        "alpha": 432,
+        "sig": 150,
+        "orbit": "170 m/s",
+        "dist": "15,000 m"
+      }
+    ]
+  },
+  "Ordinary": {
+    "siteName": "Ordinary Perimeter Reservoir",
+    "rats": [
+      {
+        "qty": 3,
+        "name": "Emergent Patroller",
+        "class": "F",
+        "ehp": 3000.0,
+        "dps": 16,
+        "alpha": 115,
+        "sig": 35,
+        "orbit": "250 m/s",
+        "dist": "8,000 m"
+      },
+      {
+        "qty": 3,
+        "name": "Emergent Watchman",
+        "class": "F",
+        "ehp": 2000.0,
+        "dps": 12,
+        "alpha": 95,
+        "sig": 35,
+        "orbit": "275 m/s",
+        "dist": "5,000 m",
+        "neut": -3
+      }
+    ]
+  },
+  "Sizeable": {
+    "siteName": "Sizeable Perimeter Reservoir",
+    "rats": [
+      {
+        "qty": 3,
+        "name": "Emergent Patroller",
+        "class": "F",
+        "ehp": 3000.0,
+        "dps": 16,
+        "alpha": 115,
+        "sig": 35,
+        "orbit": "250 m/s",
+        "dist": "8,000 m"
+      },
+      {
+        "qty": 3,
+        "name": "Emergent Watchman",
+        "class": "F",
+        "ehp": 2000.0,
+        "dps": 12,
+        "alpha": 95,
+        "sig": 35,
+        "orbit": "275 m/s",
+        "dist": "5,000 m",
+        "neut": -3
+      }
+    ]
+  },
+  "Bountiful": {
+    "siteName": "Bountiful Frontier Reservoir",
+    "rats": [
+      {
+        "qty": 6,
+        "name": "Emergent Defender",
+        "class": "F",
+        "ehp": 4200,
+        "dps": 23,
+        "alpha": 161,
+        "sig": 35,
+        "orbit": "270 m/s",
+        "dist": "6,500 m",
+        "web": 1
+      },
+      {
+        "qty": 4,
+        "name": "Awakened Defender",
+        "class": "C",
+        "ehp": 26833,
+        "dps": 59,
+        "alpha": 605,
+        "sig": 150,
+        "orbit": "185 m/s",
+        "dist": "15,000 m"
+      }
+    ]
+  },
+  "Vast": {
+    "siteName": "Vast Frontier Reservoir",
+    "rats": [
+      {
+        "qty": 4,
+        "name": "Awakened Defender",
+        "class": "C",
+        "ehp": 26833,
+        "dps": 59,
+        "alpha": 605,
+        "sig": 150,
+        "orbit": "185 m/s",
+        "dist": "15,000 m"
+      },
+      {
+        "qty": 4,
+        "name": "Awakened Upholder",
+        "class": "C",
+        "ehp": 12250,
+        "dps": 43,
+        "alpha": 372,
+        "sig": 150,
+        "orbit": "216 m/s",
+        "dist": "30,000 m",
+        "web": 1,
+        "neut": -6
+      }
+    ]
+  },
+  "Vital": {
+    "siteName": "Vital Core Reservoir",
+    "rats": [
+      {
+        "qty": 4,
+        "name": "Emergent Keeper",
+        "class": "F",
+        "ehp": 4400,
+        "dps": 22,
+        "alpha": 171,
+        "sig": 26,
+        "orbit": "320 m/s",
+        "dist": "5,000 m",
+        "neut": -3,
+        "rrep": 26
+      },
+      {
+        "qty": 4,
+        "name": "Sleepless Keeper",
+        "class": "B",
+        "ehp": 88629,
+        "dps": 565,
+        "alpha": 3802,
+        "sig": 400,
+        "orbit": "105 m/s",
+        "dist": "65,000 m",
+        "neut": -12
+      }
+    ]
+  },
+  "Instrumental": {
+    "siteName": "Instrumental Core Reservoir",
+    "rats": [
+      {
+        "qty": 4,
+        "name": "Sleepless Sentinel",
+        "class": "B",
+        "ehp": 147714,
+        "dps": 465,
+        "alpha": 5746,
+        "sig": 400,
+        "orbit": "125 m/s",
+        "dist": "19,000 m",
+        "scram": 1,
+        "web": 1,
+        "neut": -18
+      }
+    ]
+  }
+}

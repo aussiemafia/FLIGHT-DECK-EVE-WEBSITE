@@ -1,0 +1,193 @@
+[
+  {
+    "label": "1000Gg",
+    "color": "blue",
+    "codes": [
+      "C729",
+      "D364",
+      "F216",
+      "M267",
+      "O128",
+      "R081",
+      "U372",
+      "X450",
+      "X702"
+    ],
+    "jump": {
+      "main": [
+        "1 Cold Jump",
+        "1 Hot Jump"
+      ],
+      "note": "Is the hole reduced?"
+    },
+    "yes": {
+      "roll": [
+        "2 Hot Jumps"
+      ],
+      "crit": [
+        "2 Cold Jumps"
+      ]
+    },
+    "no": {
+      "roll": [
+        "2 Hot Jumps"
+      ],
+      "crit": [
+        "1 Cold Jump",
+        "1 Hot Jump"
+      ]
+    }
+  },
+  {
+    "label": "2000Gg",
+    "color": "green",
+    "codes": [
+      "A239",
+      "A641",
+      "B274",
+      "B449",
+      "C247",
+      "D382",
+      "E175",
+      "E545",
+      "G024",
+      "I182",
+      "L477",
+      "M164",
+      "N766",
+      "N968",
+      "O477",
+      "T405",
+      "V898",
+      "X877",
+      "Y683",
+      "Z457"
+    ],
+    "jump": {
+      "main": [
+        "2 Cold Jumps",
+        "2 Hot Jumps"
+      ],
+      "note": "Is the hole reduced?"
+    },
+    "yes": {
+      "roll": [
+        "2 Hot Jumps",
+        "2 Cold Jumps"
+      ],
+      "crit": [
+        "4 Cold Jumps"
+      ]
+    },
+    "no": {
+      "roll": [
+        "4 Hot Jumps"
+      ],
+      "crit": [
+        "2 Cold Jumps",
+        "2 Hot Jumps"
+      ]
+    }
+  },
+  {
+    "label": "3000Gg",
+    "color": "gold",
+    "codes": [
+      "A982",
+      "B041",
+      "B520",
+      "D792",
+      "E587",
+      "H900",
+      "K329",
+      "K346",
+      "L031",
+      "M555",
+      "N062",
+      "N290",
+      "N770",
+      "R051",
+      "R474",
+      "S047",
+      "U210",
+      "U574",
+      "V283"
+    ],
+    "jump": {
+      "main": [
+        "5 Hot Jumps"
+      ],
+      "note": "Is the hole reduced?"
+    },
+    "yes": {
+      "roll": [
+        "Return Hot",
+        "4 Hot Jumps"
+      ],
+      "crit": [
+        "Return Cold",
+        "2 Cold Jumps",
+        "2 Hot Jumps"
+      ]
+    },
+    "no": {
+      "roll": [
+        "Return Hot",
+        "3 Cold Jumps",
+        "3 Hot Jumps"
+      ],
+      "crit": [
+        "Return Cold",
+        "2 Cold Jumps",
+        "2 Hot Jumps"
+      ]
+    }
+  },
+  {
+    "label": "3300Gg",
+    "color": "orange",
+    "codes": [
+      "C140",
+      "C248",
+      "C391",
+      "H296",
+      "N432",
+      "N944",
+      "S199",
+      "U319",
+      "V753",
+      "V911",
+      "W237",
+      "Z142"
+    ],
+    "jump": {
+      "main": [
+        "1 Cold Jump",
+        "5 Hot Jumps"
+      ],
+      "note": "Is the hole reduced?"
+    },
+    "yes": {
+      "roll": [
+        "2 Cold Jumps",
+        "4 Hot Jumps"
+      ],
+      "crit": [
+        "4 Hot Jumps",
+        "HIC once",
+        "(if needed)"
+      ]
+    },
+    "no": {
+      "roll": [
+        "6 Hot Jumps",
+        "HIC once",
+        "(if needed)"
+      ],
+      "crit": [
+        "1 Cold Jump",
+        "5 Hot Jumps"
+      ]
+    }
+  }
+]
