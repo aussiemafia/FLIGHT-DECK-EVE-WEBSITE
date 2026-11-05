@@ -9,12 +9,6 @@
    const m=new DOMMatrix(el.style.transform);
    return el.parentElement.classList.contains('helm-assembly')?new DOMMatrix(el.parentElement.style.transform).multiply(m):m;
  };
- function panelFinish(el){
-   if(el.matches('.cabin-zone,.lounge-zone'))return null;
-   if(el.classList.contains('service-conduits'))return 'conduits';
-   if(el.classList.contains('lower-armour'))return 'lower';
-   return null;
- }
  function room(x,z){return z<1230?'bridge':Math.abs(x)<285?'passage':(x<0?'left':'right')+(z<3630?'lab':'aft');}
  const live=all.filter(e=>e.matches(nativeSelector)).map(el=>{const m=matrixFor(el);return {el,room:room(m.m41,m.m43)};});
  let lastRoom='';
@@ -68,8 +62,7 @@
      if(el.classList.contains('sky-face'))continue;
      const m=matrixFor(el),w=parseFloat(el.style.width),h=parseFloat(el.style.height);
      const isUI=native.has(el),kind=isUI?'screen':color(el);
-     const finish=panelFinish(el);
-     const a=finish|| (el.matches('.armour-face:not(.cabin-zone):not(.lounge-zone)')?'armour':el.matches('.crest-glass')?'crest':el.matches('.orbital')?'orbital':el.matches('.drifting')?'drifting':null);
+     const a=el.matches('.armour-face')?'armour':el.matches('.crest-glass')?'crest':el.matches('.orbital')?'orbital':el.matches('.drifting')?'drifting':null;
      let poly=rect;
      if(el.classList.contains('seat-flank'))poly=[...el.style.clipPath.matchAll(/([\d.]+)% ([\d.]+)%/g)].map(q=>[+q[1]/100,+q[2]/100]);
      const isRing=el.matches('.residential-ring,.lab-ring,.holo-base,.holo-ring');
@@ -90,7 +83,7 @@
      items.push({pts,kind:panel.finish,fill,cx,cy,cz,nx:0,ny:0,nz:0,size:Math.max(...pts.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),two:true,zone:room(cx,cz)});
    }
    const packed=[];
-   const kindOf={armour:6,crest:7,orbital:8,drifting:9,conduits:10,lower:11};
+   const kindOf={armour:6,crest:7,orbital:8,drifting:9};
    for(const item of items){
      if(item.kind==='glass'||item.ring)continue;
      const pts=item.pts,uv=item.poly||rect;
@@ -109,7 +102,7 @@
    const scene=new Float32Array(packed),words=new Int32Array(scene.buffer);
    for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
    const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
-   for(const path of ['assets/hull-plating.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/service-conduits.webp','assets/lower-armour.webp'])urls.push(new URL(path,document.baseURI).href);
+   for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp'])urls.push(new URL(path,document.baseURI).href);
    const worker=new Worker('assets/renderer/worker.js?v=3'),offscreen=canvas.transferControlToOffscreen();
    let ready=false,pending=false;
    worker.onmessage=({data})=>{
@@ -135,7 +128,7 @@
    shell:['#8b999e','metal'],white:['#d3dadd','metal'],dark:['#384954','metal'],pad:['#6a7c84','pad'],
    ivory:['#e4e8df','pad'],copper:['#d4995c','metal'],screen:['#367387','display'],
    warm:['#ae967b','metal'],linen:['#bcb7a9','pad'],crest:['#ffffff','image'],orbital:['#ffffff','image'],
-   drifting:['#ffffff','image'],ring:['#75d5ec','ring'],sky:['#ffffff','sky'],conduits:['#afbabd','metal'],lower:['#495766','metal']
+   drifting:['#ffffff','image'],ring:['#75d5ec','ring'],sky:['#ffffff','sky']
  };
  const names=Object.keys(materialDefs),tile=512,atlas=document.createElement('canvas');atlas.width=4096;atlas.height=2048;
  const ctx=atlas.getContext('2d');
@@ -159,13 +152,13 @@
  }
  function material(el){
    const c=el.classList;
-   const finish=panelFinish(el);if(finish)return finish;
+   if(c.contains('armour-face'))return 'armour';
    if(c.contains('sky-face'))return 'sky';
    if(c.contains('viewport'))return 'window';
    if(c.contains('floor-spill'))return null;
    if(c.contains('deck')||c.contains('extension-floor'))return 'floor';
    if(c.contains('overhead')||c.contains('extension-ceiling'))return 'ceiling';
-   if(c.contains('armour-face')||c.contains('hull-panel'))return c.contains('cabin-zone')?'white':c.contains('lounge-zone')?'warm':c.contains('armour-face')?'armour':'hull';
+   if(c.contains('hull-panel'))return c.contains('cabin-zone')?'white':c.contains('lounge-zone')?'warm':'hull';
    for(const name of ['orbital','drifting','crest-glass'])if(c.contains(name))return name==='crest-glass'?'crest':name;
    if(el.matches('.holo-base,.holo-ring,.residential-ring,.lab-ring'))return 'ring';
    if(el.matches('.lamp,.passage-light'))return 'lamp';
@@ -235,9 +228,9 @@
  Promise.all(['px','nx','py','ny','pz','nz'].map(f=>loadImage('assets/forge/'+f+'.webp'))).then(imgs=>{
    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_CUBE_MAP,cube);imgs.forEach((im,i)=>gl.texImage2D(gl['TEXTURE_CUBE_MAP_'+cubeTargets[i]],0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,im));
  });
- for(const [name,src] of Object.entries({armour:'assets/hull-plating.svg',conduits:'assets/service-conduits.webp',lower:'assets/lower-armour.webp',crest:'archive/assets/expanse-ring-wordmark.webp',orbital:'archive/assets/fortizar-cutout.webp',drifting:'archive/assets/naglfar-cutout.webp'})){
+ for(const [name,src] of Object.entries({armour:'assets/pearl-bulkhead.svg',crest:'archive/assets/expanse-ring-wordmark.webp',orbital:'archive/assets/fortizar-cutout.webp',drifting:'archive/assets/naglfar-cutout.webp'})){
    loadImage(src).then(im=>{const [x,y]=tileOrigin(name);ctx.clearRect(x,y,tile,tile);
-     if(['armour','conduits','lower'].includes(name))ctx.drawImage(im,x,y,tile,tile);
+     if(name==='armour')ctx.drawImage(im,x,y,tile,tile);
      else{const ratio=im.width/im.height;const target=name==='drifting'?830/335:name==='orbital'?850/310:275/115;const w=Math.min(1,ratio/target)*tile,h=Math.min(1,target/ratio)*tile;ctx.drawImage(im,x+(tile-w)/2,y+(tile-h)/2,w,h);}
      updateAtlas();
    });

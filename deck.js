@@ -271,13 +271,12 @@ function panelWall(w,h,x,y,z,angle) {
  face.style.setProperty('--module',Math.min(260,w)+'px');
  // Stand raised armour and service ribs off the finished pressure hull.
  if(w>125 && h>145){
-   const count=Math.max(1,Math.round(w/240)),pw=w/count-12;
+   const count=Math.max(1,Math.round(w/240)),pw=w/count-2;
    for(let i=0;i<count;i++){
      const u=(i+.5)*w/count-w/2, px=x+u*Math.cos(a),pz=z-u*Math.sin(a);
      const rows=Math.max(1,Math.round(h/235)),step=h/rows;
      for(let j=0;j<rows;j++){
-       const finish=j===rows-1?'lower-armour':(i+j)%3===0?'service-conduits':'';
-       plane('armour-face '+finish,pw,step-10,px+nx*11,y-h/2+(j+.5)*step,pz+nz*11,angle);
+       plane('armour-face',pw,step-2,px+nx*11,y-h/2+(j+.5)*step,pz+nz*11,angle);
      }
      for(const sign of [-1,1]){
        plane('armour-edge',12,h-18,px+sign*pw*.5*Math.cos(a)+nx*5,y,pz-sign*pw*.5*Math.sin(a)+nz*5,angle+sign*90);
