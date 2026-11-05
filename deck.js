@@ -1109,7 +1109,6 @@ function labelProjection(){
 labelProjection();
 holoAction.onclick=()=>openRecord(...projected);
 hologram.dataset.station='Open projection';hologram.onclick=e=>{if(e.target!==holoAction)openRecord(...projected)};
-const cinemaFilms=['3l0k2xkcT3g','k1AbLH_uGLw'];
 let cinemaPlayer=null;
 function openMedia(){
  if(document.pointerLockElement)document.exitPointerLock();
@@ -1118,47 +1117,45 @@ function openMedia(){
  if(!dialog.open)dialog.showModal();
  $('media-query').focus();
 }
-function watchMedia(src,url,label){
- if(!cinemaPlayer){
-  cinemaPlayer=document.createElement('iframe');
-  cinemaPlayer.id='cinema-player';cinemaPlayer.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
-  cinemaPlayer.allowFullscreen=true;cinemaPlayer.referrerPolicy='strict-origin-when-cross-origin';
-  cinemaWall.append(cinemaPlayer);cinemaWall.classList.add('showing');
- }
- cinemaPlayer.title=label;cinemaPlayer.src=src;
- const link=$('cinema-link');link.href=url;link.textContent=label+' ↗';link.hidden=false;
+// Only repository editors can change the public holodeck catalogue.
+const holodeckFilms=Object.freeze([
+ {id:'e2X1MIR1KMs',title:'This is EVE',topic:'Official trailer · PG-13 edition'},
+ {id:'ArCI4bi9Eyg',title:'Fitting your ship',topic:'EVE Academy · Mission running'},
+ {id:'jMlboDa7TTA',title:'Ship fitting tutorial',topic:'EVE Online · Ships and modules'}
+]);
+function watchMedia(id){
+ const film=holodeckFilms.find(entry=>entry.id===id);
+ if(!film)return;
+ if(cinemaPlayer)cinemaPlayer.remove();
+ cinemaPlayer=document.createElement('iframe');
+ cinemaPlayer.id='cinema-player';cinemaPlayer.title=film.title;
+ cinemaPlayer.tabIndex=-1;cinemaPlayer.style.pointerEvents='none';
+ cinemaPlayer.allow='autoplay; encrypted-media';
+ cinemaPlayer.referrerPolicy='strict-origin-when-cross-origin';
+ cinemaPlayer.src='https://www.youtube-nocookie.com/embed/'+film.id+'?autoplay=1&playsinline=1&controls=0&disablekb=1&rel=0&loop=1&playlist='+film.id+'&enablejsapi=1&origin='+encodeURIComponent(location.origin);
+ cinemaWall.append(cinemaPlayer);cinemaWall.classList.add('showing');
  $('media-library').close();view.focus();
 }
 function playCinema(){openMedia()}
 function setupHolodeck(){
- const dialog=$('media-library'),form=$('media-form'),query=$('media-query'),service=$('media-service'),note=$('media-note');
+ const dialog=$('media-library'),form=$('media-form'),query=$('media-query'),list=$('media-results');
+ function filter(){
+  list.replaceChildren();
+  const terms=query.value.trim().toLowerCase();
+  for(const film of holodeckFilms){
+   if(!(film.title+' '+film.topic).toLowerCase().includes(terms))continue;
+   const button=document.createElement('button'),topic=document.createElement('small');
+   button.type='button';button.className='key';button.textContent=film.title;topic.textContent=film.topic;button.append(topic);
+   button.onclick=()=>watchMedia(film.id);list.append(button);
+  }
+  $('media-note').textContent=list.childElementCount?'':'No matching EVE films.';
+ }
  dialog.addEventListener('keydown',e=>e.stopPropagation());
  $('change-media').onclick=openMedia;
  $('media-close').onclick=()=>dialog.close();
  dialog.addEventListener('close',()=>view.focus());
- $('media-feature').onclick=()=>watchMedia('https://www.youtube.com/embed/'+cinemaFilms[0]+'?autoplay=1&playsinline=1','https://www.youtube.com/watch?v='+cinemaFilms[0],'New Eden films');
- service.onchange=()=>{query.placeholder=service.value==='twitch'?'Channel name or Twitch link':'Video title or YouTube link';note.textContent='';};
- form.onsubmit=e=>{
-  e.preventDefault();const value=query.value.trim();if(!value)return;
-  let url;try{url=new URL(/^https?:/.test(value)?value:'https://'+value)}catch{}
-  const host=url?.hostname.toLowerCase().replace(/^(www|m)\./,'');
-  const twitch=host==='twitch.tv'||(!value.includes('/')&&service.value==='twitch');
-  if(twitch){
-   const name=(host==='twitch.tv'?url.pathname.split('/')[1]:value).replace(/^@/,'');
-   if(!/^[A-Za-z0-9_]{1,25}$/.test(name)){note.textContent='Enter a Twitch channel name or its channel link.';return;}
-   watchMedia('https://player.twitch.tv/?channel='+name+'&parent='+encodeURIComponent(location.hostname)+'&autoplay=true','https://www.twitch.tv/'+name,'Twitch · '+name);return;
-  }
-  const parts=url?.pathname.split('/')||[];
-  const id=host==='youtu.be'?parts[1]:['youtube.com','youtube-nocookie.com'].includes(host)?(url.searchParams.get('v')||(['live','shorts','embed'].includes(parts[1])?parts[2]:'')):'';
-  if(/^[\w-]{11}$/.test(id||'')){
-   watchMedia('https://www.youtube.com/embed/'+id+'?autoplay=1&playsinline=1','https://www.youtube.com/watch?v='+id,'YouTube video');return;
-  }
-  if(service.value==='youtube'&&!value.includes('://')){
-   window.open('https://www.youtube.com/results?search_query='+encodeURIComponent(value),'_blank','noopener');
-   note.textContent='Copy a video link from the results and paste it here to play on the holodeck.';return;
-  }
-  note.textContent='Use a Twitch channel or a YouTube video link.';
- };
+ $('media-stop').onclick=()=>{cinemaPlayer?.remove();cinemaPlayer=null;cinemaWall.classList.remove('showing');dialog.close()};
+ query.oninput=filter;form.onsubmit=e=>{e.preventDefault();filter()};filter();
 }
 document.addEventListener('DOMContentLoaded',setupHolodeck);
 let messageTimer;
