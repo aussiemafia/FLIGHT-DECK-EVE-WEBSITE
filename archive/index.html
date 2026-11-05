@@ -1,24 +1,45 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>The Expanse | Wormhole Intelligence</title><link rel="stylesheet" href="style.css?v=20261103-visits10"><link rel="stylesheet" href="bridge.css?v=20261103-visits10"><style>#stationFeed:not([hidden]){position:relative;display:flex;align-items:center;gap:16px;max-width:1320px;margin:12px auto 0;padding:6px 20px;color:#b5ecf2;font:600 14px system-ui}#stationFeed video{width:132px;height:72px;object-fit:contain;border:1px solid #5d8d94;border-radius:6px;background:#071520}</style></head><body><div class="nebula" aria-hidden="true"></div><canvas id="space" aria-hidden="true"></canvas>
 <aside><a class="brand" href="#home"><span class="sigil">◈</span><span>THE EXPANSE<small>WORMHOLE INTELLIGENCE</small></span></a><div class="owner">PASSING RAY <span>LOCAL EDITION</span></div><nav id="nav"></nav><div class="sidebar-bottom"><i></i> Available offline<small>Snapshot · 27 October 2026<br>THE EXPANSE · FIELD REFERENCE</small></div></aside>
-<div class="workspace"><header><a class="bridge-home" href="#home">◈ THE EXPANSE <small>COMMAND DECK</small></a><span id="crumb">ARCHIVE / OVERVIEW</span><label class="search"><span>⌕</span><input id="search" placeholder="Search fits, sites, systems…" aria-label="Search archive"><kbd>/</kbd></label><a href="#profile" id="pilotBadge"><span class="avatar">◈</span><span class="pilot-name">Add pilot</span></a><div class="deck-tools"><button id="menuButton" aria-expanded="false" aria-controls="stationMenu">Menu</button><button id="motion">Pause space animation</button><button id="fullScreen">Full screen</button><button id="textSize" aria-pressed="false">A+ Text</button></div></header><nav id="stationMenu" hidden aria-label="All stations"></nav><div id="stationFeed" hidden><video muted loop playsinline preload="none" aria-hidden="true"></video><span></span></div><main id="app"></main><footer><div class="expanse-visits" title="Recorded visits to The Expanse, not a count of distinct people. Returning visits may count again. Powered by GoatCounter."><span>TOTAL WEBSITE VISITS</span><strong id="expanseVisits" aria-live="polite">—</strong><small id="expanseVisitNote">Loading recorded visits…</small></div>PERSONAL REFERENCE COLLECTION <span>THE EXPANSE · ANOIKIS INTELLIGENCE</span></footer></div><div id="toast" role="status"></div><script src="archive-data.js"></script><script src="visual-data.js"></script><script src="bridge.js?v=gallery-10"></script><script src="blue-loot-data.js"></script><script src="blue-loot.js?v=20261103-clean4"></script><script src="site-review.js?v=20261103-clean4"></script><script src="app.js?v=20261103-clean5"></script><script src="space.js"></script><script src="visits.js?v=20261103-2"></script><script src="../exhibits.js?v=11"></script><script src="../station-media.js?v=1"></script><script>
+<div class="workspace"><header><a class="bridge-home" href="#home">◈ THE EXPANSE <small>COMMAND DECK</small></a><span id="crumb">ARCHIVE / OVERVIEW</span><label class="search"><span>⌕</span><input id="search" placeholder="Search fits, sites, systems…" aria-label="Search archive"><kbd>/</kbd></label><a href="#profile" id="pilotBadge"><span class="avatar">◈</span><span class="pilot-name">Add pilot</span></a><div class="deck-tools"><button id="menuButton" aria-expanded="false" aria-controls="stationMenu">Menu</button><button id="motion">Pause space animation</button><button id="fullScreen">Full screen</button><button id="textSize" aria-pressed="false">A+ Text</button></div></header><nav id="stationMenu" hidden aria-label="All stations"></nav><div id="stationFeed" hidden><video muted loop playsinline preload="none" aria-hidden="true"></video><span></span></div><main id="app"></main><footer><div class="expanse-visits" title="Recorded visits to The Expanse, not a count of distinct people. Returning visits may count again. Powered by GoatCounter."><span>TOTAL WEBSITE VISITS</span><strong id="expanseVisits" aria-live="polite">—</strong><small id="expanseVisitNote">Loading recorded visits…</small></div>PERSONAL REFERENCE COLLECTION <span>THE EXPANSE · ANOIKIS INTELLIGENCE</span></footer></div><div id="toast" role="status"></div><script src="archive-data.js"></script><script src="visual-data.js"></script><script src="bridge.js?v=subject12"></script><script src="blue-loot-data.js"></script><script src="blue-loot.js?v=20261103-clean4"></script><script src="site-review.js?v=20261103-clean4"></script><script src="app.js?v=subject12"></script><script src="space.js"></script><script src="visits.js?v=20261103-2"></script><script src="../exhibits.js?v=12"></script><script src="../subject-plates.js?v=12"></script><script src="../station-media.js?v=1"></script><script>
 (() => {
- const feed=document.getElementById('stationFeed'),video=feed.querySelector('video');
- function sync(){
-   const route=document.body.dataset.view,link=document.querySelector('#nav a[href="#'+CSS.escape(route||'home')+'"]');
-   feed.hidden=!route||route==='home';
-   if(feed.hidden){feed.querySelector('video.exhibit-media')?.pause();return}
-   const chosen=new URLSearchParams(location.search).get('exhibit');
-   const key=Object.hasOwn(exhibitPlates,chosen)&&(exhibitPlates[chosen][1]===route||routePlate(route)===chosen)?chosen:routePlate(route);
-   video.hidden=true;video.pause();
-   const item=feed.dataset.plate===key?feed.querySelector('.exhibit-media'):mountExhibit(feed,key,'../');
-   feed.dataset.plate=key;item.style.cssText='width:min(42vw,640px);height:clamp(120px,22vw,260px);object-fit:contain';
-   if(item.tagName==='VIDEO'){
-     if(document.hidden||document.body.classList.contains('motion-paused')||matchMedia('(prefers-reduced-motion: reduce)').matches)item.pause();
-     else item.play().catch(()=>{});
-   }
-   feed.querySelector('span').textContent=exhibitPlates[key][0];
+ const feed=document.getElementById('stationFeed'),video=feed.querySelector('video'),label=feed.querySelector('span');
+ const select=document.createElement('select');select.setAttribute('aria-label','Project a record');feed.append(select);
+ const note=document.createElement('p');feed.append(note);
+ let activeRoute='',current='';
+ function show(key,notify){
+   if(!Object.hasOwn(exhibitPlates,key))return;
+   current=key;const item=mountExhibit(feed,key,'../');
+   item.style.cssText='width:min(42vw,640px);height:clamp(120px,22vw,260px);object-fit:contain';
+   if(item.tagName==='VIDEO'&&!document.hidden&&!matchMedia('(prefers-reduced-motion: reduce)').matches)item.play().catch(()=>{});
+   label.textContent=exhibitPlates[key][0];note.textContent=recordPages(key,activeRoute)[0];
+   select.value=key;
+   if(notify&&parent!==window)parent.postMessage({stationExhibit:key},location.origin);
  }
- new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['data-view','class']});
- document.addEventListener('visibilitychange',sync);sync();
+ window.selectExhibit=key=>show(key,true);
+ select.onchange=()=>show(select.value,true);
+ document.addEventListener('click',e=>{
+   const hull=e.target.closest('[data-project-ship]');if(hull)show(hull.dataset.projectShip,true);
+   const summary=e.target.closest('details[data-encounter] > summary');
+   if(summary){const [cls,name]=summary.parentElement.dataset.encounter.split('|');show('site-'+cls.toLowerCase()+'-'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''),true)}
+ });
+ document.addEventListener('change',e=>{if(e.target.id==='buyerItem')show(e.target.value.match(/^\d+$/)?'type-'+e.target.value:'loot',true)});
+ function sync(){
+   const route=document.body.dataset.view;
+   if(route===activeRoute)return;
+   activeRoute=route;feed.hidden=!route||route==='home';if(feed.hidden)return;
+   video.hidden=true;video.pause();
+   const chosen=new URLSearchParams(location.search).get('exhibit');
+   const key=Object.hasOwn(exhibitPlates,chosen)&&(exhibitPlates[chosen][1]===route||chosen===routePlate(route))?chosen:routePlate(route);
+   const related=({audit:'sites',guides:'sites',reference:'estimate'})[route]||route;
+   const keys=Object.keys(exhibitPlates).filter(k=>[route,related].includes(exhibitPlates[k][1]));if(!keys.includes(key))keys.unshift(key);
+   select.replaceChildren(...keys.map(k=>new Option(exhibitPlates[k][0],k)));select.hidden=keys.length<2;
+   if(route==='fits'&&key.startsWith('fit-')){
+     const [,hull,variant]=key.split('-');const match=Object.keys(A.fits).find(h=>h.toLowerCase()===hull);
+     if(match&&A.fits[match][variant]){fitHull=match;fitKey=variant;fits()}
+   }
+   if(route==='fits'&&(key==='fit'||key.startsWith('fit-'))&&chosen!=='fit'&&!chosen){show(fitHull==='Loki'?'ship-29990':'fit-'+fitHull.toLowerCase()+'-'+fitKey,true)}
+   else show(key,true);
+ }
+ new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['data-view']});sync();
 })();
 </script></body></html>

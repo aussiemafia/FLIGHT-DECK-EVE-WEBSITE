@@ -77,8 +77,9 @@ function windowCabinet(wx,wz,angle,w,top,upper,lower,bottom,withControls=true){
    bayScreens.push({face,wx,wz,label});
  }
  if(withControls){
-   inset('upper',roofY,125,upper-11,24,0,w*.70);
-   inset('lower',lower+9,22,deskY,84,0,w*.75);
+   const aftRoom=Math.abs(wx)>300 && wz>5000;
+   for(const offset of aftRoom?[-.22,.22]:[0])inset('upper',roofY,125,upper-11,24,offset*w,w*(aftRoom?.39:.70));
+   for(const offset of aftRoom?[-.31,0,.31]:[0])inset('lower',lower+9,22,deskY,84,offset*w,w*(aftRoom?.28:.75));
  }
  for(const side of [-1,1]){
    const u=side*w*.38,y=(bottom+deskY)*.5;
@@ -100,7 +101,9 @@ const housings=[
  {title:'Intelligence',x:0,z:-525,angle:0,w:337},
  {title:'Operations',x:362,z:-426,angle:-26,w:337}
 ];
-function openRecord(id,title,plate) {
+let recordProjector;
+function openRecord(id,title,plate,projector=hologram) {
+  recordProjector=projector;
   if(panel.open) return;
   document.exitPointerLock?.(); keys.clear();
   $('label').textContent=title;
@@ -214,7 +217,7 @@ function terminal(title,list,x,z,angle){
    plane('holo-base',260,260,hx,403,hz,0,90);
    let current=0;
    function displaySlide(key,route=exhibitPlates[key][1],label=exhibitPlates[key][0]){
-     mountExhibit(parts.feed,key);parts.caption.textContent=label+'　›';
+     renderProjection(parts,key,route);parts.caption.textContent=label+'　›';
      wire(projection,[route,label]);wire(parts.caption,[route,label]);
      projection.dataset.plate=parts.caption.dataset.plate=key;
    }
@@ -223,6 +226,7 @@ function terminal(title,list,x,z,angle){
    next.dataset.station='Next exhibit';next.dataset.route='cycle';
    next.advance=()=>{current=(current+1)%slides.length;displaySlide(slides[current])};
    next.onclick=e=>{e.stopPropagation();next.advance()};
+   projection.showRecord=displaySlide;
    displaySlide(slides[0]);roomScreens.push({el:projection,hx,hz,showPlate:displaySlide});
  }
  const switches=plane('switches',480,108,x+Math.sin(rad)*31,209,z+Math.cos(rad)*31,angle,52);
@@ -458,7 +462,7 @@ function animateHatches(px,pz,dt){
  for(const door of hatches){
    const dx=px-door.x,dz=pz-door.z;
    const lateral=Math.abs(dx*door.ux+dz*door.uz),normal=Math.abs(dz*door.ux-dx*door.uz);
-   const near=lateral<218&&normal<(door.openness>0?290:240);
+   const near=lateral<218&&normal<(door.openness>0?290:240)&&(!door.interlock||door.interlock.openness===0);
    const change=(near?2.7:-1.65)*dt;
    door.openness=Math.max(0,Math.min(1,door.openness+change));
  }
@@ -538,8 +542,31 @@ for(const side of [-1,1]){
  block('guide-channel',side*220,-213,4440,17,18,2040);
  plane('promenade-light',7,2025,side*220,-202,4440,0,-90);
 }
-windowWall(490,roomHeight,0,floorY-roomHeight/2,passageEnd,180,[0],320,180,-94);
-plaque('AFT OBSERVATION',0,50,passageEnd-14,180,470);
+const outerLockZ=passageEnd+815,deckRadius=990,hexApothem=deckRadius*Math.sqrt(3)/2;
+const padStart=outerLockZ+225,padCenter=padStart+hexApothem;
+floorAndCeiling(490,outerLockZ-passageEnd,0,(outerLockZ+passageEnd)/2);
+for(const side of [-1,1]){
+ panelWall(815,roomHeight,side*245,96,(outerLockZ+passageEnd)/2,-side*90);
+ ceilingCove(side*245,(outerLockZ+passageEnd)/2,-side*90,815,-224);
+ plane('guide-light',12,730,side*167,410,(outerLockZ+passageEnd)/2,0,90);
+}
+for(const zz of [passageEnd,outerLockZ]){
+ bulkhead(0,zz,490,roomHeight,360,180);hatchCollar(0,zz,180);
+ plaque(zz===passageEnd?'AFT OBSERVATION · AIRLOCK':'EXTERIOR DECK',0,-174,zz-55,180,370);
+}
+const innerDoor=hatches[hatches.length-2],outerDoor=hatches.at(-1);
+innerDoor.interlock=outerDoor;outerDoor.interlock=innerDoor;
+block('console-case',0,floorY+41,(outerLockZ+padStart)/2,330,82,padStart-outerLockZ+4);
+for(const side of [-1,1])plane('guide-light',7,padStart-outerLockZ,side*156,414,(outerLockZ+padStart)/2,0,90);
+const corner=(i,r,y)=>[Math.cos(i*Math.PI/3)*r,y,padCenter+Math.sin(i*Math.PI/3)*r];
+for(let i=0;i<6;i++){
+ const a=corner(i,deckRadius,floorY),b=corner(i+1,deckRadius,floorY);
+ const mid=a.map((v,j)=>(v+b[j])/2);
+ formedQuad([[0,floorY,padCenter],a,mid,b],i%2?'alloy':'smoked');
+ formedQuad([a,b,corner(i+1,deckRadius,488),corner(i,deckRadius,488)],'gasket');
+ formedQuad([corner(i,deckRadius-17,415),corner(i+1,deckRadius-17,415),corner(i+1,deckRadius-24,415),corner(i,deckRadius-24,415)],'glasslight');
+ formedQuad([corner(i,deckRadius*.78,415),corner(i+1,deckRadius*.78,415),corner(i+1,deckRadius*.775,415),corner(i,deckRadius*.775,415)],'bronze');
+}
 for(const side of [-1,1]){
  const inner=245*side,outer=(245+roomWidth)*side,mid=(inner+outer)/2;
  const facing=-side*90;
@@ -640,10 +667,18 @@ for(let bay=0;bay<aftBays.length;bay++){
    plane('lamp',12,1470,side*150,-211,cz,0,-90);
  }
 }
-// Short bays leave every hatch and existing passage terminal clear.
+// Carry the folded profile between hatches. Leave clear returns at doors and wall terminals.
 for(const side of [-1,1]){
- for(const cz of [1510,3230,5260,7220,8980,10740,12500,14070]){
-   windowCabinet(side*245,cz,-side*90,265,-224,-100,115,416);
+ const gaps=roomStations.map(r=>[r.z-235,r.z+235]);
+ const pad=side===1?1770:1850;gaps.push([pad-112,pad+112]);gaps.sort((a,b)=>a[0]-b[0]);
+ let start=passageStart+85;
+ for(const [edge,end] of [...gaps,[passageEnd-80,passageEnd]]){
+   const length=edge-start;
+   if(length>75){
+     const count=Math.ceil(length/610),width=length/count;
+     for(let i=0;i<count;i++)windowCabinet(side*245,start+(i+.5)*width,-side*90,width-3,-224,-100,115,416,width>290&&i===Math.floor(count/2));
+   }
+   start=Math.max(start,end);
  }
 }
 for(const [index,bay] of bayScreens.entries()){
@@ -680,7 +715,11 @@ function corridorStation(title,item,side,z){
  const mark=document.createElement('strong');mark.textContent=title;
  const status=document.createElement('div');status.className='status-wave';
  const button=document.createElement('button');button.textContent=item[1]+'  ›';
- wire(face,item);wire(button,item);button.replaceChildren(mark,status,document.createTextNode(item[1]+'  ›'));face.append(button);
+ const closest=roomScreens.reduce((best,r)=>Math.hypot(r.hx-side*222,r.hz-z)<Math.hypot(best.hx-side*222,best.hz-z)?r:best);
+ face.projectTopic=()=>closest.showPlate(routePlate(item[0]),item[0],item[1]);
+ const preview=document.createElement('img');const still=exhibitPlates[routePlate(item[0])][2];
+ preview.src=exhibitFile(still.includes('.')?still:still+'.webp');preview.alt=item[1];preview.style.cssText='width:100%;height:95px;object-fit:contain';
+ wire(face,item);wire(button,item);button.replaceChildren(mark,preview,document.createTextNode(item[1]+'  ›'));face.append(button);
 }
 corridorStation('CARGO CONTROL',groups[2][1],1,1770);
 corridorStation('SENSOR CONTROL',groups[2][3],-1,1850);
@@ -704,12 +743,25 @@ function projectorParts(el,title){
  const feed=document.createElement('div');feed.className='feed';
  const actions=document.createElement('div');actions.className='projector-actions';
  const caption=document.createElement('button');caption.className='holo-open';actions.append(caption);
- el.append(header,feed,actions);return {feed,caption,actions};
+ const copy=document.createElement('section');copy.className='projection-copy';
+ const subject=document.createElement('strong'),body=document.createElement('p');copy.append(subject,body);feed.append(copy);
+ const page=document.createElement('button');page.className='record-page';page.dataset.route='page';page.dataset.station='Next information page';actions.prepend(page);
+ page.onclick=e=>{e.stopPropagation();page.advance?.()};
+ el.append(header,feed,actions);return {feed,caption,actions,subject,body,page};
+}
+function renderProjection(parts,key,route){
+ mountExhibit(parts.feed,key);parts.subject.textContent=exhibitPlates[key][0];
+ const pages=recordPages(key,route);let index=0;
+ function draw(){parts.body.textContent=pages[index];parts.page.hidden=pages.length<2;parts.page.textContent=(index+1)+' / '+pages.length+' ›';parts.page.setAttribute('aria-label','Next information page, '+(index+1)+' of '+pages.length)}
+ parts.page.advance=()=>{index=(index+1)%pages.length;draw()};draw();
 }
 const bridgeParts=projectorParts(hologram,'BRIDGE PROJECTOR');
 const holoAction=bridgeParts.caption,feed=bridgeParts.feed;
 let projected=['ships','Fortizar observation feed'];
-mountExhibit(feed,'fort');
+function showBridgeRecord(key,route=exhibitPlates[key][1],label=exhibitPlates[key][0]){
+ projected=[route,label,key];renderProjection(bridgeParts,key,route);labelProjection();
+}
+hologram.showRecord=showBridgeRecord;showBridgeRecord('fort');
 function labelProjection(){
  holoAction.dataset.station='Open '+projected[1];
  holoAction.textContent=holoAction.dataset.station+'  ›';
@@ -720,14 +772,14 @@ hologram.dataset.station='Open projection';hologram.onclick=e=>{if(e.target!==ho
 let messageTimer;
 function activateStation(control){
  if(control.advance){control.advance();return;}
- if(control.dataset.plate){openRecord(control.dataset.route,control.dataset.station,control.dataset.plate);return;}
+ if(control.dataset.plate){openRecord(control.dataset.route,control.dataset.station,control.dataset.plate,control.closest('.holo-display'));return;}
  if(control.dataset.seat){
    const [sx,sz]=control.dataset.seat.split(',').map(Number);
    if(seated)standUp();
    seated={x:sx,z:sz};x=sx;z=sz-8;yaw=0;pitch=0;keys.clear();$('stand').hidden=false;view.focus();return;
  }
  if(control===hologram||control===holoAction){openRecord(...projected);return;}
- const local=control.closest('.room-console,.switches,.bay-display');
+ const local=control.closest('.room-console,.switches,.bay-display,.wall-pad');
  if(local?.projectTopic){
    const selected=[control.dataset.route,control.dataset.station];
    local.projectTopic(selected);
@@ -739,39 +791,12 @@ function activateStation(control){
  const consoleFace=control.closest('.screen,.helm-display');
  if(consoleFace)mountExhibit(consoleFace,routePlate(projected[0])).classList.add('station-feed');
  labelProjection();
- const brief={
-  ships:['naglfar-cutout','HULL IDENTIFICATION','Marauders · Capitals · Drifters'],
-  drifters:['drifter-cutout','VIGILANT TYRANNOS','Recon / Response battleships'],
-  fits:['naglfar-cutout','FITTING LIBRARY','19 saved fits · EFT export'],
-  story:['drifter-cutout','ANOIKIS','Sleeper ruins · Drifter emergence'],
-  sites:['expanse-deep-space','SITE RECORDS','48 sites · C1 through C6'],
-  audit:['expanse-deep-space','ENCOUNTER REVIEW','Wave triggers · Escalations'],
-  systems:['expanse-deep-space','SYSTEM ATLAS','2,603 wormhole system records'],
-  wormholes:['expanse-deep-space','WORMHOLE SPACE','System effects · Connections'],
-  rolling:['expanse-deep-space','TRANSIT MASS','Cold and hot transits · Mass budget'],
-  gas:['expanse-deep-space','GAS HARVESTING','Reservoirs · Clouds · Defenders'],
-  'blue-loot':['fortizar-cutout','HIGH-SEC BUYERS','99 stations · 4 Sleeper commodities'],
-  dscan:['drifter-cutout','DIRECTIONAL SCAN','Ship types · Contact counts'],
-  split:['fortizar-cutout','FLEET PAYOUT','Weighted shares · Total ISK'],
-  estimate:['fortizar-cutout','MINING YIELD','Cycle time · Volume · Price'],
-  pi:['fortizar-cutout','PLANETARY INDUSTRY','Product records · Production'],
-  reference:['fortizar-cutout','INDUSTRIAL SYSTEMS','Mining modules · POS structures'],
-  guides:['expanse-deep-space','FIELD NOTES','Fitting · Scanning · Site running'],
-  profile:['fortizar-cutout','PILOT RECORD','Character portrait · Callsign'],
-  coverage:['expanse-deep-space','ARCHIVE COVERAGE','Systems · Fits · Encounters']
- }[projected[0]];
- const topics={ships:'fort',drifters:'drifter',story:'drifter',fits:'fit',wormholes:'hole',rolling:'hole',systems:'chart',gas:'pros',estimate:'rock',reference:'crystals',split:'command',guides:'salvage',dscan:'hole'};
- const plate=topics[projected[0]]||(brief[0]==='fortizar-cutout'?'fort':'chart');
- feed.replaceChildren();mountExhibit(feed,plate);
- const legend=document.createElement('div');legend.className='holo-legend';
- const name=document.createElement('strong');name.textContent=brief[1];
- const detail=document.createElement('span');detail.textContent=brief[2];
- legend.append(name,detail);feed.append(legend);
+ showBridgeRecord(routePlate(projected[0]),projected[0],projected[1]);
  const notice=$('projectionNotice');
  notice.textContent=projected[1]+' projected · Centre of flight deck';
  notice.hidden=false;clearTimeout(messageTimer);
  messageTimer=setTimeout(()=>notice.hidden=true,6000);
- openRecord(...projected);
+
 }
 const keys=new Set(), clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 let x=0,z=365,yaw=0,pitch=0,drag=false,dragged=false,totalDrag=0,target=null,previous=performance.now();
@@ -784,6 +809,11 @@ $('stand').onclick=standUp;
 function helm(){standUp();x=0;z=365;yaw=0;pitch=0;keys.clear();view.focus()}
 $('reset').onclick=helm;
 const recordFrame=panel.querySelector('iframe');
+window.addEventListener('message',event=>{
+ if(event.origin!==location.origin||event.source!==recordFrame.contentWindow||!panel.open)return;
+ const key=event.data?.stationExhibit;
+ if(typeof key==='string'&&Object.hasOwn(exhibitPlates,key))recordProjector?.showRecord?.(key);
+});
 recordFrame.addEventListener('load',()=>{
  try{recordFrame.contentWindow.addEventListener('keydown',e=>{
    if(e.key==='Escape' && panel.open){e.preventDefault();panel.close();}
@@ -892,7 +922,15 @@ function isClear(px,pz){
    if(Math.abs(dz*d.ux-dx*d.uz)<radius+10&&Math.abs(dx*d.ux+dz*d.uz)<168&&
       Math.abs(dx*d.ux+dz*d.uz)+radius+28>202*d.openness*d.openness*(3-2*d.openness))return false;
  }
- if(pz < -650 || pz > passageEnd-radius)return false;
+ if(pz < -650)return false;
+ if(pz>=passageEnd-radius){
+   const ax=Math.abs(px);
+   if(Math.min(Math.abs(pz-passageEnd),Math.abs(pz-outerLockZ))<=radius+12&&ax>168-radius)return false;
+   if(pz<=outerLockZ)return ax<=245-radius;
+   const dz=Math.abs(pz-padCenter);
+   const inPad=dz<=hexApothem-radius&&ax*Math.sqrt(3)/2+dz/2<=hexApothem-radius;
+   return inPad||(pz<=padStart+radius&&ax<=165-radius);
+ }
  if(pz < passageStart-radius){
    if(Math.abs(px)>793-radius)return false;
    const bx=Math.min(1,Math.abs(px)/(793/Math.sin(80*Math.PI/180)));
@@ -958,7 +996,7 @@ function frame(now){
  world.style.transform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(seated?-105:((r||f)?Math.sin(now*.012)*2:0))+'px,'+(-z)+'px)';
  if(now-lastAim>55){target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);lastAim=now;}
  $('use').hidden=!target;if(target && $('use').textContent!=='E　'+target.dataset.station)$('use').textContent='E　'+target.dataset.station;
- const sector=z<1200?'Flight deck':Math.abs(x)<245?'Aft passage':nearestRoom(z).names[x>0?1:0];
+ const sector=z>outerLockZ?'Exterior observation deck':z>=passageEnd?'Observation airlock':z<1200?'Flight deck':Math.abs(x)<245?'Aft passage':nearestRoom(z).names[x>0?1:0];
  if($('sector').textContent!==sector)$('sector').textContent=sector;
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
  const bearing=navDisplay.querySelector('.bearing'),value=String(degrees).padStart(3,'0')+'°';
