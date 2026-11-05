@@ -14,6 +14,41 @@ function plane(type,w,h,x,y,z,ry=0,rx=0) {
   world.append(el);
   return el;
 }
+// Formed metalwork uses continuous cross-sections. Both renderers consume
+// the same world-space faces, including the radius through each porthole.
+const formedPanels=[];
+function formedQuad(points,finish){formedPanels.push({points,finish});}
+function curvedPorthole(cx,cy,cz,angle,w,h){
+ const a=angle*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a);
+ const point=(u,v,d)=>[cx+cs*u+sn*d,cy+v,cz-sn*u+cs*d];
+ function contour(inset,r,d){
+   const ww=w/2-inset,hh=h/2-inset,points=[];
+   for(const [sx,sy,base] of [[1,-1,-90],[1,1,0],[-1,1,90],[-1,-1,180]]){
+     for(let j=0;j<=6;j++){
+       const t=(base+j*15)*Math.PI/180;
+       points.push(point(sx*(ww-r)+r*Math.cos(t),sy*(hh-r)+r*Math.sin(t),d));
+     }
+   }
+   return points;
+ }
+ const rings=[[0,.1,12,'pearl'],[1,34,15,'pearl'],[6,32,18,'pearl'],
+   [12,31,16,'pearl'],[17,29,10,'alloy'],[19,28,-3,'gasket'],
+   [20,27,-31,'alloy'],[23,26,-39,'gasket'],[24,25,-40,'glasslight'],[26,23,-41,'gasket']];
+ let prev;
+ for(const [inset,r,d,finish] of rings){
+   const next=contour(inset,Math.min(r,h*.18,w*.18),d);
+   if(prev)for(let i=0;i<next.length;i++){const j=(i+1)%next.length;formedQuad([prev[i],prev[j],next[j],next[i]],finish);}
+   prev=next;
+ }
+}
+function ceilingCove(x,z,angle,length,top){
+ const a=angle*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a),r=79;
+ function point(u,t){const d=r*(1-Math.cos(t)),v=r*(1-Math.sin(t));return [x+u*cs+d*sn,top+v,z-u*sn+d*cs];}
+ for(let j=0;j<10;j++){
+   const t=j*Math.PI/20,n=(j+1)*Math.PI/20;
+   formedQuad([point(-length/2,t),point(length/2,t),point(length/2,n),point(-length/2,n)],j===7?'glasslight':'pearl');
+ }
+}
 // The forward glass and each instrument housing occupy separate planes.
 
 plane('crest-glass',275,115,-295,-380,-743,20);
@@ -240,6 +275,7 @@ function windowWall(w,h,x,y,z,angle,centres,opening,height,glassY){
  function section(width,high,u,v){
    if(width>.1&&high>.1)panelWall(width,high,x+u*Math.cos(a),v,z-u*Math.sin(a),angle);
  }
+ ceilingCove(x,z,angle,w,y-h/2);
  const top=y-h/2,bottom=y+h/2,upper=glassY-height/2,lower=glassY+height/2;
  section(w,upper-top,0,(upper+top)/2);
  section(w,bottom-lower,0,(lower+bottom)/2);
@@ -248,6 +284,7 @@ function windowWall(w,h,x,y,z,angle,centres,opening,height,glassY){
    const edge=u-opening/2;
    section(edge-cursor,height,(edge+cursor)/2,glassY);
    const wx=x+u*Math.cos(a), wz=z-u*Math.sin(a);
+   curvedPorthole(wx,glassY,wz,angle,opening,height);
    // Recess the glass at the far end of a stepped, machined window well.
    const toward=(offset,side,v,wide,high,turn=0,tilt=0,kind='reveal')=>
      plane(kind,wide,high,wx+side*Math.cos(a)+offset*Math.sin(a),v,wz-side*Math.sin(a)+offset*Math.cos(a),angle+turn,tilt);
@@ -307,6 +344,7 @@ function floorAndCeiling(w,d,x,z){
  clad(ceiling,Math.ceil(w/600),Math.ceil(d/600),'ceiling-tile');
 }
 floorAndCeiling(490,passageEnd-passageStart,0,(passageStart+passageEnd)/2);
+ for(const side of [-1,1])ceilingCove(side*245,(passageStart+passageEnd)/2,-side*90,passageEnd-passageStart,floorY-roomHeight);
 // Service runs sit below the in-wall controls. Their octagonal sections and
 // raised collars show depth at walking distance without separate draw calls.
 function servicePipe(cx,cy,start,end,radius,material){
@@ -633,12 +671,15 @@ function isClear(px,pz){
 function resize(){const lens=Math.min(innerWidth*.59,innerHeight*.96);view.style.perspective=lens+'px';$('camera').style.transform='translateZ('+lens+'px)'}
 window.addEventListener('resize',resize);resize();
 let lastAim=-Infinity,lastHoloX,lastHoloZ;
-const fpsReadout=$('frame-rate');let fpsStart=performance.now(),fpsFrames=0;
+const fpsReadout=$('frame-rate');let fpsStart=performance.now(),fpsFrames=0,lastPresented=0;
 function frame(now){
- if(panel.open || document.hidden){previous=now;fpsStart=now;fpsFrames=0;requestAnimationFrame(frame);return;}
+ if(panel.open || document.hidden){previous=now;fpsStart=now;fpsFrames=0;lastPresented=window.presentedShipFrames||0;requestAnimationFrame(frame);return;}
  fpsFrames++;
  if(now-fpsStart>=1000){
-   fpsReadout.textContent='· '+Math.round(fpsFrames*1000/(now-fpsStart))+' FPS';
+   const presented=window.presentedShipFrames;
+   const completed=presented===undefined?fpsFrames:presented-lastPresented;
+   lastPresented=presented||0;
+   fpsReadout.textContent='· '+Math.round(completed*1000/(now-fpsStart))+' FPS';
    fpsStart=now;fpsFrames=0;
  }
  const dt=Math.max(0,Math.min(.075,(now-previous)/1000));previous=now;

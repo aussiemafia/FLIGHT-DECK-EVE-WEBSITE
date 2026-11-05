@@ -12,25 +12,112 @@
  function room(x,z){return z<1230?'bridge':Math.abs(x)<285?'passage':(x<0?'left':'right')+(z<3630?'lab':'aft');}
  const live=all.filter(e=>e.matches(nativeSelector)).map(el=>{const m=matrixFor(el);return {el,room:room(m.m41,m.m43)};});
  let lastRoom='';
+ const partitions=all.filter(el=>el.matches('.hull-panel,.hull-back')).map(el=>({inv:matrixFor(el).inverse(),w:parseFloat(el.style.width)/2,h:parseFloat(el.style.height)/2}));
+ const nativeCentres=live.map(({el})=>{const m=matrixFor(el);return [m.m41,m.m42,m.m43]});
+ let sightX=Infinity,sightZ=Infinity;
  function showRoom(ex,ez){
-   const current=room(ex,ez);if(current===lastRoom)return;
-   for(const item of live)item.el.classList.toggle('away',item.room!==current);
-   lastRoom=current;refreshHitBoxes();
+   if(Math.hypot(ex-sightX,ez-sightZ)<14)return;
+   sightX=ex;sightZ=ez;
+   live.forEach(({el},i)=>{
+     const [xx,yy,zz]=nativeCentres[i],dx=xx-ex,dy=yy,dz=zz-ez;
+     const blocked=partitions.some(({inv:m,w,h})=>{
+       const oz=ex*m.m13+ez*m.m33+m.m43,vz=dx*m.m13+dy*m.m23+dz*m.m33;
+       if(Math.abs(vz)<.001)return false;const t=-oz/vz;if(t<=0||t>=.992)return false;
+       const px=ex+dx*t,py=dy*t,pz=ez+dz*t;
+       return Math.abs(px*m.m11+py*m.m21+pz*m.m31+m.m41)<w&&Math.abs(px*m.m12+py*m.m22+pz*m.m32+m.m42)<h;
+     });
+     el.classList.toggle('away',blocked);
+   });
+   refreshHitBoxes();
  }
  const surfaceRoom=el=>{const m=matrixFor(el);return room(m.m41,m.m43);};
  if(!gl){
-   // Software-only browsers retain a smaller, room-local version of the scene.
-   const zones=new Map();
+   // One small raster surface replaces thousands of composited CSS planes on
+   // browsers where WebGL is disabled. Keep the six real sky faces behind it.
+   world.querySelector('.forge-sky')?.remove();
+   view.prepend(canvas);
+   const materials={
+     white:'#adbdc1',metal:'#6a7d86',hull:'#536571',dark:'#32434e',gold:'#d4a467',
+     floor:'#637a86',ceiling:'#768993',pad:'#7e939b',linen:'#bcc3b8',warm:'#957d68',
+     cyan:'#bff5ff',lamp:'#ffddaa',glass:'#89cfe1',screen:'#1b3d49'
+   };
+   const items=[];
+   const native=new Set(live.map(e=>e.el));
+   function color(el){
+     if(el.matches('.lamp,.passage-light'))return 'lamp';
+     if(el.matches('.glass-light,.lab-wash,.promenade-light,.crown-light,.lab-ring,.residential-ring,.holo-ring,.holo-base'))return 'cyan';
+     if(el.matches('.strip,.guide-light,.pod-chair.shoulder-shell'))return 'gold';
+     if(el.matches('.extension-floor,.deck'))return 'floor';
+     if(el.matches('.extension-ceiling,.overhead'))return 'ceiling';
+     if(el.matches('.cabin-zone.armour-face,.command-chair.flight-pad,.lab-chair.flight-pad,.canopy-shell,.canopy-spar'))return 'white';
+     if(el.matches('.lounge-zone.armour-face'))return 'warm';
+     if(el.matches('.berth-pad,.berth-pillow,.lounge-pad'))return 'linen';
+     if(el.matches('.viewport'))return 'glass';
+     if(el.matches('.flight-pad,.head-pad'))return 'pad';
+     if(el.matches('.chair-shell,.case-back,.hull-back,.service-pipe,.console-case'))return 'dark';
+     return el.matches('.armour-face,.hull-panel')?'hull':'metal';
+   }
+   const rect=[[0,0],[1,0],[1,1],[0,1]];
    for(const el of all){
      if(el.classList.contains('sky-face'))continue;
-     if(el.matches('.seat-band,.armour-edge,.floor-spill')){el.hidden=true;continue;}
-     const area=surfaceRoom(el);if(!zones.has(area))zones.set(area,[]);
-     zones.get(area).push(el);
+     const m=matrixFor(el),w=parseFloat(el.style.width),h=parseFloat(el.style.height);
+     const isUI=native.has(el),kind=isUI?'screen':color(el);
+     const a=el.matches('.armour-face:not(.cabin-zone):not(.lounge-zone)')?'armour':el.matches('.crest-glass')?'crest':el.matches('.orbital')?'orbital':el.matches('.drifting')?'drifting':null;
+     let poly=rect;
+     if(el.classList.contains('seat-flank'))poly=[...el.style.clipPath.matchAll(/([\d.]+)% ([\d.]+)%/g)].map(q=>[+q[1]/100,+q[2]/100]);
+     const isRing=el.matches('.residential-ring,.lab-ring,.holo-base,.holo-ring');
+     if(isRing)poly=Array.from({length:24},(_,i)=>[.5+.47*Math.cos(i*Math.PI/12),.5+.47*Math.sin(i*Math.PI/12)]);
+     const pts=poly.map(([u,v])=>m.transformPoint(new DOMPoint((u-.5)*w,(v-.5)*h)));
+     const hex=materials[kind],lit=['lamp','gold','cyan','glass'].includes(kind)?1:.75+.22*Math.abs(m.m31*.54-m.m32*.8+m.m33*.25);
+     const rgb=[1,3,5].map(i=>Math.min(255,Math.round(parseInt(hex.slice(i,i+2),16)*lit)));
+     const obj={pts,kind,a,ring:isRing,ui:isUI,cx:m.m41,cy:m.m42,cz:m.m43,nx:m.m31,ny:m.m32,nz:m.m33,
+       size:Math.hypot(w,h)/2,zone:a&&a!=='armour'?'exterior':room(m.m41,m.m43),two:el.matches('.seat-band,.reveal'),fill:'rgb('+rgb.join(',')+')'};
+     obj.poly=poly;items.push(obj);
+
+     if(!isUI)el.remove();
    }
-   let prev='';
-   window.renderShip=(now,ex,ey,ez)=>{
-     const id=room(ex,ez);if(prev!==id){for(const [zone,els] of zones)for(const el of els)el.hidden=zone!==id && zone!=='passage';prev=id;}
-     window.drawExterior?.(ex,ez);
+   for(const panel of formedPanels){
+     const pts=panel.points.map(([x,y,z])=>({x,y,z}));
+     const cx=pts.reduce((v,p)=>v+p.x,0)/4,cy=pts.reduce((v,p)=>v+p.y,0)/4,cz=pts.reduce((v,p)=>v+p.z,0)/4;
+     const fill={pearl:'#a6b7bb',alloy:'#73858e',gasket:'#263642',glasslight:'#c8f4fb'}[panel.finish];
+     items.push({pts,kind:panel.finish,fill,cx,cy,cz,nx:0,ny:0,nz:0,size:Math.max(...pts.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),two:true,zone:room(cx,cz)});
+   }
+   const packed=[];
+   const kindOf={armour:6,crest:7,orbital:8,drifting:9};
+   for(const item of items){
+     if(item.kind==='glass'||item.ring)continue;
+     const pts=item.pts,uv=item.poly||rect;
+     const sides=indices(uv);
+     const ns=item.fill.match(/\d+/g);
+     const col=item.fill[0]==='#'?parseInt(item.fill.slice(1),16):null;
+     const rgb=col===null?ns.map(Number):[col>>16,(col>>8)&255,col&255];
+     const word=(255<<24)|(rgb[2]<<16)|(rgb[1]<<8)|rgb[0];
+     for(let i=0;i<sides.length;i+=3){
+       for(const n of sides.slice(i,i+3)){
+         const p=pts[n];packed.push(p.x,p.y,p.z,uv[n][0],uv[n][1]);
+       }
+       packed.push(word,item.kind==='floor'?1:(kindOf[item.a]||0));
+     }
+   }
+   const scene=new Float32Array(packed),words=new Int32Array(scene.buffer);
+   for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
+   const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
+   for(const path of ['assets/hull-plating.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp'])urls.push(new URL(path,document.baseURI).href);
+   const worker=new Worker('assets/renderer/worker.js?v=3'),offscreen=canvas.transferControlToOffscreen();
+   let ready=false,pending=false;
+   worker.onmessage=({data})=>{
+     if(data==='ready'){
+       const img=new Image();img.onload=()=>{const bitmap=document.createElement('canvas');bitmap.width=bitmap.height=1024;
+         const ink=bitmap.getContext('2d');ink.drawImage(img,0,0,1024,1024);const bytes=ink.getImageData(0,0,1024,1024).data.buffer;
+         worker.postMessage({type:'material',bytes},[bytes]);ready=true;};img.src=urls[6];
+     }
+     if(data==='frame'){pending=false;window.presentedShipFrames=(window.presentedShipFrames||0)+1;}
+     if(data?.error)console.error(data.error);
+   };
+   worker.postMessage({type:'init',canvas:offscreen,scene:scene.buffer,urls},[offscreen,scene.buffer]);
+   window.renderShip=(now,x,y,z,yaw,pitch,lens)=>{
+     showRoom(x,z);if(!ready||pending)return;pending=true;
+     worker.postMessage({w:innerWidth,h:innerHeight,x,y,z,yaw,pitch,lens,now});
    };
    return;
  }
@@ -43,14 +130,14 @@
    warm:['#ae967b','metal'],linen:['#bcb7a9','pad'],crest:['#ffffff','image'],orbital:['#ffffff','image'],
    drifting:['#ffffff','image'],ring:['#75d5ec','ring'],sky:['#ffffff','sky']
  };
- const names=Object.keys(materialDefs),tile=256,atlas=document.createElement('canvas');atlas.width=2048;atlas.height=1024;
+ const names=Object.keys(materialDefs),tile=512,atlas=document.createElement('canvas');atlas.width=4096;atlas.height=2048;
  const ctx=atlas.getContext('2d');
  function tileOrigin(name){const i=names.indexOf(name);return [(i%8)*tile,Math.floor(i/8)*tile];}
  for(const [name,[color,pattern]] of Object.entries(materialDefs)){
-   const [x,y]=tileOrigin(name);ctx.save();ctx.translate(x,y);ctx.beginPath();ctx.rect(0,0,tile,tile);ctx.clip();
+   const [x,y]=tileOrigin(name);ctx.save();ctx.translate(x,y);ctx.scale(tile/256,tile/256);ctx.beginPath();ctx.rect(0,0,256,256);ctx.clip();
    if(pattern!=='image' && pattern!=='ring'){
      ctx.fillStyle=color;ctx.fillRect(0,0,tile,tile);
-     const shine=ctx.createLinearGradient(0,0,tile,tile);
+     const shine=ctx.createLinearGradient(0,0,256,256);
      shine.addColorStop(0,'rgba(235,250,255,.13)');shine.addColorStop(.55,'rgba(0,0,0,.02)');shine.addColorStop(1,'rgba(0,12,25,.24)');
      ctx.fillStyle=shine;ctx.fillRect(0,0,tile,tile);
    }
@@ -110,7 +197,7 @@
  uniform sampler2D sheet,reflected,displays;uniform float moving;uniform samplerCube space;uniform vec2 viewport;uniform float mirror;uniform vec3 eye;
  void main(){
  if(type>3.5&&type<4.5){
-   if(mirror<.5&&(moving<.5||type>4.15))discard;
+   if(mirror<.5&&type>4.15)discard;
    gl_FragColor=texture2D(displays,tex);return;
  }
  if(type>4.5&&type<5.5){gl_FragColor=vec4(textureCube(space,normalize(vec3(wp.x,-wp.y,-wp.z))).rgb,1.);return;}
@@ -179,6 +266,7 @@
  paintInstruments();
  // Triangulate concave side profiles, keeping open spaces in chair canopies.
  function indices(points){
+   if(points.length<3)return [];
    if(points.length===4)return [0,1,2,0,2,3];
    const cross=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
    const sign=Math.sign(points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+p[0]*q[1]-q[0]*p[1]},0));
@@ -196,7 +284,7 @@
    const name=material(el);if(!name)continue;
    const m=matrixFor(el),w=parseFloat(el.style.width),h=parseFloat(el.style.height);
    const poly=el.classList.contains('seat-flank')?[...el.style.clipPath.matchAll(/([\d.]+)% ([\d.]+)%/g)].map(a=>[+a[1]/100,+a[2]/100]):[[0,0],[1,0],[1,1],[0,1]];
-   const ui=uiTiles.get(el);const [ax,ay]=ui||tileOrigin(name);
+   const ui=uiTiles.get(el),cell=ui?256:tile;const [ax,ay]=ui||tileOrigin(name);
    const k=ui?(el.matches('.course-display,.holo-display')?4.25:4):name==='floor'?1:name==='window'?2:name==='sky'?5:name==='drifting'?6:['cyan','lamp','orange','ring','screen','crest','orbital'].includes(name)?3:0;
    const zone=['orbital','drifting','sky'].includes(name)?'exterior':room(m.m41,m.m43);
    const key=zone+(name==='window'?':glass':':solid');
@@ -204,7 +292,16 @@
    const dest=groups.get(key);
    for(const i of indices(poly)){
      const [u,v]=poly[i];const p=m.transformPoint(new DOMPoint((u-.5)*w,(v-.5)*h));
-     dest.push(p.x,p.y,p.z,m.m31,m.m32,m.m33,(ax+1+u*(tile-2))/atlas.width,(ay+1+v*(tile-2))/(ui?uiAtlas.height:atlas.height),k);
+     dest.push(p.x,p.y,p.z,m.m31,m.m32,m.m33,(ax+1+u*(cell-2))/(ui?uiAtlas.width:atlas.width),(ay+1+v*(cell-2))/(ui?uiAtlas.height:atlas.height),k);
+   }
+ }
+ for(const panel of formedPanels){
+   const [a,b,,d]=panel.points,e=b.map((v,i)=>v-a[i]),f=d.map((v,i)=>v-a[i]);
+   const n=[e[1]*f[2]-e[2]*f[1],e[2]*f[0]-e[0]*f[2],e[0]*f[1]-e[1]*f[0]];
+   const len=Math.hypot(...n)||1;const name={pearl:'white',alloy:'shell',gasket:'dark',glasslight:'cyan'}[panel.finish];
+   const [tx,ty]=tileOrigin(name),key='formed:solid';if(!groups.has(key))groups.set(key,[]);
+   for(const i of [0,1,2,0,2,3]){
+     const v=panel.points[i];groups.get(key).push(...v,n[0]/len,n[1]/len,n[2]/len,(tx+tile*.5)/atlas.width,(ty+tile*.5)/atlas.height,name==='cyan'?3:0);
    }
  }
  const ranges=[],data=[];
@@ -214,13 +311,13 @@
  }
  const sceneBuffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,sceneBuffer);
  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);
- const activeZones=new Set();
- function draw(mode){for(const r of ranges)if(r.mode===mode&&activeZones.has(r.zone))gl.drawArrays(gl.TRIANGLES,r.offset,r.count);}
+ 
+ function draw(mode){for(const r of ranges)if(r.mode===mode)gl.drawArrays(gl.TRIANGLES,r.offset,r.count);}
  for(const [key,n,offset] of [['position',3,0],['normal',3,3],['uv',2,6],['kind',1,8]]){
    const i=gl.getAttribLocation(pr,key);gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,n,gl.FLOAT,false,36,offset*4);
  }
  const mirrorTex=gl.createTexture();gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,mirrorTex);
- const rw=256,rh=144;gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,rw,rh,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+ const rw=Math.min(1200,innerWidth),rh=Math.max(1,Math.round(rw*innerHeight/innerWidth));gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,rw,rh,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
  for(const k of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,k,gl.LINEAR);
  for(const k of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,k,gl.CLAMP_TO_EDGE);
  const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,mirrorTex,0);
@@ -232,38 +329,22 @@
  for(const el of all)if(!visibleElements.has(el))el.remove();
  const gpuInfo=gl.getExtension('WEBGL_debug_renderer_info');
  const software=gpuInfo&&/swiftshader|llvmpipe|software/i.test(gl.getParameter(gpuInfo.UNMASKED_RENDERER_WEBGL));
- let pixelBudget=software?400:1280,previousTime=0,sampleFrames=0,sampleTime=0;
+
  let lastReflection=-Infinity;
- let previousPose=null,lastMotion=-Infinity,motionMode=false;
+ let previousPose=null;
 
  window.renderShip=(now,ex,ey,ez,yaw,pitch,lens)=>{
    showRoom(ex,ez);
-   const elapsed=now-previousTime;previousTime=now;
-   if(elapsed>0&&elapsed<180){sampleTime+=elapsed;sampleFrames++;}
-   if(sampleFrames>=36){
-     const average=sampleTime/sampleFrames;
-     if(average>18.8)pixelBudget=Math.max(software?300:540,Math.floor(pixelBudget*.84));
-     else if(average<16.9&&!software)pixelBudget=Math.min(1440,pixelBudget+48);
-     sampleFrames=0;sampleTime=0;
-   }
-   const id=room(ex,ez);activeZones.clear();activeZones.add('exterior');activeZones.add(id);
-   if(id==='passage'){
-     if(ez<1750)activeZones.add('bridge');
-     const level=ez<3600?'lab':'aft';
-     if(Math.abs(ez-(level==='lab'?2540:4440))<860){activeZones.add('left'+level);activeZones.add('right'+level);}
-   }else if(id!=='bridge'||ez>640)activeZones.add('passage');
-   const pose=[ex,ey,ez,yaw,pitch,innerWidth,innerHeight,pixelBudget].join('/');
-   if(previousPose!==pose && previousPose!==null)lastMotion=now;
-   const moving=software && now-lastMotion<100;
-   if(moving!==motionMode){document.documentElement.classList.toggle('raster-motion',moving);motionMode=moving;previousPose=null;}
-   gl.uniform1f(uniforms.moving,moving?1:0);
-   if(previousPose===pose && now-lastReflection<180)return;
-   previousPose=pose;
-   const scale=Math.min(1,pixelBudget/innerWidth),w=Math.round(innerWidth*scale),h=Math.round(innerHeight*scale);
+   const pixelRatio=Math.min(devicePixelRatio||1,1.5);
+   const pose=[ex,ey,ez,yaw,pitch,innerWidth,innerHeight,pixelRatio].join('/');
+   if(previousPose===pose && now-lastReflection<110)return;
+   const moving=previousPose!==pose;previousPose=pose;
+   gl.uniform1f(uniforms.moving,0);
+   const w=Math.round(innerWidth*pixelRatio),h=Math.round(innerHeight*pixelRatio);
    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
    gl.uniform3f(uniforms.eye,ex,ey,ez);gl.uniform4f(uniforms.angles,Math.sin(yaw),Math.cos(yaw),Math.sin(pitch),Math.cos(pitch));
    gl.uniform2f(uniforms.proj,2*lens/innerWidth,2*lens/innerHeight);gl.uniform1f(uniforms.clock,now*.001);
-   if(now-lastReflection>(software?(moving?400:170):90)){
+   if(moving || now-lastReflection>100){
      gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,null);gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.viewport(0,0,rw,rh);
      gl.uniform1f(uniforms.mirror,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);draw('solid');
      gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.bindTexture(gl.TEXTURE_2D,mirrorTex);lastReflection=now;
