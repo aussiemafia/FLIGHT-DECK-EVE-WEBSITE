@@ -140,16 +140,12 @@ function clipWarpWindows(ctx,w,h){
 }
 function transit(name,departure,destination,arrive){
  const duration=2900;
- window.dispatchEvent(new Event('shipwarp'));
  if(matchMedia('(prefers-reduced-motion: reduce)').matches){arrive();return Promise.resolve();}
+ window.dispatchEvent(new Event('shipwarp'));
  const w=innerWidth,h=innerHeight,scale=Math.min(devicePixelRatio||1,1.5);
  trail.width=Math.round(w*scale);trail.height=Math.round(h*scale);
  const ctx=trail.getContext('2d');ctx.setTransform(scale,0,0,scale,0,0);trail.hidden=false;
- const colors=['#9be9ff','#629ddd','#b7b2ff','#f4faff'];
  const radius=Math.hypot(w,h)*.75;
- const stars=Array.from({length:360},(_,i)=>({
-  angle:i*2.399963,seed:(i*.618034)%1,layer:(i%7)/7,color:colors[i%4]
- }));
  const start=performance.now();let arrived=false,phase='';
  return new Promise(resolve=>{function frame(now){
   const t=Math.min(1,(now-start)/duration);
@@ -157,7 +153,6 @@ function transit(name,departure,destination,arrive){
   const stage=t<.2?'Spooling drive':t<.76?'In warp':'Dropping from warp';
   if(phase!==stage){phase=stage;warpReadout.textContent=stage+' · '+name;}
   const speed=Math.sin(Math.PI*t)**2;
-  const travel=t<.25?2*t*t:t<.78?t-.125:.655+(t-.78)*(1-(t-.78)/.44);
   ctx.clearRect(0,0,w,h);ctx.save();clipWarpWindows(ctx,w,h);
   ctx.translate(w*.5,h*.48);
   // Bend the actual sky in broad horizontal bands. The distortion peaks
@@ -183,17 +178,8 @@ function transit(name,departure,destination,arrive){
   const haze=ctx.createRadialGradient(0,0,0,0,0,radius);
   haze.addColorStop(0,'rgba(9,18,42,.28)');haze.addColorStop(.28,'rgba(56,93,166,.38)');haze.addColorStop(.72,'rgba(75,128,183,.20)');haze.addColorStop(1,'rgba(12,27,60,.06)');
   ctx.globalAlpha=speed;ctx.fillStyle=haze;ctx.fillRect(-w,-h,2*w,2*h);
-  ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
-  for(const star of stars){
-   const depth=(star.seed+travel*(1.8+star.layer))%1;
-   const r=radius*.013/(1.015-depth),len=r*(.05+speed*.72)*(1+star.layer);
-   const dx=Math.cos(star.angle),dy=Math.sin(star.angle);
-   ctx.strokeStyle=star.color;ctx.globalAlpha=speed*(.22+depth*.65);
-   ctx.lineWidth=Math.max(.7,Math.min(3,r*.007));
-   ctx.beginPath();ctx.moveTo(dx*r,dy*r);ctx.lineTo(dx*(r+len),dy*(r+len));ctx.stroke();
-  }
   ctx.restore();
-  if(t<1)requestAnimationFrame(frame);else{trail.hidden=true;ctx.clearRect(0,0,w,h);resolve();}
+  if(t<1)requestAnimationFrame(frame);else{window.dispatchEvent(new Event('shipwarpend'));trail.hidden=true;ctx.clearRect(0,0,w,h);resolve();}
  }requestAnimationFrame(frame);});
 }
 for(const route of routes){
