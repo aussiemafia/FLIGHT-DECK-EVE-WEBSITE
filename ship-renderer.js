@@ -247,7 +247,7 @@
    for(const panel of formedPanels){
      const pts=panel.points.map(([x,y,z])=>({x,y,z}));
      const cx=pts.reduce((v,p)=>v+p.x,0)/4,cy=pts.reduce((v,p)=>v+p.y,0)/4,cz=pts.reduce((v,p)=>v+p.z,0)/4;
-     const fill=panel.darkLeaf&&panel.finish==='pearl'?'#34414a':{glass:'#73929e',hazardYellow:'#e4b333',hazardBlack:'#23272a',oxblood:'#923c36',pearl:'#a6b7bb',alloy:'#73858e',gasket:'#263642',glasslight:'#c8f4fb',welt:'#817769',upholstery:'#c4b9a5',sienna:'#b47148',bronze:'#79766c',smoked:'#40525a',warmline:'#edc78a',titanGold:'#be9d61',titanBronze:'#8b713e',titanIron:'#62594a',titanDark:'#302f30'}[panel.finish];
+     const fill=panel.darkLeaf&&panel.finish==='pearl'?'#34414a':{cryoTeal:'#27594e',cryoLiner:'#17334a',glass:'#73929e',hazardYellow:'#e4b333',hazardBlack:'#23272a',oxblood:'#923c36',pearl:'#a6b7bb',alloy:'#73858e',gasket:'#263642',glasslight:'#c8f4fb',welt:'#817769',upholstery:'#c4b9a5',sienna:'#b47148',bronze:'#79766c',smoked:'#40525a',warmline:'#edc78a',titanGold:'#be9d61',titanBronze:'#8b713e',titanIron:'#62594a',titanDark:'#302f30'}[panel.finish];
      const textured=!!panel.skinUV;
      items.push({pts,a:panel.plating?'plating':textured?'avatar':null,poly:panel.plating||panel.skinUV,avatar:panel.avatar,distant:!!panel.distant,leaf:panel.leaf,kind:panel.finish,roofGlass:panel.roofGlass,fill,cx,cy,cz,nx:0,ny:0,nz:0,size:Math.max(...pts.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),two:true,zone:room(cx,cz)});
    }
@@ -325,7 +325,7 @@
    hull:['#546372','hull'],armour:['#a0aeb6','hull'],wall:['#405360','metal'],back:['#354650','metal'],
    floor:['#84949d','floor'],ceiling:['#798791','floor'],edge:['#6b7983','strips'],window:['#99d9f2','glass'],
    lamp:['#ffe2b6','emissive'],cyan:['#bdeefe','emissive'],orange:['#e5a563','emissive'],
-   shell:['#8b999e','metal'],white:['#d3dadd','metal'],dark:['#384954','metal'],pad:['#6a7c84','pad'],
+   cryoTeal:['#27594e','pad'],cryoLiner:['#17334a','pad'],shell:['#8b999e','metal'],white:['#d3dadd','metal'],dark:['#384954','metal'],pad:['#6a7c84','pad'],
    ivory:['#e4e8df','pad'],copper:['#d4995c','metal'],screen:['#367387','display'],
    warm:['#ae967b','metal'],linen:['#c4b9a5','weave'],crest:['#ffffff','image'],orbital:['#ffffff','image'],
    drifting:['#ffffff','image'],ring:['#75d5ec','ring'],sky:['#ffffff','sky'],titanGold:['#be9d61','metal'],titanBronze:['#8b713e','metal'],titanIron:['#62594a','metal'],titanDark:['#302f30','metal'],hazardYellow:['#e4b333','metal'],hazardBlack:['#23272a','metal'],oxblood:['#923c36','metal']
@@ -507,7 +507,7 @@
  for(const panel of formedPanels){
    const [a,b,,d]=panel.points,e=b.map((v,i)=>v-a[i]),f=d.map((v,i)=>v-a[i]);
    const n=[e[1]*f[2]-e[2]*f[1],e[2]*f[0]-e[0]*f[2],e[0]*f[1]-e[1]*f[0]];
-   const len=Math.hypot(...n)||1;const name=panel.darkLeaf&&panel.finish==='pearl'?'dark':{hazardYellow:'hazardYellow',hazardBlack:'hazardBlack',oxblood:'oxblood',pearl:'white',alloy:'shell',gasket:'dark',glasslight:'cyan',welt:'warm',upholstery:'linen',sienna:'copper',bronze:'warm',smoked:'dark',warmline:'lamp',glass:'window',titanGold:'titanGold',titanBronze:'titanBronze',titanIron:'titanIron',titanDark:'titanDark'}[panel.finish];
+   const len=Math.hypot(...n)||1;const name=panel.darkLeaf&&panel.finish==='pearl'?'dark':{cryoTeal:'cryoTeal',cryoLiner:'cryoLiner',hazardYellow:'hazardYellow',hazardBlack:'hazardBlack',oxblood:'oxblood',pearl:'white',alloy:'shell',gasket:'dark',glasslight:'cyan',welt:'warm',upholstery:'linen',sienna:'copper',bronze:'warm',smoked:'dark',warmline:'lamp',glass:'window',titanGold:'titanGold',titanBronze:'titanBronze',titanIron:'titanIron',titanDark:'titanDark'}[panel.finish];
    const [tx,ty]=tileOrigin(name),key=panel.leaf===undefined?(panel.avatar?'avatar/':'')+Math.floor(a[0]/(panel.avatar?110000:500))+'/'+Math.floor(a[2]/(panel.avatar?110000:700))+(panel.roofGlass?':glass':':solid'):(panel.distant?'farleaf':'leaf')+panel.leaf+(name==='window'?':glass':':solid');if(!groups.has(key))groups.set(key,[]);
    for(const i of panel.points[2].every((v,j)=>v===d[j])?[0,1,2]:[0,1,2,0,2,3]){
      const v=panel.points[i];

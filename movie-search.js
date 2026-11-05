@@ -23,7 +23,7 @@ function installMovieSearch({dialog,form,query,list,filter}) {
      const player=document.createElement('video');
      player.controls=true;player.playsInline=true;player.preload='metadata';
      const files=[...(film.files||[]),...(film.streamingPlaylists||[]).flatMap(p=>p.files||[])];
-     const urls=files.sort((a,b)=>Math.abs(720-a.resolution.id)-Math.abs(720-b.resolution.id)).map(f=>https(f.fileUrl)).filter(Boolean);
+     const urls=files.sort((a,b)=>(b.resolution?.id||0)-(a.resolution?.id||0)).map(f=>https(f.fileUrl)).filter(Boolean);
      if(player.canPlayType('application/vnd.apple.mpegurl'))for(const p of film.streamingPlaylists||[]){const url=https(p.playlistUrl);if(url)urls.unshift(url);}
      if(!urls.length)throw Error();
      player.id='holodeck-movie';player.setAttribute('aria-label',film.name);
