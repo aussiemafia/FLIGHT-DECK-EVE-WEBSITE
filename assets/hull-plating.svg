@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="384" height="480" viewBox="0 0 384 480">
+<defs>
+ <linearGradient id="steel" x2=".85" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#64707a"/><stop offset=".46" stop-color="#45535e"/><stop offset="1" stop-color="#2b3945"/></linearGradient>
+ <linearGradient id="insert" x2="1" y2=".75"><stop stop-color="#61717c"/><stop offset="1" stop-color="#394853"/></linearGradient>
+ <pattern id="louvre" width="10" height="9" patternUnits="userSpaceOnUse"><rect width="10" height="9" fill="#293640"/><path d="M0 2H10" stroke="#75838b"/><path d="M0 6H10" stroke="#161f27" stroke-width="3"/></pattern>
+ <g id="screw"><circle r="3.8" fill="#1d2931" stroke="#8d9ba2"/><path d="m-1.6 1.2 3.2-2.4" stroke="#83909a"/></g>
+</defs>
+<rect width="384" height="480" fill="url(#steel)"/>
+<g fill="url(#insert)" stroke="#1d2932" stroke-width="5" stroke-linejoin="round">
+<path d="M9 14H216l25 26h124v109l-34 33H133l-32-30H9Z"/>
+<path d="M12 164h82l34 33h195l45-44v94l-62 62H98l-31-31H12Z"/>
+<path d="M12 292h49l31 31h109l26 29v111H12Z"/>
+<path d="M216 324h93l59-56v197H243V353Z"/>
+</g>
+<g fill="none" stroke="#9aa6ac" stroke-opacity=".6" stroke-width="1.25"><path d="M11 15h204l25 27h125M12 167h81l34 33h195M14 295h46l31 31h108M217 327h93l56-55"/></g>
+<path d="M262 55h80v44l-11 11h-69Z" fill="url(#louvre)" stroke="#25333d" stroke-width="3"/>
+<rect x="35" y="347" width="92" height="67" rx="4" fill="#33414a" stroke="#829097"/><path d="M46 358h69v35H46z" fill="url(#louvre)"/>
+<g fill="#26313a"><rect x="34" y="75" width="8" height="49" rx="2"/><rect x="288" y="374" width="37" height="6" rx="2"/><rect x="250" y="237" width="45" height="5" rx="2"/></g>
+<g><use href="#screw" x="22" y="27"/><use href="#screw" x="350" y="134"/><use href="#screw" x="145" y="167"/><use href="#screw" x="20" y="263"/><use href="#screw" x="302" y="288"/><use href="#screw" x="26" y="447"/><use href="#screw" x="347" y="449"/></g>
+</svg>

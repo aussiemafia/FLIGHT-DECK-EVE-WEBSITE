@@ -307,6 +307,35 @@ function floorAndCeiling(w,d,x,z){
  clad(ceiling,Math.ceil(w/600),Math.ceil(d/600),'ceiling-tile');
 }
 floorAndCeiling(490,passageEnd-passageStart,0,(passageStart+passageEnd)/2);
+// Service runs sit below the in-wall controls. Their octagonal sections and
+// raised collars show depth at walking distance without separate draw calls.
+function servicePipe(cx,cy,start,end,radius,material){
+ for(let j=0;j<8;j++){
+   const a=(j+.5)*Math.PI/4;
+   const surface=plane(material,2*radius*Math.tan(Math.PI/8),end-start,
+      cx+radius*Math.sin(a),cy-radius*Math.cos(a),(start+end)/2,0,90);
+   surface.style.transform+=' rotateY('+(-a)+'rad)';
+ }
+}
+for(const side of [-1,1]){
+ for(const [start,end] of [[1280,2310],[2770,3510]]){
+   for(const height of [210,257])servicePipe(side*219,height,start,end,11,'service-pipe');
+   for(let collar=start+65;collar<end-25;collar+=260)
+     for(const height of [210,257])servicePipe(side*219,height,collar,collar+13,14,'pipe-collar');
+ }
+ for(const z of [1430,1800,2170,2920,3290]){
+   block('case-edge',side*92,-207,z,61,29,51);
+   plane('lamp',43,32,side*92,-191,z,0,-90);
+ }
+}
+// Recessed guide rails and their diffuse spill run continuously down the residential corridor.
+for(const side of [-1,1]){
+ block('guide-channel',side*195,411,4440,16,10,2070);
+ plane('promenade-light',5,2060,side*195,404,4440,0,90);
+ plane('floor-spill',66,2060,side*172,414,4440,0,90);
+ block('guide-channel',side*220,-213,4440,17,18,2040);
+ plane('promenade-light',7,2025,side*220,-202,4440,0,-90);
+}
 windowWall(490,roomHeight,0,floorY-roomHeight/2,passageEnd,180,[0],320,180,-94);
 plaque('OBSERVATION   /   CREW QUARTERS',0,50,passageEnd-14,180,470);
 for(const side of [-1,1]){
@@ -502,7 +531,16 @@ function rebuildPicking(){
    if(el.parentElement.classList.contains('helm-assembly'))
       model=new DOMMatrix(el.parentElement.style.transform).multiply(model);
    const inv=model.inverse();
-   pickPlanes.push({el,inv,controls,solid,w:parseFloat(el.style.width),h:parseFloat(el.style.height)});
+   pickPlanes.push({el,inv,controls,solid,cx:model.m41,cy:model.m42,cz:model.m43,radius:Math.hypot(parseFloat(el.style.width),parseFloat(el.style.height))/2,w:parseFloat(el.style.width),h:parseFloat(el.style.height)});
+ }
+}
+function refreshHitBoxes(){
+ for(const p of pickPlanes){
+   if(!p.controls.length||!p.el.isConnected||!p.el.offsetWidth)continue;
+   p.boxes=p.controls.map(c=>{
+     const l=c.offsetLeft+p.el.clientLeft,t=c.offsetTop+p.el.clientTop;
+     return {control:c,l,t,r:l+c.offsetWidth,b:t+c.offsetHeight};
+   });
  }
 }
 function pickStation(clientX,clientY){
@@ -513,6 +551,10 @@ function pickStation(clientX,clientY){
  const eyeY=seated?105:0;
  let nearest=Infinity,hit=null;
  for(const p of pickPlanes){
+   const bx=p.cx-x,by=p.cy-eyeY,bz=p.cz-z;
+   const along=(bx*dx+by*dy+bz*wz)/(dx*dx+dy*dy+wz*wz);
+   if(along < -p.radius || along>nearest+p.radius || along>1900+p.radius)continue;
+   if((bx-along*dx)**2+(by-along*dy)**2+(bz-along*wz)**2>p.radius*p.radius)continue;
    const m=p.el===hologram?new DOMMatrix(hologram.style.transform).inverse():p.inv;
    const oz=m.m13*x+m.m23*eyeY+m.m33*z+m.m43;
    const vz=m.m13*dx+m.m23*dy+m.m33*wz;
@@ -532,15 +574,13 @@ function pickStation(clientX,clientY){
      }
      if(verts.length&&!inside)continue;
    }
-   const control=p.controls.find(c=>{
-      const l=c.offsetLeft+p.el.clientLeft,t=c.offsetTop+p.el.clientTop;
-      return u>=l&&u<=l+c.offsetWidth&&v>=t&&v<=t+c.offsetHeight;
-   });
+   const control=p.boxes?.find(b=>u>=b.l&&u<=b.r&&v>=b.t&&v<=b.b)?.control;
    nearest=dist;hit=control||(p.el.dataset.station?p.el:null);
  }
  return hit;
 }
-rebuildPicking();
+rebuildPicking();refreshHitBoxes();
+window.addEventListener('load',refreshHitBoxes);document.fonts.ready.then(refreshHitBoxes);
 document.addEventListener('pointerdown',e=>{
  if(panel.open||e.target.closest('header,footer,#jita-player,#use'))return;
  dragged=false;totalDrag=0;
@@ -558,7 +598,7 @@ document.addEventListener('click',e=>{
 $('use').onclick=()=>{if(target)activateStation(target)};
 window.addEventListener('keydown',e=>{
  if(panel.open)return;
- if(['KeyW','KeyS','KeyA','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();if(!keys.size)previous=performance.now();keys.add(e.code)}
+ if(['KeyW','KeyS','KeyA','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();keys.add(e.code)}
  if(e.code==='KeyE'&&!e.repeat){if(seated)standUp();else if(target)activateStation(target);}
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();drag=false});
@@ -592,8 +632,10 @@ function isClear(px,pz){
 }
 function resize(){const lens=Math.min(innerWidth*.59,innerHeight*.96);view.style.perspective=lens+'px';$('camera').style.transform='translateZ('+lens+'px)'}
 window.addEventListener('resize',resize);resize();
+let lastAim=-Infinity,lastHoloX,lastHoloZ;
 function frame(now){
- const dt=Math.max(0,Math.min(1,(now-previous)/1000));previous=now;
+ if(panel.open){previous=now;requestAnimationFrame(frame);return;}
+ const dt=Math.max(0,Math.min(.075,(now-previous)/1000));previous=now;
  const f=Number(keys.has('KeyW'))-Number(keys.has('KeyS')),r=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
  const step=dt*315/Math.max(1,Math.hypot(f,r));
  yaw+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.6;
@@ -605,15 +647,17 @@ function frame(now){
   if(isClear(nextX,z))x=nextX;
   if(isClear(x,nextZ))z=nextZ;
  }
- hologram.style.transform='translate3d(0,91px,'+holoZ+'px) rotateY('+Math.atan2(x,z-holoZ)+'rad)';
+ if(lastHoloX!==x||lastHoloZ!==z){hologram.style.transform='translate3d(0,91px,'+holoZ+'px) rotateY('+Math.atan2(x,z-holoZ)+'rad)';lastHoloX=x;lastHoloZ=z;}
  world.style.transform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(seated?-105:((r||f)?Math.sin(now*.012)*2:0))+'px,'+(-z)+'px)';
- target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);
- $('use').hidden=!target;if(target)$('use').textContent='E　'+target.dataset.station;
+ if(now-lastAim>55){target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);lastAim=now;}
+ $('use').hidden=!target;if(target && $('use').textContent!=='E　'+target.dataset.station)$('use').textContent='E　'+target.dataset.station;
  const sector=z<1200?'Flight deck':Math.abs(x)<245?'Aft passage':z>3650?(x>0?'Observation lounge':'Crew quarters'):(x>0?'Navigation lab':'Intelligence');
- $('sector').textContent=sector;
+ if($('sector').textContent!==sector)$('sector').textContent=sector;
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
- navDisplay.querySelector('.bearing').textContent=String(degrees).padStart(3,'0')+'°';
- if(window.drawExterior)window.drawExterior(x,z);
+ const bearing=navDisplay.querySelector('.bearing'),value=String(degrees).padStart(3,'0')+'°';
+ if(bearing.textContent!==value)bearing.textContent=value;
+ if(window.renderShip)window.renderShip(now,x,seated?105:0,z,yaw,pitch,parseFloat(view.style.perspective));
+ else window.drawExterior?.(x,z);
  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
