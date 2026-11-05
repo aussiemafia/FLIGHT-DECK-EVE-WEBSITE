@@ -12,19 +12,19 @@ function reserve(bytes){
   mem=wasm.memory.buffer;
 }
 async function initialize({canvas,scene,doorVertices,urls}){
-  const binary=await (await fetch('software.wasm?v=glazing-1')).arrayBuffer();
+  const binary=await (await fetch('software.wasm?v=titan-satin-1')).arrayBuffer();
   wasm=(await WebAssembly.instantiate(binary,{env:{abort:()=>{throw Error('Renderer allocation failed')}}})).instance.exports;
   for(const [leaf,index,x,z] of doorVertices){
     (verticesByLeaf[leaf]??=[]).push(index,x,z);
   }
-  sceneSize=scene.byteLength/68;images=scenePtr+scene.byteLength;display=images+urls.length*imageBytes;
+  sceneSize=scene.byteLength/68;images=scenePtr+scene.byteLength;display=images+(urls.length+1)*imageBytes;
   reserve(display+32);
   new Uint8Array(mem,scenePtr,scene.byteLength).set(new Uint8Array(scene));
   ctx=canvas.getContext('2d',{alpha:false});self.output=canvas;
   const tile=new OffscreenCanvas(1024,1024),ink=tile.getContext('2d',{willReadFrequently:true});
   await Promise.all(urls.map(async(url,i)=>{
     let bitmap;
-    if(url.endsWith('.svg')){
+    if(!url||url.endsWith('.svg')){
       // The main thread rasterizes authored vector materials at their native asset size.
       return;
     }
@@ -36,14 +36,14 @@ async function initialize({canvas,scene,doorVertices,urls}){
 }
 self.onmessage=async({data})=>{
  if(data.type==='init'){try{await initialize(data)}catch(e){self.postMessage({error:String(e)})}return;}
- if(data.type==='material'){new Uint8Array(mem,images+6*imageBytes,imageBytes).set(new Uint8Array(data.bytes));return;}
+ if(data.type==='material'){new Uint8Array(mem,images+13*imageBytes,imageBytes).set(new Uint8Array(data.lights));new Uint8Array(mem,images+6*imageBytes,imageBytes).set(new Uint8Array(data.bytes));return;}
  if(!wasm||!ctx)return;
  const {x,y,z,yaw,pitch,now}=data;
  const view=[x,y,z,yaw,pitch,data.w,data.h,...data.shifts.flat()].join('/');
  if(view!==lastView){lastMotion=now;lastView=view;}
  const detailed=now-lastMotion>450;
  // Resolve the stationary view at higher detail once, outside the walking budget.
- if(detailed&&lastDetail){self.postMessage('idle');return;}
+ if(detailed&&lastDetail){self.postMessage("idle");return;}
  lastDetail=detailed;
  const budget=detailed?Math.max(phaseBudget,950000):phaseBudget;
  const scale=Math.min(1,Math.sqrt(budget/(data.w*data.h)));
@@ -66,15 +66,12 @@ self.onmessage=async({data})=>{
    }
  }
  previousShifts=shifts;
- const redraw=pose!==paintedPose||now-lastMirror>250;
+ const redraw=pose!==paintedPose;
  if(redraw){
    workStart=performance.now();
    const args=[x,y,z,Math.sin(yaw),Math.cos(yaw),Math.sin(pitch),Math.cos(pitch)];
    const batchPtr=mirrorDepth+mw*mh*4;
    new Int32Array(mem,batchPtr,data.batches.length).set(data.batches);
-   if(now-lastMirror>250){
-     wasm.render(scenePtr,batchPtr,data.batches.length/2,mirror,mirrorDepth,images,mw,mh,...args,lens*mw/w,1,0,0,0);lastMirror=now;
-   }
    wasm.render(scenePtr,batchPtr,data.batches.length/2,display,depth,images,w,h,...args,lens,0,mirror,mw,mh);
    ctx.putImageData(pixels,0,0);paintedPose=pose;
    avgDraw=avgDraw*.85+(performance.now()-workStart)*.15;

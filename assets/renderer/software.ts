@@ -63,8 +63,9 @@ function triangle(a:usize,b:usize,c:usize,color:u32,kind:i32):void{
      if(kind==1&&!reflected){
        const u=(wa*au+wb*bu+wc*cu)/z,v=(wa*av+wb*bv+wc*cv)/z;
        const tile=tex(10,u-Math.floor(u),v-Math.floor(v));
-       const reflectionColor=filtered(reflection,reflW,reflH,(f64(x)+.5)*reflW/width-.5,(f64(y)+.5)*reflH/height-.5);
-       pixel=blend(tile,reflectionColor,102);
+       const light=filtered(texture+usize(13<<22),1024,1024,(u*360.+2400.)*1023./4800.,(v*360.+3000.)*1023./22000.);
+       const base=blend(tile,0xff000000,61);
+       pixel=base+((light>>2)&0x003f3f3f);
      }
      store<f32>(depths+addr,f32(z));store<u32>(buffer+addr,pixel|0xff000000);
    }

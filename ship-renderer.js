@@ -15,6 +15,30 @@
    const m=new DOMMatrix(el.style.transform);
    return el.parentElement.classList.contains('helm-assembly')?new DOMMatrix(el.parentElement.style.transform).multiply(m):m;
  };
+ // Bake broad pools from the ship's actual luminaires into a single lighting map.
+ const lightMap=document.createElement('canvas');
+ lightMap.width=lightMap.height=1024;
+ const lightInk=lightMap.getContext('2d');
+ lightInk.fillStyle='black';lightInk.fillRect(0,0,1024,1024);
+ lightInk.globalCompositeOperation='lighter';
+ function lightPool(x,z,radius,strength,warm){
+   lightInk.save();
+   lightInk.translate((x+2400)*1024/4800,(z+3000)*1024/22000);
+   lightInk.scale(radius*1024/4800,radius*1024/22000);
+   const ramp=lightInk.createRadialGradient(0,0,0,0,0,1);
+   const rgb=warm?'235,153,85':'84,184,240';
+   ramp.addColorStop(0,'rgba('+rgb+','+strength+')');
+   ramp.addColorStop(.4,'rgba('+rgb+','+(strength*.45)+')');
+   ramp.addColorStop(1,'rgba('+rgb+',0)');
+   lightInk.fillStyle=ramp;lightInk.fillRect(-1,-1,2,2);lightInk.restore();
+ }
+ for(const el of all.filter(el=>el.matches('.lamp,.glass-light,.lab-wash,.promenade-light'))){
+   const m=matrixFor(el);
+   lightPool(m.m41,m.m43,320,.48,el.matches('.lamp'));
+ }
+ for(const cabinet of cabinetFootprints){
+   lightPool(cabinet.wx+cabinet.nx*135,cabinet.wz+cabinet.nz*135,360,.7,false);
+ }
  function room(x,z){return z<1230?'bridge':Math.abs(x)<285?'passage':(x<0?'left':'right')+(z<3630?'lab':'aft');}
  const live=all.filter(e=>e.matches(nativeSelector)).map(el=>{const m=matrixFor(el);return {el,radius:Math.hypot(parseFloat(el.style.width),parseFloat(el.style.height))*.52,room:room(m.m41,m.m43)};});
  
@@ -219,7 +243,7 @@
    for(const panel of formedPanels){
      const pts=panel.points.map(([x,y,z])=>({x,y,z}));
      const cx=pts.reduce((v,p)=>v+p.x,0)/4,cy=pts.reduce((v,p)=>v+p.y,0)/4,cz=pts.reduce((v,p)=>v+p.z,0)/4;
-     const fill=panel.darkLeaf&&panel.finish==='pearl'?'#34414a':{glass:'#73929e',oxblood:'#923c36',pearl:'#a6b7bb',alloy:'#73858e',gasket:'#263642',glasslight:'#c8f4fb',upholstery:'#c4b9a5',sienna:'#b47148',bronze:'#79766c',smoked:'#40525a',warmline:'#edc78a',titanGold:'#be9d61',titanBronze:'#8b713e',titanIron:'#62594a',titanDark:'#302f30'}[panel.finish];
+     const fill=panel.darkLeaf&&panel.finish==='pearl'?'#34414a':{glass:'#73929e',hazardYellow:'#e4b333',hazardBlack:'#23272a',oxblood:'#923c36',pearl:'#a6b7bb',alloy:'#73858e',gasket:'#263642',glasslight:'#c8f4fb',upholstery:'#c4b9a5',sienna:'#b47148',bronze:'#79766c',smoked:'#40525a',warmline:'#edc78a',titanGold:'#be9d61',titanBronze:'#8b713e',titanIron:'#62594a',titanDark:'#302f30'}[panel.finish];
      const textured=panel.skin;
      items.push({pts,a:panel.plating?'plating':textured?'avatar':null,poly:panel.plating||(textured?panel.points.map(avatarUV):null),avatar:panel.avatar,distant:!!panel.distant,leaf:panel.leaf,kind:panel.finish,fill,cx,cy,cz,nx:0,ny:0,nz:0,size:Math.max(...pts.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),two:true,zone:room(cx,cz)});
    }
@@ -243,7 +267,7 @@
      const word=(255<<24)|(rgb[2]<<16)|(rgb[1]<<8)|rgb[0];
      for(let i=0;i<sides.length;i+=3){
        for(const n of sides.slice(i,i+3)){
-         const p=pts[n];if(item.leaf!==undefined)doorVertices.push([item.leaf,packed.length,p.x,p.z]);packed.push(p.x,p.y,p.z,item.kind==='floor'?p.x/290:uv[n][0],item.kind==='floor'?p.z/435:uv[n][1]);
+         const p=pts[n];if(item.leaf!==undefined)doorVertices.push([item.leaf,packed.length,p.x,p.z]);packed.push(p.x,p.y,p.z,item.kind==='floor'?p.x/360:uv[n][0],item.kind==='floor'?p.z/360:uv[n][1]);
        }
        packed.push(word,item.kind==='glass'?2:item.kind==='floor'?1:(kindOf[item.a]||0));
      }
@@ -255,14 +279,15 @@
    const scene=new Float32Array(packed),words=new Int32Array(scene.buffer);
    for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
    const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
-   for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/promenade-2k.webp','assets/avatar-armour.webp','assets/avatar-gallery.webp'])urls.push(new URL(path,document.baseURI).href);
-   const worker=new Worker('assets/renderer/worker.js?v=glazing-1'),offscreen=canvas.transferControlToOffscreen();
+   for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/satin-deck.webp','assets/avatar-armour.webp','assets/avatar-gallery.webp'])urls.push(new URL(path,document.baseURI).href);
+   const worker=new Worker('assets/renderer/worker.js?v=titan-satin-1'),offscreen=canvas.transferControlToOffscreen();
    let ready=false,pending=false;
    worker.onmessage=({data})=>{
      if(data==='ready'){
        const img=new Image();img.onload=()=>{const bitmap=document.createElement('canvas');bitmap.width=bitmap.height=1024;
          const ink=bitmap.getContext('2d');ink.drawImage(img,0,0,1024,1024);const bytes=ink.getImageData(0,0,1024,1024).data.buffer;
-         worker.postMessage({type:'material',bytes},[bytes]);ready=true;};img.src=urls[6];
+         const lights=lightInk.getImageData(0,0,1024,1024).data.buffer;
+         worker.postMessage({type:'material',bytes,lights},[bytes,lights]);ready=true;};img.src=urls[6];
      }
      if(data==='frame'||data==='idle'){pending=false;if(data==='frame')window.presentedShipFrames=(window.presentedShipFrames||0)+1;}
      if(data?.error)console.error(data.error);
@@ -282,9 +307,9 @@
    shell:['#8b999e','metal'],white:['#d3dadd','metal'],dark:['#384954','metal'],pad:['#6a7c84','pad'],
    ivory:['#e4e8df','pad'],copper:['#d4995c','metal'],screen:['#367387','display'],
    warm:['#ae967b','metal'],linen:['#bcb7a9','pad'],crest:['#ffffff','image'],orbital:['#ffffff','image'],
-   drifting:['#ffffff','image'],ring:['#75d5ec','ring'],sky:['#ffffff','sky'],titanGold:['#be9d61','metal'],titanBronze:['#8b713e','metal'],titanIron:['#62594a','metal'],titanDark:['#302f30','metal'],oxblood:['#923c36','metal']
+   drifting:['#ffffff','image'],ring:['#75d5ec','ring'],sky:['#ffffff','sky'],titanGold:['#be9d61','metal'],titanBronze:['#8b713e','metal'],titanIron:['#62594a','metal'],titanDark:['#302f30','metal'],hazardYellow:['#e4b333','metal'],hazardBlack:['#23272a','metal'],oxblood:['#923c36','metal']
  };
- const names=Object.keys(materialDefs),tile=512,atlas=document.createElement('canvas');atlas.width=4096;atlas.height=2048;
+ const names=Object.keys(materialDefs),tile=512,atlas=document.createElement('canvas');atlas.width=4096;atlas.height=2**Math.ceil(Math.log2(Math.ceil(names.length/8)*tile));
  const ctx=atlas.getContext('2d');
  function tileOrigin(name){const i=names.indexOf(name);return [(i%8)*tile,Math.floor(i/8)*tile];}
  for(const [name,[color,pattern]] of Object.entries(materialDefs)){
@@ -351,7 +376,7 @@
  if(kind>4.5&&kind<5.5)gl_Position.z=depth;}`));
  gl.attachShader(pr,shader(gl.FRAGMENT_SHADER,`
  precision highp float;varying vec2 tex;varying vec3 wp,norm;varying float type;
- uniform sampler2D galleryFinish,avatarFinish;uniform sampler2D wallFinish,deckFinish,sheet,reflected,displays;uniform float moving;uniform samplerCube space;uniform vec2 viewport;uniform float mirror;uniform vec3 eye;
+ uniform sampler2D galleryFinish,avatarFinish;uniform sampler2D wallFinish,deckFinish,sheet,reflected,displays;uniform float moving;uniform sampler2D lighting;uniform samplerCube space;uniform vec2 viewport;uniform float mirror;uniform vec3 eye;
  void main(){
  if(type>7.5){gl_FragColor=vec4(texture2D(galleryFinish,tex).rgb,1.);return;}
  if(type>6.5){gl_FragColor=vec4(texture2D(avatarFinish,tex).rgb,1.);return;}
@@ -363,12 +388,8 @@
  vec4 base=type<-.5?texture2D(wallFinish,tex):texture2D(sheet,tex);if(base.a<.12)discard;
  vec3 n=normalize(norm);vec3 direction=normalize(wp-eye);float facing=abs(dot(n,direction));
  if(type>.5&&type<1.5){
- if(mirror>.5)discard;
- base=texture2D(deckFinish,wp.xz/vec2(290.,435.));
- vec2 uv=gl_FragCoord.xy/viewport,blur=(vec2(.85)+1.2*facing)/viewport;
- vec3 reflection=texture2D(reflected,uv).rgb;
-
- gl_FragColor=vec4(mix(base.rgb*.81,reflection,.28+.36*pow(1.-facing,2.)),1.);return;}
+ vec3 light=texture2D(lighting,(wp.xz+vec2(2400.,3000.))/vec2(4800.,22000.)).rgb;
+ gl_FragColor=vec4(texture2D(deckFinish,wp.xz/360.).rgb*.76+light*(.23+.13*(1.-facing)),1.);return;}
  if(type>1.5&&type<2.5){gl_FragColor=vec4(.27,.45,.53,.13+.21*pow(1.-facing,3.));return;}
  if(type>2.5){gl_FragColor=base;return;}
  float light=.71+.25*max(0.,dot(n,normalize(vec3(-.45,-.8,.32))));
@@ -376,7 +397,7 @@
  vec3 env=textureCube(space,vec3(ray.x,-ray.y,-ray.z)).rgb;
  gl_FragColor=vec4(mix(base.rgb*light,env,.025+.10*pow(1.-facing,3.)),base.a);}`));
  gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);
- const uniforms=Object.fromEntries(['galleryFinish','avatarFinish','wallFinish','deckFinish','leafOffset','eye','angles','proj','mirror','clock','sheet','reflected','space','viewport','displays','moving'].map(k=>[k,gl.getUniformLocation(pr,k)]));
+ const uniforms=Object.fromEntries(['lighting','galleryFinish','avatarFinish','wallFinish','deckFinish','leafOffset','eye','angles','proj','mirror','clock','sheet','reflected','space','viewport','displays','moving'].map(k=>[k,gl.getUniformLocation(pr,k)]));
  const atlasTex=gl.createTexture();
  function updateAtlas(){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,atlasTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,atlas);gl.generateMipmap(gl.TEXTURE_2D);}
  updateAtlas();gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
@@ -399,7 +420,11 @@
  surfaceTexture(7,uniforms.galleryFinish,'assets/avatar-gallery.webp');
  surfaceTexture(6,uniforms.avatarFinish,'assets/avatar-armour.webp');
  surfaceTexture(4,uniforms.wallFinish,'assets/bulkhead-2k.webp');
- surfaceTexture(5,uniforms.deckFinish,'assets/promenade-2k.webp');
+ surfaceTexture(5,uniforms.deckFinish,'assets/satin-deck.webp');
+ const lightingTex=gl.createTexture();gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,lightingTex);
+ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,lightMap);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+ gl.uniform1i(uniforms.lighting,2);
  Promise.all(['px','nx','py','ny','pz','nz'].map(f=>loadImage('assets/forge/'+f+'.webp'))).then(imgs=>{
    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_CUBE_MAP,cube);imgs.forEach((im,i)=>gl.texImage2D(gl['TEXTURE_CUBE_MAP_'+cubeTargets[i]],0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,im));
  });
@@ -475,7 +500,7 @@
  for(const panel of formedPanels){
    const [a,b,,d]=panel.points,e=b.map((v,i)=>v-a[i]),f=d.map((v,i)=>v-a[i]);
    const n=[e[1]*f[2]-e[2]*f[1],e[2]*f[0]-e[0]*f[2],e[0]*f[1]-e[1]*f[0]];
-   const len=Math.hypot(...n)||1;const name=panel.darkLeaf&&panel.finish==='pearl'?'dark':{oxblood:'oxblood',pearl:'white',alloy:'shell',gasket:'dark',glasslight:'cyan',upholstery:'linen',sienna:'copper',bronze:'warm',smoked:'dark',warmline:'lamp',glass:'window',titanGold:'titanGold',titanBronze:'titanBronze',titanIron:'titanIron',titanDark:'titanDark'}[panel.finish];
+   const len=Math.hypot(...n)||1;const name=panel.darkLeaf&&panel.finish==='pearl'?'dark':{hazardYellow:'hazardYellow',hazardBlack:'hazardBlack',oxblood:'oxblood',pearl:'white',alloy:'shell',gasket:'dark',glasslight:'cyan',upholstery:'linen',sienna:'copper',bronze:'warm',smoked:'dark',warmline:'lamp',glass:'window',titanGold:'titanGold',titanBronze:'titanBronze',titanIron:'titanIron',titanDark:'titanDark'}[panel.finish];
    const [tx,ty]=tileOrigin(name),key=panel.leaf===undefined?(panel.avatar?'avatar/':'')+Math.floor(a[0]/(panel.avatar?110000:500))+'/'+Math.floor(a[2]/(panel.avatar?110000:700))+':solid':(panel.distant?'farleaf':'leaf')+panel.leaf+(name==='window'?':glass':':solid');if(!groups.has(key))groups.set(key,[]);
    for(const i of panel.points[2].every((v,j)=>v===d[j])?[0,1,2]:[0,1,2,0,2,3]){
      const v=panel.points[i];
@@ -511,21 +536,12 @@
  for(const [key,n,offset] of [['position',3,0],['normal',3,3],['uv',2,6],['kind',1,8]]){
    const i=gl.getAttribLocation(pr,key);gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,n,gl.FLOAT,false,36,offset*4);
  }
- const mirrorTex=gl.createTexture();gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,mirrorTex);
- let rw=0,rh=0,mirrorWidth=0,mirrorHeight=0;
- for(const k of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,k,gl.LINEAR);
- for(const k of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,k,gl.CLAMP_TO_EDGE);
- const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,mirrorTex,0);
- const depth=gl.createRenderbuffer();gl.bindRenderbuffer(gl.RENDERBUFFER,depth);gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.RENDERBUFFER,depth);gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+ let rw=0,rh=0;
  gl.uniform1i(uniforms.displays,3);gl.uniform1i(uniforms.sheet,0);gl.uniform1i(uniforms.space,1);gl.uniform1i(uniforms.reflected,2);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.clearColor(.025,.046,.065,1);
  view.prepend(canvas);document.documentElement.classList.add('accelerated-ship');
  for(const item of live)item.el.classList.add('live-display');
  const visibleElements=new Set(live.map(i=>i.el));
  for(const el of all)if(!visibleElements.has(el))el.remove();
- const gpuInfo=gl.getExtension('WEBGL_debug_renderer_info');
- const software=gpuInfo&&/swiftshader|llvmpipe|software/i.test(gl.getParameter(gpuInfo.UNMASKED_RENDERER_WEBGL));
-
- let lastReflection=-Infinity;
  let previousPose=null,lastDraw=0,slowFrames=0,fastFrames=0,resolutionScale=1;
 
  window.renderShip=(now,ex,ey,ez,yaw,pitch,lens)=>{
@@ -542,25 +558,16 @@
    
    const pose=[ex,ey,ez,yaw,pitch,innerWidth,innerHeight,pixelRatio].join('/');
    const cycling=hatches.some(d=>d.openness>0&&d.openness<1);
-   if(previousPose===pose && !cycling && now-lastReflection<125)return;
+   if(previousPose===pose && !cycling)return;
    visibleRanges=selectRanges(ranges,ex,ey,ez,yaw,pitch,lens);
    previousPose=pose;
    gl.uniform1f(uniforms.moving,0);
    const w=Math.round(innerWidth*pixelRatio),h=Math.round(innerHeight*pixelRatio);
    if(rw!==w||rh!==h){
      canvas.width=rw=w;canvas.height=rh=h;
-     mirrorWidth=Math.max(1,Math.round(w*.32));mirrorHeight=Math.max(1,Math.round(h*.32));
-     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,mirrorTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,mirrorWidth,mirrorHeight,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
-     gl.bindRenderbuffer(gl.RENDERBUFFER,depth);gl.renderbufferStorage(gl.RENDERBUFFER,gl.DEPTH_COMPONENT16,mirrorWidth,mirrorHeight);
-     lastReflection=-Infinity;
    }
    gl.uniform3f(uniforms.eye,ex,ey,ez);gl.uniform4f(uniforms.angles,Math.sin(yaw),Math.cos(yaw),Math.sin(pitch),Math.cos(pitch));
    gl.uniform2f(uniforms.proj,2*lens/innerWidth,2*lens/innerHeight);gl.uniform1f(uniforms.clock,now*.001);
-   if(now-lastReflection>=(software?240:125)){
-     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,null);gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.viewport(0,0,mirrorWidth,mirrorHeight);
-     gl.uniform1f(uniforms.mirror,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);draw('solid');
-     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.bindTexture(gl.TEXTURE_2D,mirrorTex);lastReflection=now;
-   }
    gl.viewport(0,0,w,h);gl.uniform2f(uniforms.viewport,w,h);gl.uniform1f(uniforms.mirror,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
    draw('solid');gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
    draw('glass');gl.depthMask(true);gl.disable(gl.BLEND);

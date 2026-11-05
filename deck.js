@@ -459,6 +459,15 @@ function fitHatch(x,z,angle,panoramic){
  const a=angle*Math.PI/180,ux=Math.cos(a),uz=-Math.sin(a),nx=-uz,nz=ux;
  const id=hatches.length,door={x,z,ux,uz,openness:0,panoramic};
  hatches.push(door);
+ // Paired hazard bands run along both approaches, aligned with the doorway.
+ for(const side of [-1,1])for(const direction of [-1,1]){
+   const point=(u,d)=>[x+u*ux+d*nx,floorY-1.5,z+u*uz+d*nz];
+   for(let i=0;i<10;i++){
+     const u=side*126,d=direction*(90+i*20);
+     formedQuad([point(u,d),point(u+16,d+direction*10),
+       point(u+16,d+direction*30),point(u,d+direction*20)],i%2?'hazardBlack':'hazardYellow');
+   }
+ }
  // The offset joint makes a fitted tooth through the full depth of both leaves.
  const seamKeys=[[-117,0],[portTop,0],[portTop+portBevel,0],[26,0],[61,28],[130,28],[165,0],[276,0],[303,-19],[portBottom-portBevel,-19],[portBottom,-19],[356,-19],[379,0],[416,0]];
  const levels=new Set(seamKeys.map(k=>k[0]));
@@ -804,6 +813,25 @@ for(const side of [-1,1])for(let bay=0;bay<3;bay++){
      if(k>0&&k<5){plate([face[0],face[k],face[n],face[n]],'titanIron');const f=formedPanels.at(-1);f.plating=[0,k,n,n].map(i=>[.04+((bay+row)%3)*.16+(outline[i][0]+720)/1460*.57,.04+((bay*2+row)%3)*.15+(outline[i][1]+460)/830*.6]);}
    }
    for(let k=0;k<9;k++){const u=-510+k*120;if((bay+row+k)%5===0)continue;plate([project(u,411,26),project(u+26,411,26),project(u+26,425,26),project(u,425,26)],'warmline');}
+ }
+}
+// Layered shoulder armour projects from the dorsal collar over the observation spar.
+for(const side of [-1,1]){
+ for(let row=0;row<3;row++){
+   const root=outerLockZ-3500+row*740;
+   const tip=padCenter+1350-row*520;
+   const sections=[[root,55,1320,-1070],[outerLockZ,80,980,-1280],
+     [padStart+340,130,700,-1580],[tip,260,360,-1800]];
+   let last;
+   for(const [z,inner,outer,y] of sections){
+     const surface=(u,v)=>[side*(u+row*585),y+v-row*225,z];
+     const rib=[surface(inner,0),surface(inner+48,30),surface(outer-48,65),surface(outer,12),surface(outer,-80)];
+     if(last)for(let n=0;n<4;n++){
+       plate([last[n],last[n+1],rib[n+1],rib[n]],['titanGold','titanIron','titanBronze','titanDark'][n]);
+       if(n===1)formedPanels.at(-1).plating=[[.12,.11],[.85,.11],[.85,.84],[.12,.84]];
+     }
+     last=rib;
+   }
  }
 }
 for(let i=avatarStart;i<formedPanels.length;i++)formedPanels[i].avatar=true;
