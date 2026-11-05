@@ -51,6 +51,10 @@ function triangle(a:usize,b:usize,c:usize,color:u32,kind:i32):void{
    for(let x=start;x<=end;x++,addr+=4,wa+=da,wb+=db){
      const wc=1.0-wa-wb;if(wa<-.0001||wb<-.0001||wc<-.0001)continue;
      const z=za*wa+zb*wb+zc*wc;if(z<=load<f32>(depths+addr))continue;
+     if(kind==2){
+       store<u32>(buffer+addr,blend(load<u32>(buffer+addr),color,42));
+       continue;
+     }
      let pixel=color;
      if(kind>=6){pixel=tex(kind,(wa*au+wb*bu+wc*cu)/z,(wa*av+wb*bv+wc*cv)/z);if((pixel>>24)<64)continue;}
      if(kind==6){
@@ -69,8 +73,12 @@ function triangle(a:usize,b:usize,c:usize,color:u32,kind:i32):void{
 export function render(base:usize,batches:usize,batchCount:i32,target:usize,depth:usize,images:usize,w:i32,h:i32,ex:f64,ey:f64,ez:f64,sine:f64,cosine:f64,sinp:f64,cosp:f64,f:f64,mirror:bool,mirrorBuf:usize,mw:i32,mh:i32):void{
  width=w;height=h;buffer=target;depths=depth;texture=images;eyesX=ex;eyesY=ey;eyesZ=ez;sy=sine;cy=cosine;sp=sinp;cp=cosp;lens=f;reflected=mirror;reflection=mirrorBuf;reflW=mw;reflH=mh;
  memory.fill(depth,0,usize(w*h*4));
+ const passes:i32=mirror?1:2;
+ for(let pass=0;pass < passes;pass++){
  for(let group=0;group<batchCount;group++){
- const entry=batches+usize(group*8),count=load<i32>(entry+4);
+ const entry=batches+usize(group*8),signedCount=load<i32>(entry+4);
+ if((signedCount<0)!=(pass==1))continue;
+ const count=abs(signedCount);
  let scene=base+usize(load<i32>(entry)*68);
  for(let n=0;n<count;n++,scene+=68){
    const kind=load<i32>(scene+64);if(mirror&&kind==1)continue;
@@ -94,10 +102,14 @@ export function render(base:usize,batches:usize,batchCount:i32,target:usize,dept
    for(let i=1;i<num-1;i++)triangle(clip,clip+usize(i*20),clip+usize((i+1)*20),col,kind);
  }
  }
+
+ if(pass==0){
  for(let y=0;y<h;y++){
    const v=(f32(y)+.5-f32(h)*.5)/f,vert=cp*v+sp,fr=sp*v-cp;
    for(let x=0;x<w;x++){const a=usize((y*w+x)<<2);if(load<f32>(depth+a)>0)continue;
      const u=(f32(x)+.5-f32(w)*.5)/f;store<u32>(target+a,sky(cy*u-sy*fr,mirror?vert:-vert,-(sy*u+cy*fr)));
    }
+ }
+ }
  }
 }

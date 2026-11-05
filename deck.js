@@ -452,7 +452,7 @@ function insideWeb(u,y){
 }
 function portHalf(y){
  const offset=Math.max(0,portTop+portBevel-y,y-portBottom+portBevel);
- return portHalfWidth-portBevel+Math.sqrt(Math.max(0,portBevel*portBevel-offset*offset));
+ return portHalfWidth-offset;
 }
 
 function fitHatch(x,z,angle,panoramic){
@@ -472,7 +472,7 @@ function fitHatch(x,z,angle,panoramic){
  });
  for(const side of [-1,1]){
    const vertex=(u,y,d)=>[x+u*ux+d*nx,y,z+u*uz+d*nz];
-   const face=(points,finish,mask=true)=>formedPanels.push({points:points.map(q=>vertex(...q)),finish,mask,leaf:id*2+(side===1?1:0)});
+   const face=(points,finish,mask=true)=>formedPanels.push({points:points.map(q=>vertex(...q)),finish,mask,darkLeaf:panoramic,leaf:id*2+(side===1?1:0)});
    // Distant hatches keep their solid outline and open window in six strips.
    const coarseStart=formedPanels.length,farPlane=0;
    const strip=(a,b,top,bottom,finish)=>face([[side*a,top,farPlane],[side*b,top,farPlane],[side*b,bottom,farPlane],[side*a,bottom,farPlane]],finish,false);
@@ -480,7 +480,10 @@ function fitHatch(x,z,angle,panoramic){
    strip(0,portCentre-portHalfWidth,portTop,portBottom,'pearl');
    strip(portCentre+portHalfWidth,168,portTop,portBottom,'pearl');
    strip(portCentre-portHalfWidth,portCentre+portHalfWidth,portTop,portBottom,'glass');
-   if(!panoramic)strip(42,145,176,186,'sienna');
+   if(!panoramic)for(const [a,b,c,d,w] of hatchWebs){
+     const length=Math.hypot(c-a,d-b),du=-(d-b)*w/(2*length),dy=(c-a)*w/(2*length);
+     face([[side*(a+du),b+dy,1],[side*(c+du),d+dy,1],[side*(c-du),d-dy,1],[side*(a-du),b-dy,1]],'oxblood',false);
+   }
    for(let i=coarseStart;i<formedPanels.length;i++)formedPanels[i].distant=true;
    for(let j=1;j<seam.length;j++){
      const [top,start]=seam[j-1],[bottom,end]=seam[j];
@@ -498,10 +501,8 @@ function fitHatch(x,z,angle,panoramic){
    }
    const loop=(inset,depth)=>{
      const lo=portCentre-portHalfWidth+inset,hi=portCentre+portHalfWidth-inset,t=portTop+inset,b=portBottom-inset,k=portBevel;
-     const contour=[];
-     for(const [cx,cy,angle] of [[hi-k,t+k,-90],[hi-k,b-k,0],[lo+k,b-k,90],[lo+k,t+k,180]]){
-       for(let j=0;j<=4;j++){const rad=(angle+j*22.5)*Math.PI/180;contour.push([side*(cx+k*Math.cos(rad)),cy+k*Math.sin(rad),depth])}
-     }return contour;
+     return [[lo+k,t],[hi-k,t],[hi,t+k],[hi,b-k],[hi-k,b],[lo+k,b],[lo,b-k],[lo,t+k]]
+       .map(([u,y])=>[side*u,y,depth]);
    };
    for(const sign of [-1,1]){
      const rings=[loop(-4,11*sign),loop(1,13*sign),loop(5,9*sign),loop(7,2*sign)];
@@ -527,6 +528,11 @@ function fitHatch(x,z,angle,panoramic){
      face([[side*149,-94,d],[side*162,-94,d],[side*162,-71,d],[side*149,-82,d]],'gasket');
      face([[side*7,-96,d],[side*10,-96,d],[side*10,-14,d],[side*7,-14,d]],'glasslight');
    }
+   // Fine paired edge markings on the glazing, as on the smoked-glass reference.
+   for(const sign of [-1,1])for(const height of [-43,267]){
+     const d=sign*3;
+     face([[side*56,height,d],[side*80,height,d],[side*80,height+1.5,d],[side*56,height+1.5,d]],'glasslight',false);
+   }
    const rim=loop(7,0);for(let i=1;i<rim.length-1;i++)face([rim[0],rim[i],rim[i+1],rim[i+1]],'glass');
    for(const [a,b,c,d,width] of panoramic?[]:hatchWebs){
      const len=Math.hypot(c-a,d-b),du=-(d-b)/len,dv=(c-a)/len;
@@ -544,7 +550,7 @@ function fitHatch(x,z,angle,panoramic){
        const accent=capsule(width*.19,sign*14.4);
        for(let i=0;i<edge.length;i++){const j=(i+1)%edge.length;face([edge[i],edge[j],faceRing[j],faceRing[i]],'alloy')}
        if(sign===1)webOccluders.push({points:faceRing.map(q=>vertex(...q)),leaf:id*2+(side===1?1:0)});
-       for(const [ring,finish] of [[faceRing,'pearl'],[accent,'sienna']])for(let i=1;i<ring.length-1;i++)face([ring[0],ring[i],ring[i+1],ring[i+1]],finish,false);
+       for(const [ring,finish] of [[faceRing,'pearl'],[accent,'oxblood']])for(let i=1;i<ring.length-1;i++)face([ring[0],ring[i],ring[i+1],ring[i+1]],finish,false);
      }
    }
    for(const d of [-11,11])face([[side*157,141,d],[side*161,141,d],[side*161,202,d],[side*157,202,d]],'glasslight');
@@ -620,8 +626,8 @@ function hatchCollar(x,z,angle,panoramic=false){
 }
 bulkhead(0,passageStart,1586,992,360,180);
 hatchCollar(0,passageStart,180);
-plaque('AFT  /  STATION ACCESS',0,-165,1195,180,420);
-plaque('FLIGHT DECK',0,-162,1252,0);
+plaque('AVATAR  /  COMMAND DECKS',0,-165,1195,180,420);
+plaque('AVATAR  /  FLIGHT DECK',0,-162,1252,0);
 function floorAndCeiling(w,d,x,z){
  const floor=plane('extension-floor',w,d,x,floorY,z,0,90);
  const ceiling=plane('extension-ceiling',w,d,x,floorY-roomHeight,z,0,-90);
@@ -669,7 +675,7 @@ for(const side of [-1,1]){
 }
 for(const zz of [passageEnd,outerLockZ]){
  bulkhead(0,zz,490,roomHeight,360,180);hatchCollar(0,zz,180,zz===outerLockZ);
- plaque(zz===passageEnd?'AFT OBSERVATION · AIRLOCK':'EXTERIOR DECK',0,-174,zz-55,180,370);
+ plaque(zz===passageEnd?'AFT OBSERVATION · AIRLOCK':'AVATAR  /  HULL ACCESS',0,-174,zz-55,180,370);
 }
 const innerDoor=hatches[hatches.length-2],outerDoor=hatches.at(-1);
 innerDoor.interlock=outerDoor;outerDoor.interlock=innerDoor;
@@ -764,18 +770,30 @@ for(const end of [avatarStations[0],avatarStations.at(-1)]){
 // Flared armour around the docking blister meets the airlock on all sides.
 // Keep the opening aligned with the existing door and walkable gangway.
 // A projecting observation spar places the deck clear of the curvature.
-const collarSections=[[-568000,16500,-8500,15600],[-422000,11900,-6700,11600],[-198000,7300,-4300,7060],[-65000,4440,-2600,3900],[-14700,2270,-1340,1780],[-2100,1450,-990,1030],[-380,535,-355,550],[-15,248,-226,425]];
+// From the Titan flank to the outer airlock, one continuous armoured
+// command section encloses the bridge, labs and accommodation. The final
+// section stops at the hatch; the gangway and platform are outside it.
+const collarSections=[[-568000,16500,-8500,15600],[-422000,11900,-6700,11600],
+ [-198000,7300,-4300,7060],[-65000,4440,-2600,3900],[-17500,2830,-1640,1980],
+ [-15500,2610,-1420,1780],[-12300,2370,-1170,1520],[-8100,2160,-1040,1380],
+ [-2700,1950,-900,1190],[-1150,1650,-790,1020],[-700,740,-450,655],[-15,249,-226,426]];
+function commandRing([dz,w,top,bottom]){
+ const bevel=Math.min(w*.24,(bottom-top)*.2),z=outerLockZ+dz;
+ return [[-w+bevel,top],[w-bevel,top],[w,top+bevel],[w,bottom-bevel],
+   [w-bevel,bottom],[-w+bevel,bottom],[-w,bottom-bevel],[-w,top+bevel]].map(([x,y])=>[x,y,z]);
+}
 for(let i=1;i<collarSections.length;i++){
- const ring=([dz,w,top,bottom])=>[[-w,top,outerLockZ+dz],[w,top,outerLockZ+dz],[w,bottom,outerLockZ+dz],[-w,bottom,outerLockZ+dz]];
- const a=ring(collarSections[i-1]),b=ring(collarSections[i]);
- for(let j=0;j<4;j++){const k=(j+1)%4;formedQuad([a[j],a[k],b[k],b[j]],j===0?'titanGold':'titanIron')}
+ const a=commandRing(collarSections[i-1]),b=commandRing(collarSections[i]);
+ for(let j=0;j<8;j++){
+   const k=(j+1)%8;plate([a[j],a[k],b[k],b[j]],j%2?'titanBronze':'titanIron');
+ }
 }
 // Maintenance galleries flank the pressure port. Human-sized windows and
 // separate projecting armour courses carry the sense of scale up to the rail.
 for(const side of [-1,1])for(let bay=0;bay<3;bay++){
  const along=-3700-bay*3000;
  // The spar tapers from 2,270 to 1,450 units over this section.
- const halfWidth=z=>1450+(-2100-z)*(2270-1450)/12600;
+ const halfWidth=z=>{const i=collarSections.findIndex(s=>s[0]>=z),a=collarSections[i-1],b=collarSections[i];return a[1]+(b[1]-a[1])*(z-a[0])/(b[0]-a[0]);};
  for(let row=0;row<2;row++){
    const y=-530+row*870;
    const project=(u,v,relief)=>[side*(halfWidth(along+u)+relief),y+v,outerLockZ+along+u];
@@ -963,7 +981,7 @@ const navDisplay=plane('course-display',440,62,0,-452,-783);
 navDisplay.innerHTML='<strong>VIEW BEARING</strong><span class="bearing">000°</span><div class="scale-ticks"></div>';
 const navKey=document.createElement('button');navKey.className='bearing-key';wire(navKey,groups[0][1]);navKey.append(...navDisplay.childNodes);navDisplay.append(navKey);
 const aftMarker=plane('plaque',350,43,0,198,-790);
-aftMarker.textContent='STATION ACCESS  ·  AFT';
+aftMarker.textContent='AVATAR COMMAND DECKS  ·  AFT';
 
 document.querySelectorAll('.metal').forEach(el=>clad(el,Math.max(1,Math.round(parseFloat(el.style.width)/600)),Math.max(1,Math.round(parseFloat(el.style.height)/600)),'wall-tile'));
 clad(document.querySelector('.deck'),4,5,'floor-tile');
@@ -1235,7 +1253,7 @@ function frame(now){
  if(lastCameraTransform!==cameraTransform){world.style.transform=cameraTransform;lastCameraTransform=cameraTransform;lastMotion=now;}
  if(now-lastAim>55){target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);lastAim=now;}
  $('use').hidden=!target;if(target && $('use').textContent!=='E　'+target.dataset.station)$('use').textContent='E　'+target.dataset.station;
- const sector=z>outerLockZ?'Exterior observation deck':z>=passageEnd?'Observation airlock':z<1200?'Flight deck':Math.abs(x)<245?'Aft passage':nearestRoom(z).names[x>0?1:0];
+ const sector=z>outerLockZ?'Exterior · Avatar viewing deck':z>=passageEnd?'Avatar · Observation airlock':z<1200?'Avatar · Flight deck':Math.abs(x)<245?'Aft passage':nearestRoom(z).names[x>0?1:0];
  if($('sector').textContent!==sector)$('sector').textContent=sector;
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
  const value=String(degrees).padStart(3,'0')+'°';

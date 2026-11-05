@@ -12,7 +12,7 @@ function reserve(bytes){
   mem=wasm.memory.buffer;
 }
 async function initialize({canvas,scene,doorVertices,urls}){
-  const binary=await (await fetch('software.wasm?v=frames16')).arrayBuffer();
+  const binary=await (await fetch('software.wasm?v=glazing-1')).arrayBuffer();
   wasm=(await WebAssembly.instantiate(binary,{env:{abort:()=>{throw Error('Renderer allocation failed')}}})).instance.exports;
   for(const [leaf,index,x,z] of doorVertices){
     (verticesByLeaf[leaf]??=[]).push(index,x,z);
