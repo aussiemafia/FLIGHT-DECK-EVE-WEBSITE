@@ -828,10 +828,65 @@ for(const side of [-1,1]){
      const rib=[surface(inner,0),surface(inner+48,30),surface(outer-48,65),surface(outer,12),surface(outer,-80)];
      if(last)for(let n=0;n<4;n++){
        plate([last[n],last[n+1],rib[n+1],rib[n]],['titanGold','titanIron','titanBronze','titanDark'][n]);
-       if(n===1)formedPanels.at(-1).plating=[[.12,.11],[.85,.11],[.85,.84],[.12,.84]];
+       if(n===1)formedPanels.at(-1).plating=[[0,0],[1,0],[1,1],[0,1]];
      }
      last=rib;
    }
+ }
+}
+// Plate courses on the near flank follow the Avatar's changing cross-section.
+// A gap between courses exposes the dark pressure hull and the gallery windows.
+for(let bay=0;bay<34;bay++){
+ const start=-11850+bay*770;
+ for(let tier=-4;tier<4;tier++){
+   const angle=tier*.21;
+   const point=(u,v,h)=>hullPoint(profileAt(start+u),angle+v,h);
+   // The raised shield has a swept leading edge, a crowned back and a
+   // thick bevel. The dark machinery underneath stays visible between shields.
+   const outline=[[28,.022],[545,.018],[721,.055],[659,.145],[418,.187],[61,.173]];
+   const edge=outline.map(([u,v])=>point(u,v,32));
+   const bevel=outline.map(([u,v])=>point(360+(u-360)*.91,.102+(v-.102)*.87,68));
+   const crown=point(305,.093,102);
+   const crop=(bay+Math.abs(tier))%4*.08;
+   const uv=([u,v])=>[crop+.72*u/770,.12+.76*v/.21];
+   for(let k=0;k<outline.length;k++){
+     const n=(k+1)%outline.length;
+     plate([edge[k],edge[n],bevel[n],bevel[k]],k<3?'titanGold':'titanBronze');
+     plate([bevel[k],bevel[n],crown,crown],'titanIron');
+     formedPanels.at(-1).plating=[uv(outline[k]),uv(outline[n]),uv([305,.093]),uv([305,.093])];
+   }
+   if(tier%2===0)for(let w=0;w<4;w++){
+     const u=135+w*112;
+     plate([point(u,.198,70),point(u+50,.198,70),point(u+50,.204,70),point(u,.204,70)],'warmline');
+   }
+ }
+}
+// Armoured port banks face the observer on the sloping walls around the hatch.
+// Each mouth has a projecting lip, a recessed throat and internal shutter blades.
+for(const side of [-1,1]){
+ const point=(u,v,h)=>[side*u,v,outerLockZ-15-(u-249)*.44+h];
+ const patch=(u,v,w,h,d,finish)=>{
+   plate([point(u,v,d),point(u+w,v,d),point(u+w,v+h,d),point(u,v+h,d)],finish);
+   if(w>220&&h>80)formedPanels.at(-1).plating=[[0,0],[1,0],[1,1],[0,1]];
+ };
+ for(let bay=0;bay<4;bay++){
+   const u=318+bay*308,top=-228-bay*58;
+   patch(u,top,288,620+bay*54,32,'titanDark');
+   patch(u+8,top+7,270,109,44,'titanBronze');
+   patch(u+16,top+15,220,9,51,'titanGold');
+   for(let k=0;k<6;k++)patch(u+23+k*38,top+68,22,13,53,k%4===2?'smoked':'warmline');
+   const cx=u+143,cy=top+262;
+   const rings=[[128,46],[116,85],[94,88],[79,48]];
+   const rim=(ring,i)=>{const a=(i+.5)*Math.PI/6;return point(cx+ring[0]*Math.cos(a),cy+ring[0]*Math.sin(a),ring[1])};
+   for(let k=1;k<rings.length;k++)for(let i=0;i<12;i++){
+     plate([rim(rings[k-1],i),rim(rings[k-1],i+1),rim(rings[k],i+1),rim(rings[k],i)],['','titanBronze','titanGold','smoked'][k]);
+   }
+   for(let k=-2;k<=2;k++){
+     const chord=Math.sqrt(73**2-(k*25)**2);
+     patch(cx-chord,cy+k*25,2*chord,8,49,'titanIron');
+   }
+   patch(u+15,cy+142,254,88,49,'titanIron');
+   for(let k=0;k<8;k++)patch(u+28+k*29,cy+160,12,48,55,'gasket');
  }
 }
 for(let i=avatarStart;i<formedPanels.length;i++)formedPanels[i].avatar=true;
@@ -1132,7 +1187,10 @@ function refreshHitBoxes(){
  for(const p of pickPlanes){
    if(!p.controls.length||!p.el.isConnected||!p.el.offsetWidth)continue;
    p.boxes=p.controls.map(c=>{
-     const l=c.offsetLeft+p.el.clientLeft,t=c.offsetTop+p.el.clientTop;
+     let l=p.el.clientLeft,t=p.el.clientTop;
+     for(let node=c;node&&node!==p.el;node=node.offsetParent){
+       l+=node.offsetLeft;t+=node.offsetTop;
+     }
      return {control:c,l,t,r:l+c.offsetWidth,b:t+c.offsetHeight};
    });
  }
@@ -1169,8 +1227,19 @@ function pickStation(clientX,clientY){
      if(verts.length&&!inside)continue;
    }
    if(window.displayPointHidden?.(p.el,u,v))continue;
+   if(p.controls.length&&!p.boxes&&p.el.offsetWidth)refreshHitBoxes();
    const control=p.boxes?.find(b=>u>=b.l&&u<=b.r&&v>=b.t&&v<=b.b)?.control;
    nearest=dist;hit=control||(p.el.dataset.station?p.el:null);
+ }
+ // Resolve the visible label after selecting the unobstructed surface. Screen
+ // rows can reflow after fonts, projector content or responsive styles load.
+ const surface=hit?.closest('.surface');
+ if(surface){
+   const buttons=surface.querySelectorAll('button[data-route],button[data-seat],.holo-open');
+   for(const button of buttons){
+     const rect=button.getBoundingClientRect();
+     if(rect.width&&clientX>=rect.left&&clientX<=rect.right&&clientY>=rect.top&&clientY<=rect.bottom)return button;
+   }
  }
  return hit;
 }
@@ -1183,14 +1252,10 @@ document.addEventListener('pointerdown',e=>{
 document.addEventListener('click',e=>{
  if(panel.open||e.target.closest('header,footer,#jita-player,#use,dialog'))return;
  if(!e.detail && e.target.closest('button'))return;
- const direct=e.target.closest('button[data-route],button[data-seat],.holo-open');
- // Preserve the exact native button when the browser resolves one. Use the
- // model ray for oblique displays that Chromium reports as bare scenery.
- const picked=document.pointerLockElement?target:(direct||pickStation(e.clientX,e.clientY));
- if(direct&&e.detail&&direct.closest('.surface')?.dataset.depthMask){
-   const ray=pickStation(e.clientX,e.clientY);
-   if(!ray||ray.closest('.surface')!==direct.closest('.surface')){e.preventDefault();e.stopImmediatePropagation();if(ray&&!dragged)activateStation(ray);return;}
- }
+ const direct=e.target.closest('button[data-route],button[data-seat],.holo-open,[data-station]');
+ const locked=!!document.pointerLockElement;
+ const picked=locked?pickStation(innerWidth/2,innerHeight/2):
+   (direct?.closest('.surface')?direct:pickStation(e.clientX,e.clientY));
  if(!picked||(!document.pointerLockElement&&dragged))return;
  e.preventDefault();e.stopImmediatePropagation();activateStation(picked);
 },true);

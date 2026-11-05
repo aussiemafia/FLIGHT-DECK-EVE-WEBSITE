@@ -279,7 +279,7 @@
    const scene=new Float32Array(packed),words=new Int32Array(scene.buffer);
    for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
    const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
-   for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/satin-panel.webp','assets/avatar-armour.webp','assets/avatar-gallery.webp'])urls.push(new URL(path,document.baseURI).href);
+   for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/satin-panel.webp','assets/avatar-armour.webp','assets/lower-armour.webp'])urls.push(new URL(path,document.baseURI).href);
    const worker=new Worker('assets/renderer/worker.js?v=satin-panel-3'),offscreen=canvas.transferControlToOffscreen();
    let ready=false,pending=false;
    worker.onmessage=({data})=>{
@@ -417,7 +417,7 @@
    gl.generateMipmap(gl.TEXTURE_2D);gl.uniform1i(uniform,unit);
    loadImage(src).then(im=>{bind();gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,im);gl.generateMipmap(gl.TEXTURE_2D)});
  }
- surfaceTexture(7,uniforms.galleryFinish,'assets/avatar-gallery.webp');
+ surfaceTexture(7,uniforms.galleryFinish,'assets/lower-armour.webp');
  surfaceTexture(6,uniforms.avatarFinish,'assets/avatar-armour.webp');
  surfaceTexture(4,uniforms.wallFinish,'assets/bulkhead-2k.webp');
  surfaceTexture(5,uniforms.deckFinish,'assets/satin-panel.webp');
