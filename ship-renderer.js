@@ -292,19 +292,22 @@
    for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
    const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
    for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/satin-panel.webp','assets/avatar-broadside.webp','assets/avatar-collar.webp'])urls.push(new URL(path,document.baseURI).href);
-   const worker=new Worker('assets/renderer/worker.js?v=flight-briefings-9'),offscreen=canvas.transferControlToOffscreen();
+   const worker=new Worker('assets/renderer/worker.js?v=jump-deck-1'),offscreen=canvas.transferControlToOffscreen();
    let ready=false,pending=false;
    worker.onmessage=({data})=>{
      if(data==='ready'){
-       const updateSky=()=>applyForwardSky(async face=>{
-         const choice=exteriorView,bitmap=await createImageBitmap(face);
-         if(choice===exteriorView)worker.postMessage({type:'forward-sky',bitmap},[bitmap]);else bitmap.close();
+       const updateSky=()=>applySystemSky(async faces=>{
+         const choice=exteriorView,bitmaps=await Promise.all(faces.map(face=>createImageBitmap(face)));
+         if(choice===exteriorView)worker.postMessage({type:'system-sky',bitmaps},bitmaps);else for(const b of bitmaps)b.close();
        });
+       let lightTimer;
+       const sendLight=()=>{clearTimeout(lightTimer);lightTimer=setTimeout(()=>worker.postMessage({type:'light',rgb:window.cabinRGB}),45)};
+       window.addEventListener('cabinlight',sendLight);
        window.addEventListener('exteriorchange',updateSky);if(exteriorView!=='forge')updateSky();
        const img=new Image();img.onload=()=>{const bitmap=document.createElement('canvas');bitmap.width=bitmap.height=1024;
          const ink=bitmap.getContext('2d');ink.drawImage(img,0,0,1024,1024);const bytes=ink.getImageData(0,0,1024,1024).data.buffer;
          const lights=lightInk.getImageData(0,0,1024,1024).data.buffer;
-         worker.postMessage({type:'material',bytes,lights},[bytes,lights]);ready=true;};img.src=urls[6];
+         worker.postMessage({type:'material',bytes,lights},[bytes,lights]);ready=true;if(window.cabinRGB)sendLight();};img.src=urls[6];
      }
      if(data==='frame'||data==='idle'){pending=false;if(data==='frame')window.presentedShipFrames=(window.presentedShipFrames||0)+1;}
      if(data?.error)console.error(data.error);
@@ -398,7 +401,7 @@
  if(kind>4.5&&kind<5.5)gl_Position.z=depth;}`));
  gl.attachShader(pr,shader(gl.FRAGMENT_SHADER,`
  precision highp float;varying vec2 tex;varying vec3 wp,norm;varying float type;
- uniform sampler2D galleryFinish,avatarFinish;uniform sampler2D wallFinish,deckFinish,sheet,reflected;uniform float moving;uniform sampler2D lighting;uniform samplerCube space;uniform vec2 viewport;uniform float mirror;uniform vec3 eye;
+ uniform vec3 cabin;uniform sampler2D galleryFinish,avatarFinish;uniform sampler2D wallFinish,deckFinish,sheet,reflected;uniform float moving;uniform sampler2D lighting;uniform samplerCube space;uniform vec2 viewport;uniform float mirror;uniform vec3 eye;
  void main(){
  if(type>7.5){gl_FragColor=vec4(texture2D(galleryFinish,tex).rgb,1.);return;}
  if(type>6.5){gl_FragColor=vec4(texture2D(avatarFinish,tex).rgb,1.);return;}
@@ -407,15 +410,15 @@
  vec3 n=normalize(norm);vec3 direction=normalize(wp-eye);float facing=abs(dot(n,direction));
  if(type>.5&&type<1.5){
  vec3 light=texture2D(lighting,(wp.xz+vec2(2400.,3000.))/vec2(4800.,22000.)).rgb;
- gl_FragColor=vec4(texture2D(deckFinish,wp.xz/360.).rgb*.76+light*(.045+.015*(1.-facing)),1.);return;}
+ gl_FragColor=vec4((texture2D(deckFinish,wp.xz/360.).rgb*.76+light*(.045+.015*(1.-facing)))*cabin,1.);return;}
  if(type>1.5&&type<2.5){gl_FragColor=vec4(.27,.45,.53,.13+.21*pow(1.-facing,3.));return;}
  if(type>2.5){gl_FragColor=base;return;}
  float light=.71+.25*max(0.,dot(n,normalize(vec3(-.45,-.8,.32))));
  vec3 ray=reflect(direction,n);
  vec3 env=textureCube(space,vec3(ray.x,-ray.y,-ray.z)).rgb;
- gl_FragColor=vec4(mix(base.rgb*light,env,.025+.10*pow(1.-facing,3.)),base.a);}`));
+ gl_FragColor=vec4(mix(base.rgb*light*cabin,env,.025+.10*pow(1.-facing,3.)),base.a);}`));
  gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);
- const uniforms=Object.fromEntries(['lighting','galleryFinish','avatarFinish','wallFinish','deckFinish','leafOffset','eye','angles','proj','mirror','clock','sheet','reflected','space','viewport','moving'].map(k=>[k,gl.getUniformLocation(pr,k)]));
+ const uniforms=Object.fromEntries(['cabin','lighting','galleryFinish','avatarFinish','wallFinish','deckFinish','leafOffset','eye','angles','proj','mirror','clock','sheet','reflected','space','viewport','moving'].map(k=>[k,gl.getUniformLocation(pr,k)]));
  const atlasTex=gl.createTexture();
  function updateAtlas(){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,atlasTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,atlas);gl.generateMipmap(gl.TEXTURE_2D);}
  updateAtlas();gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
@@ -454,9 +457,9 @@
  gl.uniform1i(uniforms.lighting,2);
  Promise.all(['px','nx','py','ny','pz','nz'].map(f=>loadImage('assets/forge/'+f+'.webp'))).then(imgs=>{
    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_CUBE_MAP,cube);imgs.forEach((im,i)=>gl.texImage2D(gl['TEXTURE_CUBE_MAP_'+cubeTargets[i]],0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,im));
-   const updateSky=()=>applyForwardSky(face=>{
+   const updateSky=()=>applySystemSky(faces=>{
      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_CUBE_MAP,cube);
-     gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,face);previousPose=null;
+     faces.forEach((face,i)=>gl.texImage2D(gl['TEXTURE_CUBE_MAP_'+cubeTargets[i]],0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,face));previousPose=null;
    });
    window.addEventListener('exteriorchange',updateSky);if(exteriorView!=='forge')updateSky();
  });
@@ -550,7 +553,8 @@
  for(const item of live)item.el.classList.add('live-display');
  const visibleElements=new Set(live.map(i=>i.el));
  for(const el of all)if(!visibleElements.has(el))el.remove();
- let previousPose=null,lastDraw=0,slowFrames=0,fastFrames=0,resolutionScale=1;
+ const updateCabin=()=>{gl.uniform3fv(uniforms.cabin,window.cabinRGB||[1,1,1]);previousPose=null};window.addEventListener('cabinlight',updateCabin);
+ let previousPose=null,lastDraw=0,slowFrames=0,fastFrames=0,resolutionScale=1;updateCabin();
 
  window.renderShip=(now,ex,ey,ez,yaw,pitch,lens)=>{
    showRoom(ex,ez,ey,yaw,pitch);

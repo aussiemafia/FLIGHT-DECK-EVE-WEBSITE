@@ -34,12 +34,22 @@ async function initialize({canvas,scene,doorVertices,urls}){
   }));
   self.postMessage('ready');
 }
+const neutralMaterials=new Map();
 self.onmessage=async({data})=>{
  if(data.type==='init'){try{await initialize(data)}catch(e){self.postMessage({error:String(e)})}return;}
- if(data.type==='forward-sky'){
-   const face=new OffscreenCanvas(1024,1024),ink=face.getContext('2d');
-   ink.drawImage(data.bitmap,0,0,1024,1024);data.bitmap.close();
-   new Uint8Array(mem,images+4*imageBytes,imageBytes).set(ink.getImageData(0,0,1024,1024).data);
+ if(data.type==='system-sky'){
+   const face=new OffscreenCanvas(1024,1024),ink=face.getContext('2d',{willReadFrequently:true});
+   data.bitmaps.forEach((bitmap,i)=>{ink.drawImage(bitmap,0,0,1024,1024);bitmap.close();
+    new Uint8Array(mem,images+i*imageBytes,imageBytes).set(ink.getImageData(0,0,1024,1024).data);});
+   paintedPose='';lastDetail=false;return;
+ }
+ if(data.type==='light'){
+   for(const slot of [6,11,13]){
+    const bytes=new Uint8ClampedArray(mem,images+slot*imageBytes,imageBytes);
+    if(!neutralMaterials.has(slot))neutralMaterials.set(slot,bytes.slice());
+    const src=neutralMaterials.get(slot),[r,g,b]=data.rgb;
+    for(let j=0;j<src.length;j+=4){bytes[j]=src[j]*r;bytes[j+1]=src[j+1]*g;bytes[j+2]=src[j+2]*b}
+   }
    paintedPose='';lastDetail=false;return;
  }
  if(data.type==='material'){new Uint8Array(mem,images+13*imageBytes,imageBytes).set(new Uint8Array(data.lights));new Uint8Array(mem,images+6*imageBytes,imageBytes).set(new Uint8Array(data.bytes));return;}

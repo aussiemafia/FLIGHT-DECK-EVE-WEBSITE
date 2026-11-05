@@ -434,6 +434,7 @@ function bulkhead(x,z,span,height,opening,angle) {
  panelWall(opening,lintel,x,floorY-height+lintel/2,z,angle);
 }
 function plaque(title,x,y,z,angle,width=330) {
+ if(y<0){const a=angle*Math.PI/180;x+=86*Math.sin(a);z+=86*Math.cos(a);y=-195;}
  displayCase(width,50,x,y,z,angle);
  const sign=plane('plaque',width,50,x,y,z,angle);
  sign.textContent=title;
@@ -624,8 +625,7 @@ function hatchCollar(x,z,angle,panoramic=false){
    for(let layer=0;layer<3;layer++)for(let i=0;i<profiles[layer].length;i++){
      const j=(i+1)%profiles[layer].length;formedQuad([profiles[layer][i],profiles[layer][j],profiles[layer+1][j],profiles[layer+1][i]],['alloy','smoked','gasket'][layer]);
    }
-   member('case-back',0,-146,d+sign*8,123,15,7);
-   member('lamp',0,-147,d+sign*13,95,5,3);
+
    for(const u of [-194,194]){
      member('case-back',u,75,d+sign*9,25,85,6);
      for(let j=0;j<3;j++)member('strip',u,57+j*10,d+sign*14,13,3,2);
@@ -1022,14 +1022,9 @@ function deskButton(action){
 const readBrief=deskButton(()=>{selectBriefing(briefingIndex);openRecord(...projected)});
 const anotherBrief=deskButton(()=>selectBriefing((briefingIndex+1)%briefings.length));
 anotherBrief.textContent=anotherBrief.dataset.station='Explore another record';
-const changeSky=deskButton(()=>{
- exteriorView=exteriorView==='forge'?'nebula':'forge';
- try{localStorage.setItem('avatar-exterior',exteriorView)}catch{}
- labelSky();window.dispatchEvent(new Event('exteriorchange'));
-});
+const changeSky=deskButton(()=>window.openJumpConsole());
 let exteriorView='forge';
-try{if(localStorage.getItem('avatar-exterior')==='nebula')exteriorView='nebula'}catch{}
-function labelSky(){changeSky.textContent=changeSky.dataset.station=exteriorView==='forge'?'View golden nebula':'View The Forge'}
+function labelSky(){changeSky.textContent=changeSky.dataset.station='Jump navigation'}
 function selectBriefing(index){
  briefingIndex=index;const [key,room,question]=briefings[index];
  deskHeading.textContent=index===dailyIndex?'Today’s flight briefing':'Flight briefing';
