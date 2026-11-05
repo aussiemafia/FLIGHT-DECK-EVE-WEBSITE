@@ -99,26 +99,96 @@ function updateButtons(){
  statusText.textContent=warpReadout.textContent='Current system · '+current.name;
  for(const button of document.querySelectorAll('#routes button'))button.disabled=jumping||button.value===current.id;
 }
-function transit(){
- if(matchMedia('(prefers-reduced-motion: reduce)').matches)return Promise.resolve();
- trail.width=innerWidth;trail.height=innerHeight;trail.hidden=false;
- const ctx=trail.getContext('2d'),w=trail.width,h=trail.height,start=performance.now();
+// Project the bridge window openings into the current camera view so the
+// warp stays beyond the frame even when the pilot turns during a jump.
+function clipWarpWindows(ctx,w,h){
+ if(z>outerLockZ)return;
+ const lens=parseFloat(view.style.perspective),eye=seated?105:0;
+ const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+ ctx.beginPath();
+ function pane(corners){
+  const points=corners.map(([wx,wy,wz])=>{
+   const dx=wx-x,dz=wz-z,dy=wy-eye,depth=dx*sy-dz*cy;
+   return [dx*cy+dz*sy,dy*cp-depth*sp,depth*cp+dy*sp];
+  });
+  const clipped=[];
+  for(let i=0;i<points.length;i++){
+   const a=points[i],b=points[(i+1)%points.length];
+   if(a[2]>=1)clipped.push(a);
+   if((a[2]>=1)!==(b[2]>=1)){
+    const t=(1-a[2])/(b[2]-a[2]);clipped.push([a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]),1]);
+   }
+  }
+  clipped.forEach(([u,v,d],i)=>ctx[i?'lineTo':'moveTo'](w/2+lens*u/d,h/2+lens*v/d));
+  if(clipped.length)ctx.closePath();
+ }
+ if(z<1200){
+  for(let i=1;i<bowPoints.length;i++){
+   const [a,b]=bowPoints.slice(i-1,i+1);
+   const p=t=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+   const [lx,lz]=p(.065),[rx,rz]=p(.935);
+   pane([[lx,-532,lz],[rx,-532,rz],[rx,-20,rz],[lx,-20,lz]]);
+  }
+  for(const sign of [-1,1]){
+   const start=bowPoints[0][1],len=1200-start;
+   for(const off of [-.36,-.12,.12,.36]){
+    const mid=(start+1200)/2+off*len;
+    pane([[sign*793,-300,mid-140],[sign*793,-300,mid+140],[sign*793,-26,mid+140],[sign*793,-26,mid-140]]);
+   }
+  }
+  for(let j=0;j<4;j++){
+   const front=canopyFront+j*paneLength+14,aft=front+paneLength-28;
+   pane([[-canopyHalf,roofY,front],[0,vaultHeight(0),front],[canopyHalf,roofY,front],[canopyHalf,roofY,aft],[0,vaultHeight(0),aft],[-canopyHalf,roofY,aft]]);
+  }
+ }
+ ctx.clip();
+}
+function transit(name,arrive){
+ const duration=4600;
+ window.dispatchEvent(new Event('shipwarp'));
+ if(matchMedia('(prefers-reduced-motion: reduce)').matches){arrive();return Promise.resolve();}
+ const w=innerWidth,h=innerHeight,scale=Math.min(devicePixelRatio||1,1.5);
+ trail.width=Math.round(w*scale);trail.height=Math.round(h*scale);
+ const ctx=trail.getContext('2d');ctx.setTransform(scale,0,0,scale,0,0);trail.hidden=false;
+ const colors=['#9be9ff','#629ddd','#b7b2ff','#f4faff'];
+ const radius=Math.hypot(w,h)*.75;
+ const stars=Array.from({length:360},(_,i)=>({
+  angle:i*2.399963,seed:(i*.618034)%1,layer:(i%7)/7,color:colors[i%4]
+ }));
+ const start=performance.now();let arrived=false,phase='';
  return new Promise(resolve=>{function frame(now){
-  const t=Math.min(1,(now-start)/1650);ctx.clearRect(0,0,w,h);ctx.lineWidth=1.6;
-  ctx.strokeStyle='rgba(173,218,255,'+Math.sin(t*Math.PI)*.88+')';ctx.beginPath();
-  for(let i=0;i<170;i++){const a=i*2.39996,r=((i*.618+t*(.7+(i%8)*.06))%1)**2,l=(.012+.16*t)*r;
-   ctx.moveTo(w*(.5+r*Math.cos(a)),h*(.44+r*Math.sin(a)));ctx.lineTo(w*(.5+(r+l)*Math.cos(a)),h*(.44+(r+l)*Math.sin(a)));}
-  ctx.stroke();if(t<1)requestAnimationFrame(frame);else{trail.hidden=true;resolve()}
- }requestAnimationFrame(frame)});
+  const t=Math.min(1,(now-start)/duration);
+  if(!arrived&&t>=.78){arrived=true;arrive();}
+  const stage=t<.2?'Spooling drive':t<.76?'In warp':'Dropping from warp';
+  if(phase!==stage){phase=stage;warpReadout.textContent=stage+' · '+name;}
+  const speed=Math.min(1,t/.25,(1-t)/.22);
+  const travel=t<.25?2*t*t:t<.78?t-.125:.655+(t-.78)*(1-(t-.78)/.44);
+  ctx.clearRect(0,0,w,h);ctx.save();clipWarpWindows(ctx,w,h);
+  ctx.translate(w*.5,h*.48);
+  const haze=ctx.createRadialGradient(0,0,0,0,0,radius);
+  haze.addColorStop(0,'rgba(9,18,42,.28)');haze.addColorStop(.28,'rgba(56,93,166,.38)');haze.addColorStop(.72,'rgba(75,128,183,.20)');haze.addColorStop(1,'rgba(12,27,60,.06)');
+  ctx.globalAlpha=speed;ctx.fillStyle=haze;ctx.fillRect(-w,-h,2*w,2*h);
+  ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
+  for(const star of stars){
+   const depth=(star.seed+travel*(1.8+star.layer))%1;
+   const r=radius*.013/(1.015-depth),len=r*(.05+speed*.72)*(1+star.layer);
+   const dx=Math.cos(star.angle),dy=Math.sin(star.angle);
+   ctx.strokeStyle=star.color;ctx.globalAlpha=speed*(.22+depth*.65);
+   ctx.lineWidth=Math.max(.7,Math.min(3,r*.007));
+   ctx.beginPath();ctx.moveTo(dx*r,dy*r);ctx.lineTo(dx*(r+len),dy*(r+len));ctx.stroke();
+  }
+  ctx.restore();
+  if(t<1)requestAnimationFrame(frame);else{trail.hidden=true;ctx.clearRect(0,0,w,h);resolve();}
+ }requestAnimationFrame(frame);});
 }
 for(const route of routes){
  const button=document.createElement('button');button.type='button';button.value=route.id;button.style.setProperty('--route',route.color);
  const picture=document.createElement('img');picture.alt='';picture.src=route.id==='pochven'?'assets/exhibits/poch-hd.webp':'assets/vistas/'+route.id+'-thumb.webp';const caption=document.createElement('span');caption.textContent=route.name;button.append(picture,caption);button.setAttribute('aria-label','Jump to '+route.name);
  button.onclick=async()=>{
   if(jumping||route.id===exteriorView)return;
-  jumping=true;updateButtons();statusText.textContent='Aligning to '+route.name;
-  try{const faces=await systemSky(route);if(jumpPanel.open)jumpPanel.close();await transit();activeSky=Promise.resolve(faces);exteriorView=route.id;
-   window.dispatchEvent(new Event('exteriorchange'));document.getElementById('jump-console').textContent=route.name+' · Jump navigation';
+  jumping=true;updateButtons();statusText.textContent=warpReadout.textContent='Aligning to '+route.name;
+  try{const faces=await systemSky(route);if(jumpPanel.open)jumpPanel.close();await transit(route.name,()=>{activeSky=Promise.resolve(faces);exteriorView=route.id;
+   window.dispatchEvent(new Event('exteriorchange'));document.getElementById('jump-console').textContent=route.name+' · Jump navigation';});
   }catch{statusText.textContent='Exterior failed to load. Select a system to retry.';jumping=false;for(const b of document.querySelectorAll('#routes button'))b.disabled=b.value===exteriorView;return}
   jumping=false;updateButtons();
  };
