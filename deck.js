@@ -123,7 +123,7 @@ let nextFeedUpdate=0;
 function updateFeeds(now){
  if(now<nextFeedUpdate)return;
  nextFeedUpdate=now+350;
- for(const {el,hx,hz} of [...roomScreens,{el:hologram,hx:0,hz:holoZ}]){
+ for(const {el,hx,hz} of trackingProjectors){
    const clip=el.querySelector('video.exhibit-media');if(!clip)continue;
    const dx=hx-x,dz=hz-z;
    const active=!panel.open&&!document.hidden&&Math.hypot(dx,dz)<1450&&dx*Math.sin(yaw)-dz*Math.cos(yaw)>-120&&!el.classList.contains('away');
@@ -1031,6 +1031,7 @@ const pedestal=plane('holo-base',285,285,0,397,holoZ,0,90);
 plane('holo-ring',195,195,0,270,holoZ,0,90);
 plane('holo-ring inner-ring',235,235,0,235,holoZ,0,90);
 const hologram=plane('holo-display',278,186,0,91,holoZ);
+const trackingProjectors=[...roomScreens,{el:hologram,hx:0,hy:91,hz:holoZ}];
 function projectorParts(el,title){
  const header=document.createElement('div');header.className='holo-caption';header.textContent=title;
  const feed=document.createElement('div');feed.className='feed';
@@ -1345,10 +1346,10 @@ function frame(now){
  const cameraTransform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(-cameraY)+'px,'+(-z)+'px)';
  if(lastCameraTransform!==cameraTransform){world.style.transform=cameraTransform;lastCameraTransform=cameraTransform;lastMotion=now;}
  if(lastMotion===now){
-   for(const {el,hx,hz} of roomScreens){
+   for(const {el,hx,hy=8,hz} of trackingProjectors){
      if(Math.abs(z-hz)>1800||Math.abs(x-hx)>2000)continue;
      const facing=Math.atan2(x-hx,z-hz);
-     el.style.transform='translate3d('+hx+'px,8px,'+hz+'px) rotateY('+facing+'rad)';
+     el.style.transform='translate3d('+hx+'px,'+hy+'px,'+hz+'px) rotateY('+facing+'rad)';
    }
  }
  if(now-lastAim>55){target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);lastAim=now;}
