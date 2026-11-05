@@ -19,7 +19,7 @@
     if (loading || loop) return;
     loading = true;
     try {
-      const response = await fetch('assets/audio/titan-engine-room.ogg');
+      const response = await fetch('assets/audio/titan-cabin.ogg');
       if (!response.ok) throw new Error('Engine audio unavailable');
       const buffer = await audio.decodeAudioData(await response.arrayBuffer());
       loop = audio.createBufferSource(); loop.buffer = buffer; loop.loop = true;
@@ -37,7 +37,7 @@
     const gain = outside ? .10 : hall ? .90 : room.includes('flight deck') ? .70 : .48;
     const now = audio.currentTime;
     engines.gain.setTargetAtTime(gain, now, .9);
-    filter.frequency.setTargetAtTime(outside ? 160 : hall ? 520 : 360, now, .8);
+    filter.frequency.setTargetAtTime(outside ? 240 : hall ? 1500 : 1250, now, .8);
     master.gain.setTargetAtTime(muted || document.hidden ? 0 : volume / 100, now, 0.18);
   }
 
