@@ -248,7 +248,7 @@
      const cx=pts.reduce((v,p)=>v+p.x,0)/4,cy=pts.reduce((v,p)=>v+p.y,0)/4,cz=pts.reduce((v,p)=>v+p.z,0)/4;
      const fill=panel.darkLeaf&&panel.finish==='pearl'?'#34414a':{glass:'#73929e',hazardYellow:'#e4b333',hazardBlack:'#23272a',oxblood:'#923c36',pearl:'#a6b7bb',alloy:'#73858e',gasket:'#263642',glasslight:'#c8f4fb',welt:'#817769',upholstery:'#c4b9a5',sienna:'#b47148',bronze:'#79766c',smoked:'#40525a',warmline:'#edc78a',titanGold:'#be9d61',titanBronze:'#8b713e',titanIron:'#62594a',titanDark:'#302f30'}[panel.finish];
      const textured=!!panel.skinUV;
-     items.push({pts,a:panel.plating?'plating':textured?'avatar':null,poly:panel.plating||panel.skinUV,avatar:panel.avatar,distant:!!panel.distant,leaf:panel.leaf,kind:panel.finish,fill,cx,cy,cz,nx:0,ny:0,nz:0,size:Math.max(...pts.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),two:true,zone:room(cx,cz)});
+     items.push({pts,a:panel.plating?'plating':textured?'avatar':null,poly:panel.plating||panel.skinUV,avatar:panel.avatar,distant:!!panel.distant,leaf:panel.leaf,kind:panel.finish,roofGlass:panel.roofGlass,fill,cx,cy,cz,nx:0,ny:0,nz:0,size:Math.max(...pts.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),two:true,zone:room(cx,cz)});
    }
    const packed=[],doorVertices=[],bins=new Map(),chunks=[];
    for(const item of items){
@@ -259,7 +259,7 @@
    for(const group of bins.values()){
     const start=packed.length/17,lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
     for(const item of group){
-     if(item.ring||(item.kind==='glass'&&item.leaf===undefined))continue;
+     if(item.ring||(item.kind==='glass'&&item.leaf===undefined&&!item.roofGlass))continue;
      const pts=item.pts,uv=item.poly||rect;
      const pad=item.leaf===undefined?0:202;
      for(const p of pts)for(const [j,v] of [p.x,p.y,p.z].entries()){lo[j]=Math.min(lo[j],v-pad);hi[j]=Math.max(hi[j],v+pad)}

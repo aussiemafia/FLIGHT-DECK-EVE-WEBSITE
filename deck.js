@@ -175,7 +175,43 @@ function buildHelmConsole(h,items){
 }
 housings.forEach((h,i)=>buildHelmConsole(h,groups[i]));
 plane('deck',1586,2000,0,416,200,0,90);
-plane('overhead',1586,2000,0,-576,200,0,-90);
+// A raised glazed vault spans the bridge. Side fascia and end caps close
+// its curved profile against the four surrounding ceiling panels.
+const canopyHalf=460, canopyFront=-650, canopyAft=860, roofY=-576;
+for(const side of [-1,1])plane('overhead',793-canopyHalf,2000,side*(793+canopyHalf)/2,roofY,200,0,-90);
+for(const [start,end] of [[-800,canopyFront],[canopyAft,1200]])
+ plane('overhead',canopyHalf*2,end-start,0,roofY,(start+end)/2,0,-90);
+function vaultHeight(x){return roofY-90*(1-(x/canopyHalf)**2);}
+const steps=16, paneLength=(canopyAft-canopyFront)/4;
+for(let i=0;i<steps;i++){
+ const x0=canopyHalf*(2*i/steps-1),x1=canopyHalf*(2*(i+1)/steps-1);
+ const at=(x,z,h=0)=>[x,vaultHeight(x)+h,z];
+ for(let j=0;j<4;j++){
+   const z0=canopyFront+j*paneLength,z1=z0+paneLength;
+   formedQuad([at(x0,z0),at(x1,z0),at(x1,z1),at(x0,z1)],'glass');
+   formedPanels.at(-1).roofGlass=true;
+ }
+ for(let j=0;j<=4;j++){
+   const z=canopyFront+j*paneLength;
+   // Rounded glazing bar with a bronze crown seated into a dark gasket.
+   const profile=[[-13,0],[-11,6],[-7,10],[-3,12],[3,12],[7,10],[11,6],[13,0]];
+   for(let k=1;k<profile.length;k++){
+     const [d,h]=profile[k-1],[e,t]=profile[k];
+     formedQuad([at(x0,z+d,h),at(x1,z+d,h),at(x1,z+e,t),at(x0,z+e,t)],k===4?'bronze':k===1||k===7?'gasket':'alloy');
+   }
+   if(j===0||j===4)formedQuad([at(x0,z),at(x1,z),[x1,roofY,z],[x0,roofY,z]],'smoked');
+ }
+}
+for(const side of [-1,1]){
+ const rim=[[0,2],[5,9],[12,14],[21,14],[29,10],[34,3],[37,0]];
+ for(let i=1;i<rim.length;i++){
+   const [u,h]=rim[i-1],[v,t]=rim[i],a=side*(canopyHalf+u),b=side*(canopyHalf+v);
+   formedQuad([[a,roofY+h,canopyFront],[b,roofY+t,canopyFront],[b,roofY+t,canopyAft],[a,roofY+h,canopyAft]],i===4?'warmline':'alloy');
+ }
+}
+
+
+
 
 for(const side of [-1,1]){
   const angle=side*-90;
@@ -963,7 +999,7 @@ aftMarker.textContent='AVATAR COMMAND DECKS  ·  AFT';
 
 document.querySelectorAll('.metal').forEach(el=>clad(el,Math.max(1,Math.round(parseFloat(el.style.width)/600)),Math.max(1,Math.round(parseFloat(el.style.height)/600)),'wall-tile'));
 clad(document.querySelector('.deck'),4,5,'floor-tile');
-clad(document.querySelector('.overhead'),3,4,'ceiling-tile');
+for(const surface of document.querySelectorAll('.overhead'))clad(surface,2,4,'ceiling-tile');
 // The pedestal stays fixed while its floating display faces the observer.
 const holoZ=540;
 const pedestal=plane('holo-base',285,285,0,397,holoZ,0,90);
