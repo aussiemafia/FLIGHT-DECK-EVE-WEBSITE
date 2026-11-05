@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="2048" viewBox="0 0 512 512">
+<defs><linearGradient id="alloy" x2=".72" y2="1"><stop stop-color="#99a7ad"/><stop offset=".42" stop-color="#9eabb0"/><stop offset=".72" stop-color="#97a4aa"/><stop offset="1" stop-color="#929fa6"/></linearGradient></defs>
+<rect width="512" height="512" fill="url(#alloy)"/>
+<path d="M0 .9h512M.9 0v512" stroke="#596a73" fill="none" stroke-width="1.8"/>
+<path d="M2.5 512V2.5H512" stroke="#cad3d4" opacity=".8" fill="none" stroke-width="1.2"/>
+<path d="M0 511h512M511 0v512" stroke="#70818a" fill="none"/>
+</svg>

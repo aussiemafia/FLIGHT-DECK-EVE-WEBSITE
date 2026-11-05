@@ -19,6 +19,14 @@ const scratch:usize=1024,clip:usize=1280;
  const s=256-t;
  return 0xff000000|((((a&255)*s+(b&255)*t)>>8)&255)|(((((a>>8)&255)*s+((b>>8)&255)*t)>>8)<<8)|(((((a>>16)&255)*s+((b>>16)&255)*t)>>8)<<16);
 }
+@inline function filtered(ptr:usize,w:i32,h:i32,u:f64,v:f64):u32{
+ const x=Math.max(0,Math.min(f64(w-1),u)),y=Math.max(0,Math.min(f64(h-1),v));
+ const ix=i32(x),iy=i32(y),jx=min(ix+1,w-1),jy=min(iy+1,h-1);
+ const fx=u32((x-f64(ix))*256),fy=u32((y-f64(iy))*256);
+ const top=blend(load<u32>(ptr+usize((iy*w+ix)<<2)),load<u32>(ptr+usize((iy*w+jx)<<2)),fx);
+ const bottom=blend(load<u32>(ptr+usize((jy*w+ix)<<2)),load<u32>(ptr+usize((jy*w+jx)<<2)),fx);
+ return blend(top,bottom,fy);
+}
 function triangle(a:usize,b:usize,c:usize,color:u32,kind:i32):void{
  const za=1.0/load<f32>(a+8),zb=1.0/load<f32>(b+8),zc=1.0/load<f32>(c+8);
  const ax=f64(width)*.5+load<f32>(a)*za*lens,ay=f64(height)*.5+load<f32>(a+4)*za*lens;
@@ -38,7 +46,15 @@ function triangle(a:usize,b:usize,c:usize,color:u32,kind:i32):void{
      const z=za*wa+zb*wb+zc*wc;if(z<=load<f32>(depths+addr))continue;
      let pixel=color;
      if(kind>=6){pixel=tex(kind,(wa*au+wb*bu+wc*cu)/z,(wa*av+wb*bv+wc*cv)/z);if((pixel>>24)<64)continue;}
-     if(kind==1&&!reflected){const offset=((y*reflH/height)*reflW+x*reflW/width)<<2;pixel=blend(color,load<u32>(reflection+usize(offset)),96);}
+     if(kind==6){
+       pixel=filtered(texture+usize(6<<22),1024,1024,((wa*au+wb*bu+wc*cu)/z)*1023.,((wa*av+wb*bv+wc*cv)/z)*1023.);
+     }
+     if(kind==1&&!reflected){
+       const u=(wa*au+wb*bu+wc*cu)/z,v=(wa*av+wb*bv+wc*cv)/z;
+       const tile=tex(10,u-Math.floor(u),v-Math.floor(v));
+       const reflectionColor=filtered(reflection,reflW,reflH,(f64(x)+.5)*reflW/width-.5,(f64(y)+.5)*reflH/height-.5);
+       pixel=blend(tile,reflectionColor,102);
+     }
      store<f32>(depths+addr,f32(z));store<u32>(buffer+addr,pixel|0xff000000);
    }
  }

@@ -53,6 +53,39 @@ function ceilingCove(x,z,angle,length,top){
 
 // Seven joined panes span 160 degrees around the bow. Their sills, headers
 // and mullions are solid members; the glazing is seated behind their faces.
+const bayScreens=[],cabinetFootprints=[];
+function windowCabinet(wx,wz,angle,w,top,upper,lower,bottom,withControls=true){
+ const rad=angle*Math.PI/180,ux=Math.cos(rad),uz=-Math.sin(rad),nx=-uz,nz=ux;
+ const point=(u,y,d)=>[wx+ux*u+nx*d,y,wz+uz*u+nz*d];
+ function casing(profile){
+   for(let j=1;j<profile.length;j++){
+     const [y0,d0]=profile[j-1],[y1,d1,finish]=profile[j];
+     formedQuad([point(-w/2,y0,d0),point(w/2,y0,d0),point(w/2,y1,d1),point(-w/2,y1,d1)],finish);
+     for(const side of [-1,1]){
+       const u=side*w/2;
+       formedQuad([point(u,y0,-2),point(u,y0,d0),point(u,y1,d1),point(u,y1,-2)],'alloy');
+     }
+   }
+ }
+ const deskY=lower+Math.min(102,(bottom-lower)*.48),roofY=Math.min(upper-17,top+4);
+ casing([[bottom,47],[bottom-20,47,'gasket'],[bottom-26,88,'alloy'],[deskY+9,88,'pearl'],[deskY,84,'alloy'],[lower+9,22,'pearl'],[lower+2,16,'gasket']]);
+ casing([[upper-1,12],[upper-11,24,'gasket'],[roofY,125,'pearl'],[roofY-4,147,'alloy'],[roofY-3,166,'pearl']]);
+ function inset(label,y0,d0,y1,d1,offset,span){
+   const length=Math.hypot(y1-y0,d1-d0),ry=(y0+y1)/2,rd=(d0+d1)/2;
+   const [px,py,pz]=point(offset,ry,rd+2);
+   const face=plane('bay-display',span,length*.71,px,py,pz,angle,Math.atan2(d1-d0,y1-y0)*180/Math.PI);
+   bayScreens.push({face,wx,wz,label});
+ }
+ if(withControls){
+   inset('upper',roofY,125,upper-11,24,0,w*.70);
+   inset('lower',lower+9,22,deskY,84,0,w*.75);
+ }
+ for(const side of [-1,1]){
+   const u=side*w*.38,y=(bottom+deskY)*.5;
+   formedQuad([point(u-8,y-12,89),point(u+8,y-12,89),point(u+8,y+12,89),point(u-8,y+12,89)],'glasslight');
+ }
+ cabinetFootprints.push({wx,wz,ux,uz,nx,nz,half:w/2});
+}
 const bowPoints=Array.from({length:8},(_,i)=>{
  const a=(-80+i*160/7)*Math.PI/180;
  return [793*Math.sin(a)/Math.sin(80*Math.PI/180),-380-458*Math.cos(a)];
@@ -190,7 +223,7 @@ function terminal(title,list,x,z,angle){
    next.dataset.station='Next exhibit';next.dataset.route='cycle';
    next.advance=()=>{current=(current+1)%slides.length;displaySlide(slides[current])};
    next.onclick=e=>{e.stopPropagation();next.advance()};
-   displaySlide(slides[0]);roomScreens.push({el:projection,hx,hz});
+   displaySlide(slides[0]);roomScreens.push({el:projection,hx,hz,showPlate:displaySlide});
  }
  const switches=plane('switches',480,108,x+Math.sin(rad)*31,209,z+Math.cos(rad)*31,angle,52);
  switches.projectTopic=roomProjector;
@@ -364,6 +397,7 @@ function windowWall(w,h,x,y,z,angle,centres,opening,height,glassY){
    const edge=u-opening/2;
    section(edge-cursor,height,(edge+cursor)/2,glassY);
    const wx=x+u*Math.cos(a), wz=z-u*Math.sin(a);
+   windowCabinet(wx,wz,angle,opening-5,top,upper,lower,bottom);
    curvedPorthole(wx,glassY,wz,angle,opening,height);
    // Recess the glass at the far end of a stepped, machined window well.
    const toward=(offset,side,v,wide,high,turn=0,tilt=0,kind='reveal')=>
@@ -606,6 +640,28 @@ for(let bay=0;bay<aftBays.length;bay++){
    plane('lamp',12,1470,side*150,-211,cz,0,-90);
  }
 }
+// Short bays leave every hatch and existing passage terminal clear.
+for(const side of [-1,1]){
+ for(const cz of [1510,3230,5260,7220,8980,10740,12500,14070]){
+   windowCabinet(side*245,cz,-side*90,265,-224,-100,115,416);
+ }
+}
+for(const [index,bay] of bayScreens.entries()){
+ const {face,wx,wz,label}=bay;
+ let nearby=null,dist=Infinity;
+ for(const projector of roomScreens){
+   const dx=projector.hx-wx,dz=projector.hz-wz,d=dx*dx+dz*dz;
+   if(d<dist){dist=d;nearby=projector}
+ }
+ const local=wz>1200&&nearby;
+ const title=local?nearby.el.querySelector('.holo-caption').textContent.replace(/ PROJECTOR$/,''):'NAVIGATION LAB';
+ const plates=roomExhibits[title],key=plates[(Math.floor(index/2)+(label==='upper'?0:1))%plates.length];
+ const [caption,route,still]=exhibitPlates[key];
+ const image=document.createElement('img');image.src=exhibitFile(still.includes('.')?still:still+'.webp');image.alt='';image.loading='lazy';
+ const button=document.createElement('button');button.textContent=caption;
+ face.append(image,button);wire(face,[route,caption]);wire(button,[route,caption]);
+ if(local)face.projectTopic=()=>nearby.showPlate(key);
+}
 function nearestRoom(pz){
  return roomStations.reduce((best,r)=>Math.abs(r.z-pz)<Math.abs(best.z-pz)?r:best);
 }
@@ -671,7 +727,7 @@ function activateStation(control){
    seated={x:sx,z:sz};x=sx;z=sz-8;yaw=0;pitch=0;keys.clear();$('stand').hidden=false;view.focus();return;
  }
  if(control===hologram||control===holoAction){openRecord(...projected);return;}
- const local=control.closest('.room-console,.switches');
+ const local=control.closest('.room-console,.switches,.bay-display');
  if(local?.projectTopic){
    const selected=[control.dataset.route,control.dataset.station];
    local.projectTopic(selected);
@@ -853,6 +909,11 @@ function isClear(px,pz){
   if(distance>=245+radius && Math.abs(pz-near)>depth/2-radius)return false;
  }
 
+ if(cabinetFootprints.some(b=>{
+   const dx=px-b.wx,dz=pz-b.wz;if(Math.abs(dx)>450||Math.abs(dz)>450)return false;
+   const normal=dx*b.nx+dz*b.nz;
+   return normal>=0&&normal<107&&Math.abs(dx*b.ux+dz*b.uz)<b.half+16;
+ }))return false;
  if(furnishings.some(([xx,zz,w,d])=>Math.abs(px-xx)<w+radius&&Math.abs(pz-zz)<d+radius))return false;
  if (seats.some(({cx,pz:sz})=>Math.abs(pz-sz)<92 && Math.abs(px-cx)<105))return false;
  return housings.every(h=>{
