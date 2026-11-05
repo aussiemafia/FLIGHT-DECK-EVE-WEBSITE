@@ -4,7 +4,7 @@ let wasm,sceneSize,scenePtr=65536,images,display,ctx,pixels,mem;
 const verticesByLeaf=[];let previousShifts=[];
 let phaseBudget=240000,avgDraw=16,drawCount=0,workStart;
 let lastMotion=0,lastView='',lastDetail=false;
-let width=0,height=0,lastMirror=-Infinity,paintedPose='';
+let width=0,height=0,paintedPose='';
 const imageBytes=1024*1024*4;
 function reserve(bytes){
   const diff=bytes-wasm.memory.buffer.byteLength;
@@ -12,7 +12,7 @@ function reserve(bytes){
   mem=wasm.memory.buffer;
 }
 async function initialize({canvas,scene,doorVertices,urls}){
-  const binary=await (await fetch('software.wasm?v=titan-satin-1')).arrayBuffer();
+  const binary=await (await fetch('software.wasm?v=satin-panel-3')).arrayBuffer();
   wasm=(await WebAssembly.instantiate(binary,{env:{abort:()=>{throw Error('Renderer allocation failed')}}})).instance.exports;
   for(const [leaf,index,x,z] of doorVertices){
     (verticesByLeaf[leaf]??=[]).push(index,x,z);
@@ -48,11 +48,11 @@ self.onmessage=async({data})=>{
  const budget=detailed?Math.max(phaseBudget,950000):phaseBudget;
  const scale=Math.min(1,Math.sqrt(budget/(data.w*data.h)));
  const w=Math.round(data.w*scale),h=Math.round(data.h*scale),lens=data.lens*scale;
- const mw=Math.max(1,Math.round(w*.28)),mh=Math.max(1,Math.round(h*.28));
- const depth=display+w*h*4,mirror=depth+w*h*4,mirrorDepth=mirror+mw*mh*4;
+
+ const depth=display+w*h*4,batchPtr=depth+w*h*4;
  if(width!==w||height!==h){
-   width=w;height=h;self.output.width=w;self.output.height=h;reserve(mirrorDepth+mw*mh*4+65536);
-   pixels=new ImageData(new Uint8ClampedArray(mem,display,w*h*4),w,h);lastMirror=-Infinity;
+   width=w;height=h;self.output.width=w;self.output.height=h;reserve(batchPtr+Math.max(65536,data.batches.length*4));
+   pixels=new ImageData(new Uint8ClampedArray(mem,display,w*h*4),w,h);
  }
  const shifts=data.shifts;
  const pose=[x,y,z,yaw,pitch,w,h,...shifts.flat()].join('/');
@@ -70,9 +70,9 @@ self.onmessage=async({data})=>{
  if(redraw){
    workStart=performance.now();
    const args=[x,y,z,Math.sin(yaw),Math.cos(yaw),Math.sin(pitch),Math.cos(pitch)];
-   const batchPtr=mirrorDepth+mw*mh*4;
+
    new Int32Array(mem,batchPtr,data.batches.length).set(data.batches);
-   wasm.render(scenePtr,batchPtr,data.batches.length/2,display,depth,images,w,h,...args,lens,0,mirror,mw,mh);
+   wasm.render(scenePtr,batchPtr,data.batches.length/2,display,depth,images,w,h,...args,lens,0,0,0,0);
    ctx.putImageData(pixels,0,0);paintedPose=pose;
    avgDraw=avgDraw*.85+(performance.now()-workStart)*.15;
    if(!detailed&&++drawCount>=12){drawCount=0;const next=avgDraw>8?.78:avgDraw<5?1.12:1;

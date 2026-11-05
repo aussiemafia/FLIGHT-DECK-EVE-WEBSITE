@@ -65,7 +65,7 @@ function triangle(a:usize,b:usize,c:usize,color:u32,kind:i32):void{
        const tile=tex(10,u-Math.floor(u),v-Math.floor(v));
        const light=filtered(texture+usize(13<<22),1024,1024,(u*360.+2400.)*1023./4800.,(v*360.+3000.)*1023./22000.);
        const base=blend(tile,0xff000000,61);
-       pixel=base+((light>>2)&0x003f3f3f);
+       pixel=base+((light>>4)&0x000f0f0f);
      }
      store<f32>(depths+addr,f32(z));store<u32>(buffer+addr,pixel|0xff000000);
    }

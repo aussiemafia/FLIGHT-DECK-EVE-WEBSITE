@@ -223,7 +223,7 @@
    }
    const rect=[[0,0],[1,0],[1,1],[0,1]];
    for(const el of all){
-     if(el.matches('.sky-face,.seat-pick,.holo-display'))continue;
+     if(el.matches('.sky-face,.seat-pick,.holo-display,.floor-spill'))continue;
      const m=matrixFor(el),w=parseFloat(el.style.width),h=parseFloat(el.style.height);
      const isUI=native.has(el),kind=isUI?'screen':color(el);
      const a=el.matches('.armour-face')?'armour':el.matches('.crest-glass')?'crest':el.matches('.orbital')?'orbital':el.matches('.drifting')?'drifting':null;
@@ -279,8 +279,8 @@
    const scene=new Float32Array(packed),words=new Int32Array(scene.buffer);
    for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
    const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
-   for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/satin-deck.webp','assets/avatar-armour.webp','assets/avatar-gallery.webp'])urls.push(new URL(path,document.baseURI).href);
-   const worker=new Worker('assets/renderer/worker.js?v=titan-satin-1'),offscreen=canvas.transferControlToOffscreen();
+   for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/satin-panel.webp','assets/avatar-armour.webp','assets/avatar-gallery.webp'])urls.push(new URL(path,document.baseURI).href);
+   const worker=new Worker('assets/renderer/worker.js?v=satin-panel-3'),offscreen=canvas.transferControlToOffscreen();
    let ready=false,pending=false;
    worker.onmessage=({data})=>{
      if(data==='ready'){
@@ -389,7 +389,7 @@
  vec3 n=normalize(norm);vec3 direction=normalize(wp-eye);float facing=abs(dot(n,direction));
  if(type>.5&&type<1.5){
  vec3 light=texture2D(lighting,(wp.xz+vec2(2400.,3000.))/vec2(4800.,22000.)).rgb;
- gl_FragColor=vec4(texture2D(deckFinish,wp.xz/360.).rgb*.76+light*(.23+.13*(1.-facing)),1.);return;}
+ gl_FragColor=vec4(texture2D(deckFinish,wp.xz/360.).rgb*.76+light*(.045+.015*(1.-facing)),1.);return;}
  if(type>1.5&&type<2.5){gl_FragColor=vec4(.27,.45,.53,.13+.21*pow(1.-facing,3.));return;}
  if(type>2.5){gl_FragColor=base;return;}
  float light=.71+.25*max(0.,dot(n,normalize(vec3(-.45,-.8,.32))));
@@ -420,7 +420,7 @@
  surfaceTexture(7,uniforms.galleryFinish,'assets/avatar-gallery.webp');
  surfaceTexture(6,uniforms.avatarFinish,'assets/avatar-armour.webp');
  surfaceTexture(4,uniforms.wallFinish,'assets/bulkhead-2k.webp');
- surfaceTexture(5,uniforms.deckFinish,'assets/satin-deck.webp');
+ surfaceTexture(5,uniforms.deckFinish,'assets/satin-panel.webp');
  const lightingTex=gl.createTexture();gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,lightingTex);
  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,lightMap);
  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
