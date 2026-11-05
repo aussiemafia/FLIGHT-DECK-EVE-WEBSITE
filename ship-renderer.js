@@ -506,7 +506,7 @@
    const [a,b,,d]=panel.points,e=b.map((v,i)=>v-a[i]),f=d.map((v,i)=>v-a[i]);
    const n=[e[1]*f[2]-e[2]*f[1],e[2]*f[0]-e[0]*f[2],e[0]*f[1]-e[1]*f[0]];
    const len=Math.hypot(...n)||1;const name=panel.darkLeaf&&panel.finish==='pearl'?'dark':{hazardYellow:'hazardYellow',hazardBlack:'hazardBlack',oxblood:'oxblood',pearl:'white',alloy:'shell',gasket:'dark',glasslight:'cyan',welt:'warm',upholstery:'linen',sienna:'copper',bronze:'warm',smoked:'dark',warmline:'lamp',glass:'window',titanGold:'titanGold',titanBronze:'titanBronze',titanIron:'titanIron',titanDark:'titanDark'}[panel.finish];
-   const [tx,ty]=tileOrigin(name),key=panel.leaf===undefined?(panel.avatar?'avatar/':'')+Math.floor(a[0]/(panel.avatar?110000:500))+'/'+Math.floor(a[2]/(panel.avatar?110000:700))+':solid':(panel.distant?'farleaf':'leaf')+panel.leaf+(name==='window'?':glass':':solid');if(!groups.has(key))groups.set(key,[]);
+   const [tx,ty]=tileOrigin(name),key=panel.leaf===undefined?(panel.avatar?'avatar/':'')+Math.floor(a[0]/(panel.avatar?110000:500))+'/'+Math.floor(a[2]/(panel.avatar?110000:700))+(panel.roofGlass?':glass':':solid'):(panel.distant?'farleaf':'leaf')+panel.leaf+(name==='window'?':glass':':solid');if(!groups.has(key))groups.set(key,[]);
    for(const i of panel.points[2].every((v,j)=>v===d[j])?[0,1,2]:[0,1,2,0,2,3]){
      const v=panel.points[i];
      if(panel.plating){groups.get(key).push(...v,n[0]/len,n[1]/len,n[2]/len,...panel.plating[i],8);continue;}
