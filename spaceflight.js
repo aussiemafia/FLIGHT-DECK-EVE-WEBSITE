@@ -129,6 +129,10 @@ function clipWarpWindows(ctx,w,h){
  if(compartment==='bridge'){
   for(let j=0;j<4;j++){
    const front=canopyFront+j*paneLength+14,aft=front+paneLength-28;
+   for(const side of [-1,1]){
+    const inner=side*(canopyHalf+38),outer=side*770;
+    pane([[inner,roofY,front],[outer,roofY,front],[outer,roofY,aft],[inner,roofY,aft]]);
+   }
    pane([[-canopyHalf,roofY,front],[0,vaultHeight(0),front],[canopyHalf,roofY,front],[canopyHalf,roofY,aft],[0,vaultHeight(0),aft],[-canopyHalf,roofY,aft]]);
   }
  }
