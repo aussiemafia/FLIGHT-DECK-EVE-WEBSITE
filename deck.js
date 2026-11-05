@@ -206,7 +206,16 @@ plane('deck',1586,2000,0,416,200,0,90);
 // A raised glazed vault spans the bridge. Side fascia and end caps close
 // its curved profile against the four surrounding ceiling panels.
 const canopyHalf=460, canopyFront=-650, canopyAft=860, roofY=-576;
-for(const side of [-1,1])plane('overhead',793-canopyHalf,2000,side*(793+canopyHalf)/2,roofY,200,0,-90);
+// Extend the transparent roof into the two outboard bays. Only the
+// perimeter and transoms are solid; the exterior fills the apertures.
+for(const side of [-1,1]){
+ const width=793-canopyHalf,mid=side*(793+canopyHalf)/2;
+ for(const [start,end] of [[-800,canopyFront],[canopyAft,1200]])
+  plane('overhead',width,end-start,mid,roofY,(start+end)/2,0,-90);
+ plane('rail',22,canopyAft-canopyFront,side*782,roofY,(canopyFront+canopyAft)/2,0,-90);
+ for(let j=0;j<=4;j++)
+  plane('rail',width,20,mid,roofY,canopyFront+j*(canopyAft-canopyFront)/4,0,-90);
+}
 for(const [start,end] of [[-800,canopyFront],[canopyAft,1200]])
  plane('overhead',canopyHalf*2,end-start,0,roofY,(start+end)/2,0,-90);
 function vaultHeight(x){return roofY-90*(1-(x/canopyHalf)**2);}
