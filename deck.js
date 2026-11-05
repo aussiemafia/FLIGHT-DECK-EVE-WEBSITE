@@ -440,12 +440,16 @@ function plaque(title,x,y,z,angle,width=330) {
 // Ribbed pressure-door collars run through the partition. Cross ties and
 // chamfered corners expose its return faces from either adjoining room.
 const hatches=[];
+// Chamfered observation glass, centred in the upper portion of each leaf.
+const portTop=-72,portBottom=98,portCentre=97,portHalfWidth=44,portBevel=14;
+function portHalf(y){return portHalfWidth-Math.max(0,portTop+portBevel-y,y-portBottom+portBevel)}
+
 function fitHatch(x,z,angle){
  const a=angle*Math.PI/180,ux=Math.cos(a),uz=-Math.sin(a),nx=-uz,nz=ux;
  const id=hatches.length,door={x,z,ux,uz,openness:0};
  hatches.push(door);
  // The offset joint makes a fitted tooth through the full depth of both leaves.
- const seam=[[-117,0],[26,0],[61,28],[130,28],[165,0],[276,0],[303,-19],[356,-19],[379,0],[416,0]];
+ const seam=[[-117,0],[portTop,0],[portTop+portBevel,0],[26,0],[61,28],[portBottom-portBevel,28],[portBottom,28],[130,28],[165,0],[276,0],[303,-19],[356,-19],[379,0],[416,0]];
  for(const side of [-1,1]){
    const vertex=(u,y,d)=>[x+u*ux+d*nx,y,z+u*uz+d*nz];
    const face=(points,finish)=>formedPanels.push({points:points.map(q=>vertex(...q)),finish,leaf:id*2+(side===1?1:0)});
@@ -453,12 +457,28 @@ function fitHatch(x,z,angle){
      const [top,start]=seam[j-1],[bottom,end]=seam[j];
      const left=side*168,lip=start+side*1.5,tip=end+side*1.5;
      for(const depth of [-10,10]){
-       face([[left,top,depth],[lip,top,depth],[tip,bottom,depth],[left,bottom,depth]],'pearl');
+       if(top>=portTop&&bottom<=portBottom){
+         const lo=side*(portCentre-portHalf(top)),hi=side*(portCentre+portHalf(top));
+         const nextLo=side*(portCentre-portHalf(bottom)),nextHi=side*(portCentre+portHalf(bottom));
+         face([[lip,top,depth],[lo,top,depth],[nextLo,bottom,depth],[tip,bottom,depth]],'pearl');
+         face([[hi,top,depth],[left,top,depth],[left,bottom,depth],[nextHi,bottom,depth]],'pearl');
+       }else face([[left,top,depth],[lip,top,depth],[tip,bottom,depth],[left,bottom,depth]],'pearl');
        face([[lip,top,depth*1.03],[lip+side*3,top,depth*1.03],[tip+side*3,bottom,depth*1.03],[tip,bottom,depth*1.03]],'alloy');
      }
      face([[lip,top,-10],[tip,bottom,-10],[tip,bottom,10],[lip,top,10]],'gasket');
    }
-   for(const d of [-11,11])face([[side*116,5,d],[side*122,5,d],[side*122,138,d],[side*116,138,d]],'glasslight');
+   const loop=(inset,depth)=>{
+     const lo=portCentre-portHalfWidth+inset,hi=portCentre+portHalfWidth-inset,t=portTop+inset,b=portBottom-inset,k=portBevel;
+     return [[lo+k,t],[hi-k,t],[hi,t+k],[hi,b-k],[hi-k,b],[lo+k,b],[lo,b-k],[lo,t+k]].map(([u,y])=>[side*u,y,depth]);
+   };
+   for(const sign of [-1,1]){
+     const rings=[loop(-4,11*sign),loop(1,13*sign),loop(5,9*sign),loop(7,2*sign)];
+     for(let layer=0;layer<3;layer++)for(let i=0;i<8;i++){
+       const j=(i+1)%8;face([rings[layer][i],rings[layer][j],rings[layer+1][j],rings[layer+1][i]],layer===0?'alloy':'gasket');
+     }
+   }
+   const rim=loop(7,0);for(let i=1;i<7;i++)face([rim[0],rim[i],rim[i+1],rim[i+1]],'glass');
+   for(const d of [-11,11])face([[side*147,141,d],[side*152,141,d],[side*152,202,d],[side*147,202,d]],'glasslight');
  }
 }
 function animateHatches(px,pz,dt){
@@ -479,7 +499,9 @@ function hatchHit(ex,ey,ez,dx,dy,dz){
    if(t<=0||t>=nearest)continue;
    const y=ey+t*dy,u=(ex+t*dx-d.x)*d.ux+(ez+t*dz-d.z)*d.uz;
    const offset=202*d.openness*d.openness*(3-2*d.openness);
-   if(y>=-117&&y<=416&&Math.abs(u)<=168&&Math.abs(u)>=offset)nearest=t;
+   const leafU=Math.abs(u)-offset;
+   if(y>=portTop+7&&y<=portBottom-7&&Math.abs(leafU-portCentre)<portHalf(y)-8)continue;
+   if(y>=-117&&y<=416&&leafU<=168&&leafU>=0)nearest=t;
  }
  return nearest;
 }

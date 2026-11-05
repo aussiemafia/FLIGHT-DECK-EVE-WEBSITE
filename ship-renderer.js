@@ -17,11 +17,15 @@
  // Project nearby opaque geometry into each native display's own coordinate system.
  // A luminance mask removes exactly the covered pieces without rasterising its text.
  const blockers=[];
- function addBlocker(points,owner,convex=false){
+ function addBlocker(points,owner,convex=false,leaf){
    const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
    for(const p of points)for(let j=0;j<3;j++){lo[j]=Math.min(lo[j],p[j]);hi[j]=Math.max(hi[j],p[j])}
    const c=lo.map((v,j)=>(v+hi[j])/2);
-   blockers.push({points,owner,convex,c,r:Math.hypot(...hi.map((v,j)=>v-c[j]))});
+   blockers.push({points,owner,convex,c,leaf,r:Math.hypot(...hi.map((v,j)=>v-c[j]))});
+ }
+ for(const p of formedPanels)if(p.leaf!==undefined&&p.finish==='pearl'){
+   // One face per leaf segment masks the UI while leaving each window open.
+   const d=hatches[p.leaf>>1],pt=p.points[0];if((pt[2]-d.z)*d.ux-(pt[0]-d.x)*d.uz>0)addBlocker(p.points,null,false,p.leaf);
  }
  for(const points of upholsteredSilhouettes)addBlocker(points,null,true);
  for(const el of all.filter(e=>e.matches('.seat-flank,.seat-band,.bay-display,.screen,.helm-display,.switches,.wall-pad,.console-case,.case-back,.plaque'))){
@@ -79,12 +83,16 @@
    const openness=hatches.reduce((v,d)=>v+Math.round(d.openness*8),0);
    if(openness===sightDoors&&ex===sightX&&ez===sightZ&&ey===sightY)return;
    sightY=ey;
-   const nearby=blockers.filter(b=>Math.abs(b.c[0]-ex)<2300+b.r&&Math.abs(b.c[2]-ez)<2300+b.r);
+   const nearby=blockers.filter(b=>Math.abs(b.c[0]-ex)<2500+b.r&&Math.abs(b.c[2]-ez)<2500+b.r).map(b=>{
+     if(b.leaf===undefined)return b;
+     const [dx,dz]=leafShift(b.leaf);if(!dx&&!dz)return b;
+     const shifted=([x,y,z])=>[x+dx,y,z+dz];return {...b,c:shifted(b.c),points:b.points.map(shifted)};
+   });
    sightDoors=openness;
    sightX=ex;sightZ=ez;
    live.forEach(({el},i)=>{
      const [xx,yy,zz]=nativeCentres[i],dx=xx-ex,dy=yy,dz=zz-ez;
-     const blocked=Math.abs(dx)>2200||Math.abs(dz)>2200||hatchHit(ex,0,ez,dx,dy,dz)<.992||partitions.some(({inv:m,w,h})=>{
+     const blocked=Math.abs(dx)>2200||Math.abs(dz)>2200||partitions.some(({inv:m,w,h})=>{
        const oz=ex*m.m13+ez*m.m33+m.m43,vz=dx*m.m13+dy*m.m23+dz*m.m33;
        if(Math.abs(vz)<.001)return false;const t=-oz/vz;if(t<=0||t>=.992)return false;
        const px=ex+dx*t,py=dy*t,pz=ez+dz*t;
@@ -381,10 +389,10 @@
  for(const panel of formedPanels){
    const [a,b,,d]=panel.points,e=b.map((v,i)=>v-a[i]),f=d.map((v,i)=>v-a[i]);
    const n=[e[1]*f[2]-e[2]*f[1],e[2]*f[0]-e[0]*f[2],e[0]*f[1]-e[1]*f[0]];
-   const len=Math.hypot(...n)||1;const name={pearl:'white',alloy:'shell',gasket:'dark',glasslight:'cyan',upholstery:'linen',sienna:'copper',bronze:'warm',smoked:'dark',warmline:'lamp'}[panel.finish];
-   const [tx,ty]=tileOrigin(name),key=panel.leaf===undefined?'formed:solid':'leaf'+panel.leaf+':solid';if(!groups.has(key))groups.set(key,[]);
+   const len=Math.hypot(...n)||1;const name={pearl:'white',alloy:'shell',gasket:'dark',glasslight:'cyan',upholstery:'linen',sienna:'copper',bronze:'warm',smoked:'dark',warmline:'lamp',glass:'window'}[panel.finish];
+   const [tx,ty]=tileOrigin(name),key=panel.leaf===undefined?'formed:solid':'leaf'+panel.leaf+(name==='window'?':glass':':solid');if(!groups.has(key))groups.set(key,[]);
    for(const i of [0,1,2,0,2,3]){
-     const v=panel.points[i];groups.get(key).push(...v,n[0]/len,n[1]/len,n[2]/len,(tx+tile*.5)/atlas.width,(ty+tile*.5)/atlas.height,name==='cyan'?3:0);
+     const v=panel.points[i];groups.get(key).push(...v,n[0]/len,n[1]/len,n[2]/len,(tx+tile*.5)/atlas.width,(ty+tile*.5)/atlas.height,name==='window'?2:name==='cyan'?3:0);
    }
  }
  const ranges=[],data=[];
