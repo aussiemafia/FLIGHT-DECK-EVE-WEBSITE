@@ -357,7 +357,8 @@ function furnishing(type,x,y,z,w,h,d){
  }
 }
 const seats=[];
-function addChair(cx,pz,style="pilot"){
+function addChair(cx,pz,style="pilot",facesAft=false){
+  const panelStart=formedPanels.length,outlineStart=upholsteredSilhouettes.length;
   seats.push({cx,pz});
   const firstPart=world.children.length;
   // Sections follow the curved side profile (forward is negative Z).
@@ -407,10 +408,20 @@ function addChair(cx,pz,style="pilot"){
   button.dataset.seat=[cx,pz].join(',');button.dataset.station='Sit at station';
   button.onclick=()=>activateStation(button);station.append(button);
   for(const body of Array.from(world.children).slice(firstPart)){
+    if(facesAft){
+      body.style.transform='translate3d('+cx+'px,0,'+pz+'px) rotateY(180deg) translate3d('+(-cx)+'px,0,'+(-pz)+'px) '+body.style.transform;
+      body.dataset.facesAft='true';
+    }
     body.classList.add(style+'-chair');
     if(body===station)continue;
     body.dataset.seat=button.dataset.seat;body.dataset.station='Sit at station';
     body.onclick=()=>{if(!dragged)activateStation(body)};
+  }
+  if(facesAft){
+    button.dataset.facesAft='true';
+    const vertices=new Set(formedPanels.slice(panelStart).flatMap(panel=>panel.points));
+    for(const outline of upholsteredSilhouettes.slice(outlineStart))for(const point of outline)vertices.add(point);
+    for(const point of vertices){point[0]=2*cx-point[0];point[2]=2*pz-point[2];}
   }
   for(const [idx,key] of Array.from(world.children).slice(firstPart).filter(el=>el.classList.contains('chair-keypad')).entries()){
     const topic=idx===0?groups[0][1]:groups[1][3];
@@ -418,7 +429,7 @@ function addChair(cx,pz,style="pilot"){
   }
 }
 for(const side of [-1,1]){
- for(const pz of [140,820])addChair(side*460,pz,pz===140?'command':'pilot');
+ for(const pz of [140,820])addChair(side*460,pz,pz===140?'command':'pilot',side===-1&&pz===820);
  addChair(side*845,2910,'lab');
 }
 function clad(el,cols,rows,zone){
@@ -1077,11 +1088,9 @@ const briefings=[
 const today=new Date();
 const dailyIndex=Math.floor(Date.UTC(today.getFullYear(),today.getMonth(),today.getDate())/86400000)%briefings.length;
 let briefingIndex=dailyIndex;
-displayCase(305,178,-340,47,535,0,17);
-furnishing('lounge-base',-340,377,521,183,77,110);
-upholstery('bronze',-340,230,521,45,228,29);
-furnishings.push([-340,521,152,57]);
-const learningDesk=plane('screen learning-desk',300,174,-340,47,540);
+// Flush-mounted on the port side of the aft bulkhead, clear of the hatch.
+displayCase(325,188,-460,65,1160,180,14);
+const learningDesk=plane('screen learning-desk',320,184,-460,65,1158,180);
 const deskHeading=document.createElement('strong'),prompt=document.createElement('p');
 learningDesk.append(deskHeading,prompt);
 function deskButton(action){
@@ -1166,7 +1175,8 @@ function activateStation(control){
  if(control.dataset.seat){
    const [sx,sz]=control.dataset.seat.split(',').map(Number);
    if(seated)standUp();
-   seated={x:sx,z:sz};x=sx;z=sz-8;yaw=0;pitch=0;keys.clear();$('stand').hidden=false;view.focus();
+   const aft=control.dataset.facesAft==='true';
+   seated={x:sx,z:sz,aft};x=sx;z=sz+(aft?8:-8);yaw=aft?Math.PI:0;pitch=aft?-.12:0;keys.clear();$('stand').hidden=false;view.focus();
    if(control.closest('.cinema-chair')&&!cinemaPlayer)openMedia();
    return;
  }
@@ -1196,7 +1206,7 @@ let x=0,z=365,yaw=0,pitch=0,drag=false,dragged=false,totalDrag=0,target=null,pre
 let seated=null;
 function standUp(){
  if(!seated)return;
- x=seated.x;z=seated.z-160;seated=null;$('stand').hidden=true;keys.clear();view.focus();
+ x=seated.x;z=seated.z+(seated.aft?160:-160);seated=null;$('stand').hidden=true;keys.clear();view.focus();
 }
 $('stand').onclick=standUp;
 function helm(){standUp();x=0;z=365;yaw=0;pitch=0;keys.clear();view.focus()}
@@ -1306,7 +1316,7 @@ $('use').onclick=()=>{if(target)activateStation(target)};
 window.addEventListener('keydown',e=>{
  if(panel.open||$('media-library')?.open)return;
  if(['KeyW','KeyS','KeyA','KeyD','ShiftLeft','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();keys.add(e.code)}
- if(e.code==='KeyE'&&!e.repeat){if(seated)standUp();else if(target)activateStation(target);}
+ if(e.code==='KeyE'&&!e.repeat){if(seated?.aft&&target?.closest('.learning-desk'))activateStation(target);else if(seated)standUp();else if(target)activateStation(target);}
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();drag=false});
 function isClear(px,pz){
@@ -1407,7 +1417,7 @@ function frame(now){
  requestAnimationFrame(frame);
 }
 if(location.hash==='#skylight'){x=0;z=365;yaw=0;pitch=-1.18;view.focus()}
-if(location.hash==='#briefing'){x=-340;z=900;yaw=0;pitch=.09;view.focus()}
+if(location.hash==='#briefing'){x=-460;z=650;yaw=Math.PI;pitch=.12;view.focus()}
 if(location.hash==='#viewing-deck'){x=0;z=padCenter;yaw=-1.23;pitch=-.09;view.focus()}
 if(location.hash==='#holodeck'){x=500;z=cabinZ+365;yaw=1.0;pitch=.14;view.focus()}
 requestAnimationFrame(frame);
