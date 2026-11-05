@@ -16,7 +16,7 @@ function plane(type,w,h,x,y,z,ry=0,rx=0) {
 }
 // The forward glass and each instrument housing occupy separate planes.
 
-plane('crest-glass',220,95,-295,-380,-743,20);
+plane('crest-glass',275,115,-295,-380,-743,20);
 plane('orbital',850,310,-830,-135,-2340);
 plane('drifting',830,335,470,-105,-2100);
 // Seven joined panes span 160 degrees around the bow. Their sills, headers
@@ -138,7 +138,7 @@ for(const z of [-700,-50,580,1080]){
  }
 }
 const seats=[];
-function addChair(cx,pz){
+function addChair(cx,pz,style="pilot"){
   seats.push({cx,pz});
   const firstPart=world.children.length;
   // Sections follow the curved side profile (forward is negative Z).
@@ -170,18 +170,36 @@ function addChair(cx,pz){
     const display=plane('chair-keypad',26,48,cx+sign*76,187,pz-32,0,70);
     display.innerHTML='<i></i><i></i><i></i>';
   }
+  if(style!=='pilot'){
+    // Open swept canopy: two side spars, a crown and a swivel undercarriage.
+    const outline=[[67,141],[91,112],[105,73],[96,37],[72,8],[38,-13],[-5,-22],[-29,-10],[-32,3],[-9,-6],[30,1],[57,16],[78,42],[84,70],[73,98],[56,118]];
+    for(const sign of [-1,1]){
+      cockpitPart('canopy-spar',sign*66,17,outline);
+      cockpitPart('crown-light',sign*68,18,[[27,-14],[57,-1],[77,14],[80,20],[56,4],[25,-8]]);
+    }
+    cockpitPart('canopy-shell',0,139,[[-29,-10],[-13,-20],[21,-18],[39,-10],[36,0],[6,-7],[-22,0]]);
+    cockpitPart('swivel',0,112,[[-52,383],[-64,372],[-55,353],[35,345],[65,362],[58,379]]);
+  }
   cockpitPart('arm-cap',76,17,[[-55,195],[-60,178],[-55,161],[-44,159],[-39,171],[-45,192]]);
   const station=plane('seat-control',128,38,cx,150,pz+112);
   const button=document.createElement('button');button.textContent='Sit at station';
   button.dataset.seat=[cx,pz].join(',');button.dataset.station='Sit at station';
   button.onclick=()=>activateStation(button);station.append(button);
   for(const body of Array.from(world.children).slice(firstPart)){
+    body.classList.add(style+'-chair');
     if(body===station)continue;
     body.dataset.seat=button.dataset.seat;body.dataset.station='Sit at station';
     body.onclick=()=>{if(!dragged)activateStation(body)};
   }
+  for(const [idx,key] of Array.from(world.children).slice(firstPart).filter(el=>el.classList.contains('chair-keypad')).entries()){
+    const topic=idx===0?groups[0][1]:groups[1][3];
+    delete key.dataset.seat;key.textContent=idx===0?'ATLAS':'FITS';wire(key,topic);
+  }
 }
-for(const side of [-1,1]){for(const pz of [140,820])addChair(side*460,pz); addChair(side*845,2910);}
+for(const side of [-1,1]){
+ for(const pz of [140,820])addChair(side*460,pz,pz===140?'command':'pilot');
+ addChair(side*845,2910,'lab');
+}
 function clad(el,cols,rows,zone){
  el.classList.add('clad');
  el.style.gridTemplateColumns='repeat('+cols+',1fr)';
@@ -341,6 +359,8 @@ for(const side of [-1,1]){
      }
      seats.push({cx:seatX,pz:sz});
    }
+   addChair(660,cabinZ-460,'pod');
+   addChair(941,cabinZ-460,'pod');
    block('lounge-base',mid,387,cabinZ-126,225,53,116);
    block('tabletop',mid,351,cabinZ-126,249,16,139);
    furnishings.push([mid,cabinZ-126,133,82]);
@@ -350,7 +370,7 @@ for(const side of [-1,1]){
    block('berth-pad',mid,300,bz,428,44,180);
    block('berth-pillow',mid-148,266,bz,98,29,155);
    furnishings.push([mid,bz,231,110]);
-   addChair(-712,cabinZ-350);
+   addChair(-712,cabinZ-350,'lab');
  }
  for(const el of Array.from(world.children).slice(start))el.classList.add(lounge?'lounge-zone':'cabin-zone');
 }
