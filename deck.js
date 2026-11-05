@@ -773,9 +773,12 @@ for(let i=1;i<collarSections.length;i++){
 // Maintenance galleries flank the pressure port. Human-sized windows and
 // separate projecting armour courses carry the sense of scale up to the rail.
 for(const side of [-1,1])for(let bay=0;bay<3;bay++){
- const x=side*(1510+bay*1510),z=outerLockZ-1140-x*.081;
- for(let row=0;row<3;row++){
-   const y=-2000+row*1120,project=(u,v,relief)=>[x+u,y+v,z-u*.081+relief];
+ const along=-3700-bay*3000;
+ // The spar tapers from 2,270 to 1,450 units over this section.
+ const halfWidth=z=>1450+(-2100-z)*(2270-1450)/12600;
+ for(let row=0;row<2;row++){
+   const y=-530+row*870;
+   const project=(u,v,relief)=>[side*(halfWidth(along+u)+relief),y+v,outerLockZ+along+u];
    const outline=[[-714,-450],[520,-450],[735,-250],[735,360],[-510,360],[-714,185]];
    const face=outline.map(([u,v])=>project(u,v,96)),back=outline.map(([u,v])=>project(u,v,-110));
    for(let k=0;k<6;k++){
