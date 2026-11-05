@@ -473,6 +473,15 @@ function fitHatch(x,z,angle,panoramic){
  for(const side of [-1,1]){
    const vertex=(u,y,d)=>[x+u*ux+d*nx,y,z+u*uz+d*nz];
    const face=(points,finish,mask=true)=>formedPanels.push({points:points.map(q=>vertex(...q)),finish,mask,leaf:id*2+(side===1?1:0)});
+   // Distant hatches keep their solid outline and open window in six strips.
+   const coarseStart=formedPanels.length,farPlane=0;
+   const strip=(a,b,top,bottom,finish)=>face([[side*a,top,farPlane],[side*b,top,farPlane],[side*b,bottom,farPlane],[side*a,bottom,farPlane]],finish,false);
+   strip(0,168,-117,portTop,'pearl');strip(0,168,portBottom,416,'pearl');
+   strip(0,portCentre-portHalfWidth,portTop,portBottom,'pearl');
+   strip(portCentre+portHalfWidth,168,portTop,portBottom,'pearl');
+   strip(portCentre-portHalfWidth,portCentre+portHalfWidth,portTop,portBottom,'glass');
+   if(!panoramic)strip(42,145,176,186,'sienna');
+   for(let i=coarseStart;i<formedPanels.length;i++)formedPanels[i].distant=true;
    for(let j=1;j<seam.length;j++){
      const [top,start]=seam[j-1],[bottom,end]=seam[j];
      const left=side*168,lip=start+side*1.5,tip=end+side*1.5;
@@ -512,6 +521,11 @@ function fitHatch(x,z,angle,panoramic){
      for(let n=0;n<5;n++){
        const u=53+n*18;face([[side*u,383,depth*1.06],[side*(u+6),383,depth*1.06],[side*(u+17),360,depth*1.06],[side*(u+11),360,depth*1.06]],'warmline');
      }
+   }
+   if(panoramic)for(const sign of [-1,1]){
+     const d=sign*12;
+     face([[side*149,-94,d],[side*162,-94,d],[side*162,-71,d],[side*149,-82,d]],'gasket');
+     face([[side*7,-96,d],[side*10,-96,d],[side*10,-14,d],[side*7,-14,d]],'glasslight');
    }
    const rim=loop(7,0);for(let i=1;i<rim.length-1;i++)face([rim[0],rim[i],rim[i+1],rim[i+1]],'glass');
    for(const [a,b,c,d,width] of panoramic?[]:hatchWebs){
@@ -646,7 +660,7 @@ for(const side of [-1,1]){
  plane('promenade-light',7,2025,side*220,-202,4440,0,-90);
 }
 const outerLockZ=passageEnd+815,deckRadius=990,hexApothem=deckRadius*Math.sqrt(3)/2;
-const padStart=outerLockZ+225,padCenter=padStart+hexApothem;
+const padStart=outerLockZ+2150,padCenter=padStart+hexApothem;
 floorAndCeiling(490,outerLockZ-passageEnd,0,(outerLockZ+passageEnd)/2);
 for(const side of [-1,1]){
  panelWall(815,roomHeight,side*245,96,(outerLockZ+passageEnd)/2,-side*90);
@@ -661,6 +675,122 @@ const innerDoor=hatches[hatches.length-2],outerDoor=hatches.at(-1);
 innerDoor.interlock=outerDoor;outerDoor.interlock=innerDoor;
 block('console-case',0,floorY+41,(outerLockZ+padStart)/2,330,82,padStart-outerLockZ+4);
 for(const side of [-1,1])plane('guide-light',7,padStart-outerLockZ,side*156,414,(outerLockZ+padStart)/2,0,90);
+
+// The flight deck exits on the flank of an Avatar. The hull axis runs
+// across the observer's view: flared segmented bow to port, engines to starboard.
+const avatarStart=formedPanels.length;
+// Units in this table are local to the model. Scale the main hull about the
+// observation port so the existing human-scale airlock stays on its surface.
+const avatarScale=112,portX=2300;
+const avatarStations=[
+ [-12500,520,510],[-12410,1820,1740],[-12190,3620,3440],[-11760,5200,4970],
+ [-10950,5870,5610],[-10100,5980,5760],[-9250,5540,5280],[-8600,4300,4060],
+ [-8060,3460,3300],[-6270,3050,2890],[-4200,2760,2640],[-2150,2600,2450],
+ [0,2540,2350],[2300,2350,2150],[5100,2070,1920],[7800,1610,1550],
+ [10100,1310,1300],[11900,1270,1200],[13300,1560,1390],[15000,1490,1300],[15500,1100,1050]
+];
+const hullAxisY=165,hullAxisZ=outerLockZ-560000-2150*avatarScale;
+function profileAt(x){
+ const i=avatarStations.findIndex(s=>s[0]>=x);
+ if(i<=0)return i===0?avatarStations[0]:avatarStations.at(-1);
+ const a=avatarStations[i-1],b=avatarStations[i],t=(x-a[0])/(b[0]-a[0]);
+ return [x,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+}
+function hullPoint(station,angle,lift=0){
+ const [x,ry,rz]=station;
+ return [(x-portX)*avatarScale,hullAxisY+(ry+lift)*avatarScale*Math.sin(angle),hullAxisZ+(rz+lift)*avatarScale*Math.cos(angle)];
+}
+function avatarUV([xx,yy]){
+ const x=xx/avatarScale+portX,r=profileAt(x)[1];
+ return [Math.max(.001,Math.min(.999,(x+12500)/28000)),Math.max(.001,Math.min(.999,.5+.5*(yy-hullAxisY)/(r*avatarScale)))];
+}
+function plate(points,finish,skin=false){formedQuad(points,finish);formedPanels.at(-1).skin=skin;}
+// Add a real opening through the flank under the docking blister.
+const bands=[...avatarStations,profileAt(portX-10),profileAt(portX+10)].sort((a,b)=>a[0]-b[0]);
+const angles=[-.004,.004,...Array.from({length:32},(_,i)=>(i-16)*Math.PI/16).filter(a=>a!==0),Math.PI].sort((a,b)=>a-b);
+for(let i=1;i<bands.length;i++)for(let j=1;j<angles.length;j++){
+ const a=bands[i-1],b=bands[i],t=angles[j-1],u=angles[j];
+ if(a[0]>=portX-10&&b[0]<=portX+10&&t>=-.004&&u<=.004)continue;
+ plate([hullPoint(a,t),hullPoint(b,t),hullPoint(b,u),hullPoint(a,u)],'titanIron',true);
+}
+// Swept, overlapping armour petals form the head. Each has a raised centre
+// and a long rib projecting aft beyond the rim into the narrower neck.
+for(let j=0;j<16;j++){
+ const angle=j*Math.PI/8,offset=Math.cos(j*Math.PI)*170;
+ const ribs=[[-12450,.075,22],[-12050,.145,64],[-11350,.182,122],[-10400,.187,175],[-9500,.155,300],[-8660,.098,535],[-7880+offset,.024,810]];
+ let prev;
+ for(const [x,width,raise] of ribs){
+   const base=profileAt(x),mid=angle+(x+12450)*.000009;
+   const row=[hullPoint(base,mid-width,raise),hullPoint(base,mid,raise+115),hullPoint(base,mid+width,raise)];
+   if(prev)for(let k=0;k<2;k++)plate([prev[k],row[k],row[k+1],prev[k+1]],k?'titanBronze':'titanGold',true);
+   prev=row;
+ }
+}
+// Stepped armour belts, inset service channels and the heavier ventral keel.
+for(const x of [-7430,-3890,250,8640,12370]){
+ for(let j=0;j<32;j++){
+   const a=j*Math.PI/16,b=a+Math.PI/16-.006;
+   const ring=(offset,lift,angle)=>hullPoint(profileAt(x+offset),angle,lift);
+   plate([ring(-62,2,a),ring(-22,54,a),ring(-22,54,b),ring(-62,2,b)],'titanBronze');
+   plate([ring(-22,54,a),ring(71,48,a),ring(71,48,b),ring(-22,54,b)],'titanIron',true);
+ }
+}
+for(const [start,end,height] of [[-7750,-2100,660],[-3080,5300,420],[11200,15000,290]]){
+ let prev;
+ for(const [t,lift,width] of [[0,0,.11],[.12,height*.72,.24],[.30,height,.27],[.83,height*.77,.19],[1,0,.08]]){
+   const base=profileAt(start+(end-start)*t),a=Math.PI/2;
+   const row=[hullPoint(base,a-width),hullPoint(base,a-width*.74,lift),hullPoint(base,a+width*.74,lift),hullPoint(base,a+width)];
+   if(prev)for(let k=0;k<3;k++)plate([prev[k],row[k],row[k+1],prev[k+1]],k===1?'titanIron':'titanDark',k===1);
+   prev=row;
+ }
+}
+// Recessed circular apertures at the stern and inside the crown.
+function aperture(x,cy,cz,r,dir){
+ const levels=[[0,r],[-dir*65,r*.81],[-dir*115,r*.65],[-dir*120,0]];
+ let prev;
+ for(let n=0;n<levels.length;n++){
+   const [dx,rad]=levels[n],row=[];
+   for(let i=0;i<24;i++){const a=i*Math.PI/12;row.push([(x+dx-portX)*avatarScale,hullAxisY+(cy+rad*Math.sin(a))*avatarScale,hullAxisZ+(cz+rad*Math.cos(a))*avatarScale])}
+   if(prev)for(let i=0;i<24;i++){const k=(i+1)%24;plate([prev[i],prev[k],row[k],row[i]],['','titanBronze','smoked','titanDark'][n])}
+   prev=row;
+ }
+}
+for(const end of [avatarStations[0],avatarStations.at(-1)]){
+ const front=end[0]<0;
+ for(let j=0;j<32;j++){const a=hullPoint(end,j*Math.PI/16),b=hullPoint(end,(j+1)*Math.PI/16);plate([[(end[0]-portX)*avatarScale,hullAxisY,hullAxisZ],a,b,b],'titanDark')}
+ aperture(end[0]+(front?-150:150),0,0,front?490:600,front?-1:1);
+ if(!front)for(let j=0;j<6;j++){const a=j*Math.PI/3;aperture(end[0]+155,765*Math.sin(a),765*Math.cos(a),165,1)}
+}
+// Flared armour around the docking blister meets the airlock on all sides.
+// Keep the opening aligned with the existing door and walkable gangway.
+// A projecting observation spar places the deck clear of the curvature.
+const collarSections=[[-568000,16500,-8500,15600],[-422000,11900,-6700,11600],[-198000,7300,-4300,7060],[-65000,4440,-2600,3900],[-14700,2270,-1340,1780],[-2100,1450,-990,1030],[-380,535,-355,550],[-15,248,-226,425]];
+for(let i=1;i<collarSections.length;i++){
+ const ring=([dz,w,top,bottom])=>[[-w,top,outerLockZ+dz],[w,top,outerLockZ+dz],[w,bottom,outerLockZ+dz],[-w,bottom,outerLockZ+dz]];
+ const a=ring(collarSections[i-1]),b=ring(collarSections[i]);
+ for(let j=0;j<4;j++){const k=(j+1)%4;formedQuad([a[j],a[k],b[k],b[j]],j===0?'titanGold':'titanIron')}
+}
+// Maintenance galleries flank the pressure port. Human-sized windows and
+// separate projecting armour courses carry the sense of scale up to the rail.
+for(const side of [-1,1])for(let bay=0;bay<3;bay++){
+ const x=side*(1510+bay*1510),z=outerLockZ-1140-x*.081;
+ for(let row=0;row<3;row++){
+   const y=-2000+row*1120,project=(u,v,relief)=>[x+u,y+v,z-u*.081+relief];
+   const outline=[[-714,-450],[520,-450],[735,-250],[735,360],[-510,360],[-714,185]];
+   const face=outline.map(([u,v])=>project(u,v,96)),back=outline.map(([u,v])=>project(u,v,-110));
+   for(let k=0;k<6;k++){
+     const n=(k+1)%6;plate([back[k],back[n],face[n],face[k]],'smoked');
+     if(k>0&&k<5){plate([face[0],face[k],face[n],face[n]],'titanIron');const f=formedPanels.at(-1);f.plating=[0,k,n,n].map(i=>[.04+((bay+row)%3)*.16+(outline[i][0]+720)/1460*.57,.04+((bay*2+row)%3)*.15+(outline[i][1]+460)/830*.6]);}
+   }
+   for(let k=0;k<9;k++){const u=-510+k*120;if((bay+row+k)%5===0)continue;plate([project(u,411,26),project(u+26,411,26),project(u+26,425,26),project(u,425,26)],'warmline');}
+ }
+}
+for(let i=avatarStart;i<formedPanels.length;i++)formedPanels[i].avatar=true;
+for(const side of [-1,1]){
+ const edge=side*162;
+ block('rim-metal',edge,275,(outerLockZ+padStart)/2,6,8,padStart-outerLockZ);
+ for(let z=outerLockZ+80;z<padStart;z+=270)block('rim-metal',edge,345,z,6,140,8);
+}
 const corner=(i,r,y)=>[Math.cos(i*Math.PI/3)*r,y,padCenter+Math.sin(i*Math.PI/3)*r];
 for(let i=0;i<6;i++){
  const a=corner(i,deckRadius,floorY),b=corner(i+1,deckRadius,floorY);
@@ -1069,7 +1199,8 @@ function isClear(px,pz){
 }
 function resize(){const lens=Math.min(innerWidth*.59,innerHeight*.96);view.style.perspective=lens+'px';$('camera').style.transform='translateZ('+lens+'px)'}
 window.addEventListener('resize',resize);resize();
-let lastAim=-Infinity;
+let lastAim=-Infinity,lastMotion=0,lastCameraTransform='';
+const bearing=navDisplay.querySelector('.bearing');
 const fpsReadout=$('frame-rate');let fpsStart=performance.now(),fpsFrames=0,lastPresented=0;
 function frame(now){
  updateFeeds(now);
@@ -1079,7 +1210,7 @@ function frame(now){
    const presented=window.presentedShipFrames;
    const completed=presented===undefined?fpsFrames:presented-lastPresented;
    lastPresented=presented||0;
-   fpsReadout.textContent='· '+Math.round(completed*1000/(now-fpsStart))+' FPS';
+   fpsReadout.textContent=now-lastMotion>1100?'· idle':'· '+Math.round(completed*1000/(now-fpsStart))+' FPS';
    fpsStart=now;fpsFrames=0;
  }
  const dt=Math.max(0,Math.min(.075,(now-previous)/1000));previous=now;
@@ -1097,16 +1228,18 @@ function frame(now){
   if(isClear(x,nextZ))z=nextZ;
  }
  const cameraY=seated?105:0;
- world.style.transform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(-cameraY)+'px,'+(-z)+'px)';
+ const cameraTransform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(-cameraY)+'px,'+(-z)+'px)';
+ if(lastCameraTransform!==cameraTransform){world.style.transform=cameraTransform;lastCameraTransform=cameraTransform;lastMotion=now;}
  if(now-lastAim>55){target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);lastAim=now;}
  $('use').hidden=!target;if(target && $('use').textContent!=='E　'+target.dataset.station)$('use').textContent='E　'+target.dataset.station;
  const sector=z>outerLockZ?'Exterior observation deck':z>=passageEnd?'Observation airlock':z<1200?'Flight deck':Math.abs(x)<245?'Aft passage':nearestRoom(z).names[x>0?1:0];
  if($('sector').textContent!==sector)$('sector').textContent=sector;
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
- const bearing=navDisplay.querySelector('.bearing'),value=String(degrees).padStart(3,'0')+'°';
+ const value=String(degrees).padStart(3,'0')+'°';
  if(bearing.textContent!==value)bearing.textContent=value;
  if(window.renderShip)window.renderShip(now,x,cameraY,z,yaw,pitch,parseFloat(view.style.perspective));
  else window.drawExterior?.(x,z);
  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
