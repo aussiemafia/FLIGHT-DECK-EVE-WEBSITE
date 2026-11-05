@@ -1,20 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="384" height="480" viewBox="0 0 384 480">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1280" viewBox="0 0 320 400">
 <defs>
- <linearGradient id="steel" x2=".85" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#64707a"/><stop offset=".46" stop-color="#45535e"/><stop offset="1" stop-color="#2b3945"/></linearGradient>
- <linearGradient id="insert" x2="1" y2=".75"><stop stop-color="#61717c"/><stop offset="1" stop-color="#394853"/></linearGradient>
- <pattern id="louvre" width="10" height="9" patternUnits="userSpaceOnUse"><rect width="10" height="9" fill="#293640"/><path d="M0 2H10" stroke="#75838b"/><path d="M0 6H10" stroke="#161f27" stroke-width="3"/></pattern>
- <g id="screw"><circle r="3.8" fill="#1d2931" stroke="#8d9ba2"/><path d="m-1.6 1.2 3.2-2.4" stroke="#83909a"/></g>
+ <linearGradient id="h" x2=".85" y2="1"><stop stop-color="#aab7bb"/><stop offset=".38" stop-color="#74858d"/><stop offset="1" stop-color="#40515d"/></linearGradient>
+ <linearGradient id="lid" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#f0f1e9"/><stop offset=".15" stop-color="#d9deda"/><stop offset=".64" stop-color="#b5c2c5"/><stop offset="1" stop-color="#899da6"/></linearGradient>
+ <linearGradient id="trim" x2="0" y2="1"><stop stop-color="#445760"/><stop offset=".32" stop-color="#e5eae6"/><stop offset=".64" stop-color="#b2bfc2"/><stop offset="1" stop-color="#596c76"/></linearGradient>
+ <pattern id="vents" width="6" height="5" patternUnits="userSpaceOnUse"><rect width="6" height="5" fill="#78878a"/><rect width="6" height="2.5" rx="1" fill="#243844"/><path d="M0 3.5h6" stroke="#ccdad9" stroke-width=".7"/></pattern>
+ <path id="lines" d="M-4 87h48q8 0 8 8v33q0 8 8 8h40q9 0 9 9v164q0 11 11 11h77q8 0 8 8v75 M-4 98h40q7 0 7 7v33q0 8 8 8h41q8 0 8 8v166q0 10 10 10h77q8 0 8 8v65 M208-4v52q0 8 8 8h57q9 0 9 9v110q0 8 8 8h34 M219-4v43q0 8 8 8h55q9 0 9 9v110q0 8 8 8h25"/>
+ <g id="bolt"><circle r="2.2" fill="#586872" stroke="#e8efec" stroke-width=".7"/><path d="M-1 0h2" stroke="#243946" stroke-width=".8"/></g>
+ <g id="clamp"><rect x="-5" y="-3" width="10" height="6" rx="1.4" fill="url(#trim)" stroke="#566a70" stroke-width=".7"/></g>
 </defs>
-<rect width="384" height="480" fill="url(#steel)"/>
-<g fill="url(#insert)" stroke="#1d2932" stroke-width="5" stroke-linejoin="round">
-<path d="M9 14H216l25 26h124v109l-34 33H133l-32-30H9Z"/>
-<path d="M12 164h82l34 33h195l45-44v94l-62 62H98l-31-31H12Z"/>
-<path d="M12 292h49l31 31h109l26 29v111H12Z"/>
-<path d="M216 324h93l59-56v197H243V353Z"/>
+<rect width="320" height="400" fill="url(#h)"/>
+<g stroke="#566670" stroke-width="1.7" fill="url(#lid)">
+ <rect x="3" y="5" width="184" height="70" rx="10"/><rect x="6" y="157" width="71" height="232" rx="13"/>
+ <rect x="122" y="77" width="143" height="212" rx="15"/><rect x="224" y="207" width="94" height="185" rx="10"/>
 </g>
-<g fill="none" stroke="#9aa6ac" stroke-opacity=".6" stroke-width="1.25"><path d="M11 15h204l25 27h125M12 167h81l34 33h195M14 295h46l31 31h108M217 327h93l56-55"/></g>
-<path d="M262 55h80v44l-11 11h-69Z" fill="url(#louvre)" stroke="#25333d" stroke-width="3"/>
-<rect x="35" y="347" width="92" height="67" rx="4" fill="#33414a" stroke="#829097"/><path d="M46 358h69v35H46z" fill="url(#louvre)"/>
-<g fill="#26313a"><rect x="34" y="75" width="8" height="49" rx="2"/><rect x="288" y="374" width="37" height="6" rx="2"/><rect x="250" y="237" width="45" height="5" rx="2"/></g>
-<g><use href="#screw" x="22" y="27"/><use href="#screw" x="350" y="134"/><use href="#screw" x="145" y="167"/><use href="#screw" x="20" y="263"/><use href="#screw" x="302" y="288"/><use href="#screw" x="26" y="447"/><use href="#screw" x="347" y="449"/></g>
+<rect x="140" y="95" width="108" height="25" rx="4" fill="url(#vents)"/>
+<path d="M133 145h44q7 0 12-5l5-5q4-4 10-4h48M133 148h44q8 0 14-6l5-5q3-3 9-3h47" fill="none" stroke="#8b9da4"/>
+<rect x="147" y="196" width="86" height="56" rx="7" fill="url(#lid)" stroke="#8a9aa0"/><rect x="159" y="208" width="12" height="28" rx="3" fill="#536874"/><path d="M179 214h41m-41 4h33" stroke="#919fa3"/>
+<g fill="none" stroke-linejoin="round"><use xlink:href="#lines" transform="translate(1.7 3)" stroke="#394c57" stroke-width="6"/><use xlink:href="#lines" stroke="#a5b2b6" stroke-width="5"/><use xlink:href="#lines" transform="translate(-.7 -.8)" stroke="#eef2eb" stroke-width="1.6"/></g>
+<g><use xlink:href="#clamp" x="99" y="175"/><use xlink:href="#clamp" x="109" y="175"/><use xlink:href="#clamp" x="99" y="266"/><use xlink:href="#clamp" x="109" y="266"/><use xlink:href="#clamp" x="282" y="119"/><use xlink:href="#clamp" x="291" y="119"/></g>
+<g><use xlink:href="#bolt" x="15" y="17"/><use xlink:href="#bolt" x="175" y="63"/><use xlink:href="#bolt" x="135" y="90"/><use xlink:href="#bolt" x="252" y="276"/><use xlink:href="#bolt" x="20" y="374"/><use xlink:href="#bolt" x="306" y="378"/></g>
+<rect x="26" y="28" width="59" height="24" rx="4" fill="url(#trim)" stroke="#73848e"/><rect x="36" y="35" width="34" height="6" rx="2" fill="#455b65"/><path d="M39 37h16" stroke="#9be0e9" stroke-width="2"/>
 </svg>
