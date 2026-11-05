@@ -143,8 +143,8 @@ function clipWarpWindows(ctx,w,h){
  }
  ctx.clip();
 }
-function transit(name,arrive){
- const duration=4600;
+function transit(name,departure,destination,arrive){
+ const duration=2900;
  window.dispatchEvent(new Event('shipwarp'));
  if(matchMedia('(prefers-reduced-motion: reduce)').matches){arrive();return Promise.resolve();}
  const w=innerWidth,h=innerHeight,scale=Math.min(devicePixelRatio||1,1.5);
@@ -158,13 +158,33 @@ function transit(name,arrive){
  const start=performance.now();let arrived=false,phase='';
  return new Promise(resolve=>{function frame(now){
   const t=Math.min(1,(now-start)/duration);
-  if(!arrived&&t>=.78){arrived=true;arrive();}
+  if(!arrived&&t>=.5){arrived=true;arrive();}
   const stage=t<.2?'Spooling drive':t<.76?'In warp':'Dropping from warp';
   if(phase!==stage){phase=stage;warpReadout.textContent=stage+' · '+name;}
-  const speed=Math.min(1,t/.25,(1-t)/.22);
+  const speed=Math.sin(Math.PI*t)**2;
   const travel=t<.25?2*t*t:t<.78?t-.125:.655+(t-.78)*(1-(t-.78)/.44);
   ctx.clearRect(0,0,w,h);ctx.save();clipWarpWindows(ctx,w,h);
   ctx.translate(w*.5,h*.48);
+  // Bend the actual sky in broad horizontal bands. The distortion peaks
+  // during the system swap and eases to zero at both ends of the jump.
+  const blend=Math.min(1,Math.max(0,(t-.32)/.36));
+  const crossfade=blend*blend*(3-2*blend);
+  const bands=42, bandHeight=h/bands;
+  const zoom=1+.32*speed;
+  function bendSky(image,opacity){
+   ctx.globalAlpha=opacity;
+   const crop=Math.min(image.width,image.height*w/h)/zoom;
+   const cropHeight=crop*h/w;
+   for(let row=0;row<bands;row++){
+    const v=(row+.5)/bands-.5;
+    const bend=Math.cos(v*Math.PI)*Math.sin(v*5.5+t*4)*w*.037*speed;
+    const spread=1+speed*.15*(1-4*v*v);
+    ctx.drawImage(image,(image.width-crop)/2,(image.height-cropHeight)/2+row*cropHeight/bands,
+     crop,cropHeight/bands,-w*.5*spread+bend,(row/bands-.48)*h,w*spread,bandHeight+1);
+   }
+  }
+  bendSky(departure,speed);
+  bendSky(destination,speed*crossfade);
   const haze=ctx.createRadialGradient(0,0,0,0,0,radius);
   haze.addColorStop(0,'rgba(9,18,42,.28)');haze.addColorStop(.28,'rgba(56,93,166,.38)');haze.addColorStop(.72,'rgba(75,128,183,.20)');haze.addColorStop(1,'rgba(12,27,60,.06)');
   ctx.globalAlpha=speed;ctx.fillStyle=haze;ctx.fillRect(-w,-h,2*w,2*h);
@@ -187,7 +207,7 @@ for(const route of routes){
  button.onclick=async()=>{
   if(jumping||route.id===exteriorView)return;
   jumping=true;updateButtons();statusText.textContent=warpReadout.textContent='Aligning to '+route.name;
-  try{const faces=await systemSky(route);if(jumpPanel.open)jumpPanel.close();await transit(route.name,()=>{activeSky=Promise.resolve(faces);exteriorView=route.id;
+  try{const faces=await systemSky(route);if(jumpPanel.open)jumpPanel.close();await transit(route.name,(await activeSky)[4],faces[4],()=>{activeSky=Promise.resolve(faces);exteriorView=route.id;
    window.dispatchEvent(new Event('exteriorchange'));document.getElementById('jump-console').textContent=route.name+' · Jump navigation';});
   }catch{statusText.textContent='Exterior failed to load. Select a system to retry.';jumping=false;for(const b of document.querySelectorAll('#routes button'))b.disabled=b.value===exteriorView;return}
   jumping=false;updateButtons();
