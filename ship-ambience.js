@@ -5,7 +5,7 @@
   const control = document.getElementById('volume-control');
   const slider = document.getElementById('ship-volume');
   const level = document.getElementById('volume-level');
-  if (!AudioEngine) { control.hidden = true; return; }
+  if (!AudioEngine) { slider.disabled = true; toggle.disabled = true; return; }
   let volume = 18;
   try {
     const saved = localStorage.getItem('titan-volume');
@@ -38,7 +38,7 @@
     const now = audio.currentTime;
     engines.gain.setTargetAtTime(gain, now, .9);
     filter.frequency.setTargetAtTime(outside ? 240 : hall ? 1500 : 1250, now, .8);
-    master.gain.setTargetAtTime(muted || document.hidden ? 0 : volume / 100, now, 0.18);
+    master.gain.setTargetAtTime(muted || document.hidden ? 0 : volume / 100 * window.websiteGain(), now, 0.18);
   }
 
   const doorRecording = document.currentScript?.dataset.doorRecording;
@@ -99,7 +99,7 @@
     slider.value = volume;
     level.textContent = volume + '%';
     slider.setAttribute('aria-valuetext', volume + ' percent');
-    control.querySelector('summary').title = 'Ship volume · ' + (muted ? 'Muted' : volume + '%');
+    control.querySelector('summary').title = 'Volume controls · Ship ' + (muted ? 'Muted' : volume + '%');
     toggle.textContent = muted ? 'Unmute' : 'Mute';
     toggle.setAttribute('aria-pressed', String(muted));
   }
@@ -152,6 +152,7 @@
     drive.onended = () => { drive.disconnect(); envelope.disconnect(); };
     drive.start(now); drive.stop(now + 2.92);
   });
+  window.addEventListener('websitevolume', mix);
   document.addEventListener('visibilitychange', mix);
   new MutationObserver(mix).observe(sector, { childList: true, characterData: true, subtree: true });
   label();

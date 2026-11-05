@@ -724,7 +724,14 @@ bulkhead(0,passageStart,1586,992,360,180);
 hatchCollar(0,passageStart,180);
 plaque('AVATAR  /  COMMAND DECKS',0,-165,1195,180,420);
 plaque('AVATAR  /  FLIGHT DECK',0,-162,1252,0);
+function walkwayLights(width, depth, x, z) {
+ for (const side of [-1, 1]) {
+   plane('night-guide', 5, depth - 8, x + side * (width / 2 - 40), 409, z, 0, 90);
+ }
+}
+walkwayLights(490, 1995, 0, 200);
 function floorAndCeiling(w,d,x,z){
+ walkwayLights(w,d,x,z);
  const floor=plane('extension-floor',w,d,x,floorY,z,0,90);
  const ceiling=plane('extension-ceiling',w,d,x,floorY-roomHeight,z,0,-90);
  clad(floor,Math.ceil(w/450),Math.ceil(d/450),'floor-tile');
@@ -1147,7 +1154,7 @@ function watchMedia(id){
  cinemaPlayer.tabIndex=-1;cinemaPlayer.style.pointerEvents='none';
  cinemaPlayer.allow='autoplay; encrypted-media';
  cinemaPlayer.referrerPolicy='strict-origin-when-cross-origin';
- cinemaPlayer.src='https://www.youtube-nocookie.com/embed/'+film.id+'?autoplay=1&playsinline=1&controls=0&disablekb=1&rel=0&loop=1&playlist='+film.id+'&enablejsapi=1&origin='+encodeURIComponent(location.origin);
+ cinemaPlayer.src='https://www.youtube-nocookie.com/embed/'+film.id+'?autoplay=1&mute=1&playsinline=1&controls=0&disablekb=1&rel=0&loop=1&playlist='+film.id+'&enablejsapi=1&origin='+encodeURIComponent(location.origin);
  cinemaWall.append(cinemaPlayer);cinemaWall.classList.add('showing');
  $('media-library').close();view.focus();
 }

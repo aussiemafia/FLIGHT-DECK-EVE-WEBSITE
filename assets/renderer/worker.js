@@ -35,6 +35,7 @@ async function initialize({canvas,scene,doorVertices,urls}){
   self.postMessage('ready');
 }
 const neutralMaterials=new Map();
+let originalColors;
 self.onmessage=async({data})=>{
  if(data.type==='init'){try{await initialize(data)}catch(e){self.postMessage({error:String(e)})}return;}
  if(data.type==='system-sky'){
@@ -44,10 +45,20 @@ self.onmessage=async({data})=>{
    paintedPose='';lastDetail=false;return;
  }
  if(data.type==='light'){
-   for(const slot of [6,11,13]){
+   const words=new Uint32Array(mem,scenePtr,sceneSize*17);
+   if(!originalColors)originalColors=Uint32Array.from({length:sceneSize},(_,i)=>words[i*17+15]);
+   for(let i=0;i<sceneSize;i++){
+     const j=i*17+15, color=originalColors[i];
+     if(color===0xff010203) words[j]=data.night?0xffd1bf30:0xff25201d;
+     else if(data.night && words[j+1]===0){
+       const channel=shift=>Math.round(((color>>>shift)&255)*.13);
+       words[j]=(255<<24)|(channel(16)<<16)|(channel(8)<<8)|channel(0);
+     } else words[j]=color;
+   }
+   for(const slot of [6,10,11,12,13]){
     const bytes=new Uint8ClampedArray(mem,images+slot*imageBytes,imageBytes);
     if(!neutralMaterials.has(slot))neutralMaterials.set(slot,bytes.slice());
-    const src=neutralMaterials.get(slot),[r,g,b]=data.rgb;
+    const src=neutralMaterials.get(slot),[r,g,b]=(slot===10||slot===12?[1,1,1]:data.rgb).map(v=>v*(data.night && slot!==11?.13:1));
     for(let j=0;j<src.length;j+=4){bytes[j]=src[j]*r;bytes[j+1]=src[j+1]*g;bytes[j+2]=src[j+2]*b}
    }
    paintedPose='';lastDetail=false;return;

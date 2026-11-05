@@ -237,7 +237,7 @@
      const pts=poly.map(([u,v])=>m.transformPoint(new DOMPoint((u-.5)*w,(v-.5)*h)));
      const hex=materials[kind],lit=['lamp','gold','cyan','glass'].includes(kind)?1:.75+.22*Math.abs(m.m31*.54-m.m32*.8+m.m33*.25);
      const rgb=[1,3,5].map(i=>Math.min(255,Math.round(parseInt(hex.slice(i,i+2),16)*lit)));
-     const obj={pts,kind,a,ring:isRing,ui:false,cx:m.m41,cy:m.m42,cz:m.m43,nx:m.m31,ny:m.m32,nz:m.m33,
+     const obj={guide:el.classList.contains('night-guide'),pts,kind,a,ring:isRing,ui:false,cx:m.m41,cy:m.m42,cz:m.m43,nx:m.m31,ny:m.m32,nz:m.m33,
        size:Math.hypot(w,h)/2,zone:a&&a!=='armour'?'exterior':room(m.m41,m.m43),two:el.matches('.seat-band,.reveal'),fill:'rgb('+rgb.join(',')+')'};
      obj.poly=poly;items.push(obj);
 
@@ -276,7 +276,7 @@
        const light=.64+.36*Math.abs((nx*.42-ny*.83+nz*.36)/(Math.hypot(nx,ny,nz)||1));
        for(let k=0;k<3;k++)rgb[k]=Math.round(rgb[k]*light);
      }
-     const word=(255<<24)|(rgb[2]<<16)|(rgb[1]<<8)|rgb[0];
+     const word=item.guide?0xff010203|0:(255<<24)|(rgb[2]<<16)|(rgb[1]<<8)|rgb[0];
      for(let i=0;i<sides.length;i+=3){
        for(const n of sides.slice(i,i+3)){
          const p=pts[n];if(item.leaf!==undefined)doorVertices.push([item.leaf,packed.length,p.x,p.z]);packed.push(p.x,p.y,p.z,item.kind==='floor'?p.x/360:uv[n][0],item.kind==='floor'?p.z/360:uv[n][1]);
@@ -292,7 +292,7 @@
    for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
    const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
    for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/satin-panel.webp','assets/avatar-broadside.webp','assets/avatar-collar.webp'])urls.push(new URL(path,document.baseURI).href);
-   const worker=new Worker('assets/renderer/worker.js?v=jump-deck-1'),offscreen=canvas.transferControlToOffscreen();
+   const worker=new Worker('assets/renderer/worker.js?v=night-1'),offscreen=canvas.transferControlToOffscreen();
    let ready=false,pending=false;
    worker.onmessage=({data})=>{
      if(data==='ready'){
@@ -301,13 +301,13 @@
          if(choice===exteriorView)worker.postMessage({type:'system-sky',bitmaps},bitmaps);else for(const b of bitmaps)b.close();
        });
        let lightTimer;
-       const sendLight=()=>{clearTimeout(lightTimer);lightTimer=setTimeout(()=>worker.postMessage({type:'light',rgb:window.cabinRGB}),45)};
+       const sendLight=()=>{clearTimeout(lightTimer);lightTimer=setTimeout(()=>worker.postMessage({type:'light',night:document.documentElement.classList.contains('ship-night'),rgb:window.cabinRGB||[1,1,1]}),45)};
        window.addEventListener('cabinlight',sendLight);
        window.addEventListener('exteriorchange',updateSky);if(exteriorView!=='forge')updateSky();
        const img=new Image();img.onload=()=>{const bitmap=document.createElement('canvas');bitmap.width=bitmap.height=1024;
          const ink=bitmap.getContext('2d');ink.drawImage(img,0,0,1024,1024);const bytes=ink.getImageData(0,0,1024,1024).data.buffer;
          const lights=lightInk.getImageData(0,0,1024,1024).data.buffer;
-         worker.postMessage({type:'material',bytes,lights},[bytes,lights]);ready=true;if(window.cabinRGB)sendLight();};img.src=urls[6];
+         worker.postMessage({type:'material',bytes,lights},[bytes,lights]);ready=true;sendLight();};img.src=urls[6];
      }
      if(data==='frame'||data==='idle'){pending=false;if(data==='frame')window.presentedShipFrames=(window.presentedShipFrames||0)+1;}
      if(data?.error)console.error(data.error);
@@ -401,8 +401,9 @@
  if(kind>4.5&&kind<5.5)gl_Position.z=depth;}`));
  gl.attachShader(pr,shader(gl.FRAGMENT_SHADER,`
  precision highp float;varying vec2 tex;varying vec3 wp,norm;varying float type;
- uniform vec3 cabin;uniform sampler2D galleryFinish,avatarFinish;uniform sampler2D wallFinish,deckFinish,sheet,reflected;uniform float moving;uniform sampler2D lighting;uniform samplerCube space;uniform vec2 viewport;uniform float mirror;uniform vec3 eye;
+ uniform float night;uniform vec3 cabin;uniform sampler2D galleryFinish,avatarFinish;uniform sampler2D wallFinish,deckFinish,sheet,reflected;uniform float moving;uniform sampler2D lighting;uniform samplerCube space;uniform vec2 viewport;uniform float mirror;uniform vec3 eye;
  void main(){
+ if(type>8.5){if(night<.5)discard;gl_FragColor=vec4(.19,.76,.82,1.);return;}
  if(type>7.5){gl_FragColor=vec4(texture2D(galleryFinish,tex).rgb,1.);return;}
  if(type>6.5){gl_FragColor=vec4(texture2D(avatarFinish,tex).rgb,1.);return;}
  if(type>4.5&&type<5.5){gl_FragColor=vec4(textureCube(space,normalize(vec3(wp.x,-wp.y,-wp.z))).rgb,1.);return;}
@@ -410,15 +411,15 @@
  vec3 n=normalize(norm);vec3 direction=normalize(wp-eye);float facing=abs(dot(n,direction));
  if(type>.5&&type<1.5){
  vec3 light=texture2D(lighting,(wp.xz+vec2(2400.,3000.))/vec2(4800.,22000.)).rgb;
- gl_FragColor=vec4((texture2D(deckFinish,wp.xz/360.).rgb*.76+light*(.045+.015*(1.-facing)))*cabin,1.);return;}
+ gl_FragColor=vec4((texture2D(deckFinish,wp.xz/360.).rgb*.76+light*(.045+.015*(1.-facing)))*cabin*mix(1.,.12,night),1.);return;}
  if(type>1.5&&type<2.5){gl_FragColor=vec4(.27,.45,.53,.13+.21*pow(1.-facing,3.));return;}
- if(type>2.5){gl_FragColor=base;return;}
+ if(type>2.5){gl_FragColor=vec4(base.rgb*(type<3.5?mix(1.,.10,night):1.),base.a);return;}
  float light=.71+.25*max(0.,dot(n,normalize(vec3(-.45,-.8,.32))));
  vec3 ray=reflect(direction,n);
  vec3 env=textureCube(space,vec3(ray.x,-ray.y,-ray.z)).rgb;
- gl_FragColor=vec4(mix(base.rgb*light*cabin,env,.025+.10*pow(1.-facing,3.)),base.a);}`));
+ gl_FragColor=vec4(mix(base.rgb*light*cabin,env,.025+.10*pow(1.-facing,3.))*mix(1.,.13,night),base.a);}`));
  gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);
- const uniforms=Object.fromEntries(['cabin','lighting','galleryFinish','avatarFinish','wallFinish','deckFinish','leafOffset','eye','angles','proj','mirror','clock','sheet','reflected','space','viewport','moving'].map(k=>[k,gl.getUniformLocation(pr,k)]));
+ const uniforms=Object.fromEntries(['night','cabin','lighting','galleryFinish','avatarFinish','wallFinish','deckFinish','leafOffset','eye','angles','proj','mirror','clock','sheet','reflected','space','viewport','moving'].map(k=>[k,gl.getUniformLocation(pr,k)]));
  const atlasTex=gl.createTexture();
  function updateAtlas(){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,atlasTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,atlas);gl.generateMipmap(gl.TEXTURE_2D);}
  updateAtlas();gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
@@ -491,7 +492,7 @@
    const m=matrixFor(el),w=parseFloat(el.style.width),h=parseFloat(el.style.height);
    const poly=el.classList.contains('seat-flank')?[...el.style.clipPath.matchAll(/([\d.]+)% ([\d.]+)%/g)].map(a=>[+a[1]/100,+a[2]/100]):[[0,0],[1,0],[1,1],[0,1]];
    const [ax,ay]=tileOrigin(name);
-   const k=name==='armour'?-1:name==='floor'?1:name==='window'?2:name==='sky'?5:name==='drifting'?6:['cyan','lamp','orange','ring','screen','crest','orbital'].includes(name)?3:0;
+   const k=el.classList.contains('night-guide')?9:name==='armour'?-1:name==='floor'?1:name==='window'?2:name==='sky'?5:name==='drifting'?6:['cyan','lamp','orange','ring','screen','crest','orbital'].includes(name)?3:0;
    const zone=['orbital','drifting','sky'].includes(name)?'exterior':room(m.m41,m.m43);
    const cluster=zone==='exterior'?'exterior':Math.floor(m.m41/500)+'/'+Math.floor(m.m43/700);
    const key=cluster+(name==='window'?':glass':':solid');
@@ -553,7 +554,7 @@
  for(const item of live)item.el.classList.add('live-display');
  const visibleElements=new Set(live.map(i=>i.el));
  for(const el of all)if(!visibleElements.has(el))el.remove();
- const updateCabin=()=>{gl.uniform3fv(uniforms.cabin,window.cabinRGB||[1,1,1]);previousPose=null};window.addEventListener('cabinlight',updateCabin);
+ const updateCabin=()=>{gl.uniform1f(uniforms.night,document.documentElement.classList.contains('ship-night')?1:0);gl.uniform3fv(uniforms.cabin,window.cabinRGB||[1,1,1]);previousPose=null};window.addEventListener('cabinlight',updateCabin);
  let previousPose=null,lastDraw=0,slowFrames=0,fastFrames=0,resolutionScale=1;updateCabin();
 
  window.renderShip=(now,ex,ey,ez,yaw,pitch,lens)=>{
