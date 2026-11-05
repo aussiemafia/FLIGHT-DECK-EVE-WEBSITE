@@ -633,8 +633,14 @@ function isClear(px,pz){
 function resize(){const lens=Math.min(innerWidth*.59,innerHeight*.96);view.style.perspective=lens+'px';$('camera').style.transform='translateZ('+lens+'px)'}
 window.addEventListener('resize',resize);resize();
 let lastAim=-Infinity,lastHoloX,lastHoloZ;
+const fpsReadout=$('frame-rate');let fpsStart=performance.now(),fpsFrames=0;
 function frame(now){
- if(panel.open){previous=now;requestAnimationFrame(frame);return;}
+ if(panel.open || document.hidden){previous=now;fpsStart=now;fpsFrames=0;requestAnimationFrame(frame);return;}
+ fpsFrames++;
+ if(now-fpsStart>=1000){
+   fpsReadout.textContent='· '+Math.round(fpsFrames*1000/(now-fpsStart))+' FPS';
+   fpsStart=now;fpsFrames=0;
+ }
  const dt=Math.max(0,Math.min(.075,(now-previous)/1000));previous=now;
  const f=Number(keys.has('KeyW'))-Number(keys.has('KeyS')),r=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
  const step=dt*315/Math.max(1,Math.hypot(f,r));
