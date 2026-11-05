@@ -1210,9 +1210,16 @@ function openMedia(){
 }
 // Featured films are also available without a search.
 const holodeckFilms=Object.freeze([
- {id:'e2X1MIR1KMs',title:'This is EVE',topic:'Official trailer · PG-13 edition'},
- {id:'ArCI4bi9Eyg',title:'Fitting your ship',topic:'EVE Academy · Mission running'},
- {id:'jMlboDa7TTA',title:'Ship fitting tutorial',topic:'EVE Online · Ships and modules'}
+ {"id": "FntlouPXrzI", "subject": "C5 wormhole ratting", "title": "Core Garrison with marauders", "topic": "Loru Gaming · Four fits, a full site run and the Drifter fight"},
+ {"id": "AEIhqXrHYNU", "subject": "C5 wormhole ratting", "title": "Choosing a Core Garrison marauder", "topic": "Marauder comparison for C5 sites"},
+ {"id": "1isma9Py7HM", "subject": "Exploring Pochven", "title": "Getting into and around Pochven", "topic": "Gildii Auscent · Entry routes, standings and exits"},
+ {"id": "Mr6rUGUL3jQ", "subject": "Filament travel", "title": "Using the Pochven Express", "topic": "Loru Gaming · Travel and hauling with filaments"},
+ {"id": "TGGKpe6MYrQ", "subject": "Shipbuilding", "title": "From blueprint to production job", "topic": "EVE Academy · Manufacturing, materials and blueprint research"},
+ {"id": "7j6spjI_e4I", "subject": "Shipbuilding", "title": "Getting started in industry", "topic": "EVE Online · Industry basics"},
+ {"id": "ArCI4bi9Eyg", "subject": "Ship fitting", "title": "Fitting your ship", "topic": "EVE Academy · Fitting for early combat encounters"},
+ {"id": "FHCXykVD5Zk", "subject": "Ship fitting", "title": "Introduction to ship fitting", "topic": "Amoni Panala · Introductory fitting class"},
+ {"id": "jMlboDa7TTA", "subject": "Ship fitting", "title": "Ship fitting tutorial", "topic": "EVE Online · Ships and modules"},
+ {"id": "e2X1MIR1KMs", "subject": "Onboard cinema", "title": "This is EVE", "topic": "Official trailer · PG-13 edition"}
 ]);
 function watchMedia(id){
  const film=holodeckFilms.find(entry=>entry.id===id);
@@ -1244,16 +1251,28 @@ function clearMovie(){
 function playCinema(){openMedia()}
 function setupHolodeck(){
  const dialog=$('media-library'),form=$('media-form'),query=$('media-query'),list=$('media-results');
- function filter(){
+ function filter(subject){
   list.replaceChildren();
   const terms=query.value.trim().toLowerCase();
-  for(const film of holodeckFilms){
-   if(!(film.title+' '+film.topic).toLowerCase().includes(terms))continue;
-   const button=document.createElement('button'),topic=document.createElement('small');
-   button.type='button';button.className='key';button.textContent=film.title;topic.textContent=film.topic;button.append(topic);
-   button.onclick=()=>watchMedia(film.id);list.append(button);
+  const menu=!subject&&!terms;
+  list.classList.toggle('subjects',menu);
+  $('media-note').textContent='';
+  function choice(label,action,detail){
+    const button=document.createElement('button');button.type='button';button.className='key';button.textContent=label;
+    if(detail){const sub=document.createElement('small');sub.textContent=detail;button.append(sub);}
+    button.onclick=action;list.append(button);
   }
-  $('media-note').textContent=list.childElementCount?'':'No matching EVE films.';
+  if(menu){
+    for(const name of new Set(holodeckFilms.map(f=>f.subject)))choice(name,()=>filter(name));
+    return;
+  }
+  if(subject)choice('‹ All subjects',()=>filter());
+  for(const film of holodeckFilms){
+    if(subject && film.subject!==subject)continue;
+    if(![film.title,film.topic,film.subject].join(' ').toLowerCase().includes(terms))continue;
+    choice(film.title,()=>watchMedia(film.id),film.topic);
+  }
+  if(!list.childElementCount)$('media-note').textContent='No onboard lessons match. Select Play / Search to search online.';
  }
  dialog.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();dialog.close();}});
  $('change-media').onclick=openMedia;
