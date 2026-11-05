@@ -2,7 +2,7 @@
 // the readable, accessible instruments; their controls keep their original IDs.
 (() => {
  function sceneCanvas(){const c=document.createElement('canvas');c.id='ship-scene';c.setAttribute('aria-hidden','true');return c}
- let canvas=sceneCanvas(),gl=canvas.getContext('webgl',{alpha:false,antialias:false,powerPreference:'high-performance',depth:true});
+ let canvas=sceneCanvas(),gl=canvas.getContext('webgl',{alpha:false,antialias:true,powerPreference:'high-performance',depth:true});
  // A CPU-backed WebGL driver competes with layout on the main thread. Use the
  // dedicated raster worker there while retaining native WebGL on real GPUs.
  const info=gl?.getExtension('WEBGL_debug_renderer_info');
@@ -264,6 +264,15 @@
      const ns=item.fill.match(/\d+/g);
      const col=item.fill[0]==='#'?parseInt(item.fill.slice(1),16):null;
      const rgb=col===null?ns.map(Number):[col>>16,(col>>8)&255,col&255];
+     // Bake directional light into solid model faces once. This gives rounded
+     // cushions and bevels depth without adding work to the software raster loop.
+     if(col!==null&&!item.a&&!['warmline','glass','glasslight'].includes(item.kind)){
+       const [a,b,c]=pts;
+       const ux=b.x-a.x,uy=b.y-a.y,uz=b.z-a.z,vx=c.x-a.x,vy=c.y-a.y,vz=c.z-a.z;
+       const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
+       const light=.64+.36*Math.abs((nx*.42-ny*.83+nz*.36)/(Math.hypot(nx,ny,nz)||1));
+       for(let k=0;k<3;k++)rgb[k]=Math.round(rgb[k]*light);
+     }
      const word=(255<<24)|(rgb[2]<<16)|(rgb[1]<<8)|rgb[0];
      for(let i=0;i<sides.length;i+=3){
        for(const n of sides.slice(i,i+3)){
@@ -280,7 +289,7 @@
    for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
    const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
    for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/satin-panel.webp','assets/avatar-armour.webp','assets/lower-armour.webp'])urls.push(new URL(path,document.baseURI).href);
-   const worker=new Worker('assets/renderer/worker.js?v=satin-panel-3'),offscreen=canvas.transferControlToOffscreen();
+   const worker=new Worker('assets/renderer/worker.js?v=holodeck-hd-5'),offscreen=canvas.transferControlToOffscreen();
    let ready=false,pending=false;
    worker.onmessage=({data})=>{
      if(data==='ready'){
@@ -296,7 +305,7 @@
    window.renderShip=(now,x,y,z,yaw,pitch,lens)=>{
      showRoom(x,z,y,yaw,pitch);if(!ready||pending)return;pending=true;
      const batches=selectRanges(chunks,x,y,z,yaw,pitch,lens).flatMap(c=>[c.start,c.count]);
-     worker.postMessage({batches,w:innerWidth,h:innerHeight,x,y,z,yaw,pitch,lens,now,shifts:hatches.flatMap((_,i)=>[leafShift(i*2),leafShift(i*2+1)])});
+     worker.postMessage({batches,dpr:devicePixelRatio||1,w:innerWidth,h:innerHeight,x,y,z,yaw,pitch,lens,now,shifts:hatches.flatMap((_,i)=>[leafShift(i*2),leafShift(i*2+1)])});
    };
    return;
  }
@@ -415,7 +424,16 @@
    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
    if(anisotropy)gl.texParameterf(gl.TEXTURE_2D,anisotropy.TEXTURE_MAX_ANISOTROPY_EXT,Math.min(16,gl.getParameter(anisotropy.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
    gl.generateMipmap(gl.TEXTURE_2D);gl.uniform1i(uniform,unit);
-   loadImage(src).then(im=>{bind();gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,im);gl.generateMipmap(gl.TEXTURE_2D)});
+   loadImage(src).then(im=>{
+     let source=im;
+     if((im.width&(im.width-1))||(im.height&(im.height-1))){
+       source=document.createElement('canvas');
+       source.width=2**Math.ceil(Math.log2(im.width));source.height=2**Math.ceil(Math.log2(im.height));
+       source.getContext('2d').drawImage(im,0,0,source.width,source.height);
+     }
+     bind();gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,source);gl.generateMipmap(gl.TEXTURE_2D);
+     previousPose=null;
+   });
  }
  surfaceTexture(7,uniforms.galleryFinish,'assets/lower-armour.webp');
  surfaceTexture(6,uniforms.avatarFinish,'assets/avatar-armour.webp');
@@ -548,13 +566,13 @@
    showRoom(ex,ez,ey,yaw,pitch);
    const elapsed=now-lastDraw;
    if(lastDraw&&elapsed<250&&(keys.size||drag)){
-     slowFrames=elapsed>10.5?slowFrames+1:Math.max(0,slowFrames-1);
-     fastFrames=elapsed<8.6?fastFrames+1:0;
-     if(slowFrames>18){resolutionScale=Math.max(.65,resolutionScale-.1);slowFrames=0}
+     slowFrames=elapsed>28?slowFrames+1:Math.max(0,slowFrames-1);
+     fastFrames=elapsed<18?fastFrames+1:0;
+     if(slowFrames>18){resolutionScale=Math.max(.85,resolutionScale-.05);slowFrames=0}
      if(fastFrames>180){resolutionScale=Math.min(1,resolutionScale+.05);fastFrames=0}
    }
    lastDraw=now;
-   const pixelRatio=Math.min(devicePixelRatio||1,1.25)*resolutionScale;
+   const pixelRatio=Math.min(devicePixelRatio||1,2,Math.sqrt(8294400/(innerWidth*innerHeight)))*(keys.size||drag?resolutionScale:1);
    
    const pose=[ex,ey,ez,yaw,pitch,innerWidth,innerHeight,pixelRatio].join('/');
    const cycling=hatches.some(d=>d.openness>0&&d.openness<1);

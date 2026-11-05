@@ -930,6 +930,7 @@ for(const side of [-1,1]){
 }
 // The aft residential deck has a shared corridor and two separate rooms.
 const cabinZ=4440, cabinDepth=1450;
+let cinemaWall;
 const furnishings=[];
 for(const side of [-1,1]){
  const start=world.children.length, inner=side*245, outer=side*1265, mid=side*755;
@@ -940,26 +941,32 @@ for(const side of [-1,1]){
  for(const [sign,angle] of [[-1,0],[1,180]])
    windowWall(roomWidth,roomHeight,mid,96,cabinZ+sign*cabinDepth/2,angle,[-245,245],360,240,-62);
  windowWall(cabinDepth,roomHeight,outer,96,cabinZ,facing,[-465,465],400,260,-72);
- plaque(title.toUpperCase(),inner-side*17,-169,cabinZ,facing);
+ plaque(lounge?'HOLODECK · NEW EDEN CINEMA':title.toUpperCase(),inner-side*17,-169,cabinZ,facing);
  terminal(title.toUpperCase(),lounge?[groups[1][2],groups[1][1],groups[1][0],groups[3][1]]:groups[3],outer-side*38,cabinZ,facing);
  plane('residential-ring',710,710,mid,-209,cabinZ,0,-90);
  if(lounge){
-   for(const seatX of [610,840]){
-     const first=world.children.length,sz=cabinZ+350;
-     furnishing('lounge-base',seatX,379,sz,229,70,149);
-     furnishing('lounge-pad',seatX,323,sz-12,223,49,143);
-     furnishing('lounge-pad',seatX,263,sz+60,222,112,33);
-     for(const el of Array.from(world.children).slice(first)){
-       el.dataset.seat=[seatX,sz].join(',');el.dataset.station='Sit in lounge';
-       el.onclick=()=>{if(!dragged)activateStation(el)};
-     }
-     seats.push({cx:seatX,pz:sz});
+   const chairZ=cabinZ+120;
+   const seatTag=mid+','+chairZ;
+   const screenZ=cabinZ-cabinDepth/2+32;
+   cinemaWall=plane('holo-display cinema-wall',roomWidth*.75,roomWidth*.75*9/16,mid,105,screenZ);
+   cinemaWall.dataset.seat=seatTag;cinemaWall.dataset.station='Watch New Eden films';
+   const play=document.createElement('button');
+   play.className='cinema-play';play.textContent='Sit and watch';
+   play.dataset.seat=seatTag;play.dataset.station='Watch New Eden films';
+   cinemaWall.innerHTML='<span class="cinema-title">New Eden cinema</span>';cinemaWall.append(play);
+   for(const edge of [-1,1]){
+     plane('glass-light',7,roomWidth*.75*9/16,mid+edge*(roomWidth*.375+10),105,screenZ);
+     plane('guide-light',roomWidth*.75,4,mid,105+edge*(roomWidth*.75*9/32+9),screenZ);
    }
-   addChair(660,cabinZ-460,'pod');
-   addChair(941,cabinZ-460,'pod');
-   furnishing('lounge-base',mid,387,cabinZ-126,225,53,116);
-   furnishing('tabletop',mid,351,cabinZ-126,249,16,139);
-   furnishings.push([mid,cabinZ-126,133,82]);
+   addChair(mid,chairZ,'cinema');
+   for(const el of world.querySelectorAll('.cinema-chair [data-seat],.cinema-chair[data-seat]')){
+     el.dataset.station='Sit and watch';if(el.tagName==='BUTTON')el.textContent='Sit and watch';
+   }
+   for(const side of [-1,1]){
+     upholstery('upholstery',mid+side*84,207,chairZ-26,42,37,147,-4);
+     upholstery('warmline',mid+side*94,224,chairZ-26,8,3,99,-4);
+   }
+   upholstery('upholstery',mid,254,chairZ-84,135,35,58,-9);
  }else{
    const bz=cabinZ+414;
    furnishing('berth-base',mid,363,bz,436,96,184);
@@ -977,7 +984,7 @@ const aftBays=[
  [['Records vault',3],['Logistics',2]],
  [['Science lab',0],['Pilot ready room',3]]
 ];
-const roomStations=[{z:roomCentreZ,depth:roomDepth,names:['Intelligence','Navigation lab']},{z:cabinZ,depth:cabinDepth,names:['Crew quarters','Observation lounge']}];
+const roomStations=[{z:roomCentreZ,depth:roomDepth,names:['Intelligence','Navigation lab']},{z:cabinZ,depth:cabinDepth,names:['Crew quarters','Holodeck']}];
 for(let bay=0;bay<aftBays.length;bay++){
  const start=5500+bay*1760,cz=start+880,depth=1250;
  roomStations.push({z:cz,depth,names:aftBays[bay].map(entry=>entry[0])});
@@ -1037,7 +1044,7 @@ for(const [index,bay] of bayScreens.entries()){
 function nearestRoom(pz){
  return roomStations.reduce((best,r)=>Math.abs(r.z-pz)<Math.abs(best.z-pz)?r:best);
 }
-plaque('OBSERVATION  /  CREW QUARTERS   → AFT',-226,60,3410,90,440);
+plaque('HOLODECK  /  CREW QUARTERS   → AFT',-226,60,3410,90,440);
 function displayCase(w,h,x,y,z,angle,depth=9){
  const a=angle*Math.PI/180, nx=Math.sin(a),nz=Math.cos(a);
  plane('case-back',w,h,x-depth*nx,y,z-depth*nz,angle+180);
@@ -1106,6 +1113,29 @@ function labelProjection(){
 labelProjection();
 holoAction.onclick=()=>openRecord(...projected);
 hologram.dataset.station='Open projection';hologram.onclick=e=>{if(e.target!==holoAction)openRecord(...projected)};
+const cinemaFilms=['3l0k2xkcT3g','k1AbLH_uGLw'];
+let cinemaPlayer=null;
+function positionCinema(){
+ if(!cinemaPlayer)return;
+ const rect=cinemaWall.getBoundingClientRect();
+ Object.assign(cinemaPlayer.style,{left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',height:rect.height+'px'});
+}
+function playCinema(){
+ if(cinemaPlayer)return;
+ document.exitPointerLock?.();
+ const iframe=document.createElement('iframe');
+ iframe.title='New Eden cinema · YouTube player';
+ iframe.id='cinema-player';iframe.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
+ iframe.allowFullscreen=true;iframe.referrerPolicy='strict-origin-when-cross-origin';
+ iframe.src='https://www.youtube.com/embed/'+cinemaFilms[0]+'?autoplay=1&playsinline=1&loop=1&playlist='+cinemaFilms.join(',')+'&rel=0';
+ document.body.append(iframe);cinemaPlayer=iframe;
+ $('cinema-link').hidden=false;
+ positionCinema();
+}
+function stopCinema(){
+ cinemaPlayer?.remove();cinemaPlayer=null;$('cinema-link').hidden=true;
+}
+
 let messageTimer;
 function activateStation(control){
  if(control.advance){control.advance();return;}
@@ -1113,7 +1143,9 @@ function activateStation(control){
  if(control.dataset.seat){
    const [sx,sz]=control.dataset.seat.split(',').map(Number);
    if(seated)standUp();
-   seated={x:sx,z:sz};x=sx;z=sz-8;yaw=0;pitch=0;keys.clear();$('stand').hidden=false;view.focus();return;
+   seated={x:sx,z:sz};x=sx;z=sz-8;yaw=0;pitch=0;keys.clear();$('stand').hidden=false;view.focus();
+   if(control.dataset.seat===cinemaWall.dataset.seat)playCinema();
+   return;
  }
  if(control===hologram||control===holoAction){openRecord(...projected);return;}
  const local=control.closest('.room-console,.switches,.bay-display,.wall-pad');
@@ -1140,6 +1172,7 @@ let x=0,z=365,yaw=0,pitch=0,drag=false,dragged=false,totalDrag=0,target=null,pre
 let seated=null;
 function standUp(){
  if(!seated)return;
+ stopCinema();
  x=seated.x;z=seated.z-160;seated=null;$('stand').hidden=true;keys.clear();view.focus();
 }
 $('stand').onclick=standUp;
@@ -1162,7 +1195,7 @@ document.onpointerlockchange=()=>{$('walk').textContent=document.pointerLockElem
 view.onpointerdown=e=>{drag=!e.target.closest('button,[data-station]');dragged=false;totalDrag=0};
 window.addEventListener('pointerup',()=>{drag=false});
 window.addEventListener('pointermove',e=>{
- if(panel.open||(!drag&&!document.pointerLockElement))return;
+ if(cinemaPlayer||panel.open||(!drag&&!document.pointerLockElement))return;
  totalDrag+=Math.abs(e.movementX)+Math.abs(e.movementY);
  if(totalDrag>4)dragged=true;
  yaw+=e.movementX*.0022;pitch=clamp(pitch+e.movementY*.0022,-1.22,1.22);
@@ -1263,6 +1296,7 @@ $('use').onclick=()=>{if(target)activateStation(target)};
 window.addEventListener('keydown',e=>{
  if(panel.open)return;
  if(['KeyW','KeyS','KeyA','KeyD','ShiftLeft','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();keys.add(e.code)}
+ if(cinemaPlayer&&e.code!=='KeyE'){keys.clear();return;}
  if(e.code==='KeyE'&&!e.repeat){if(seated)standUp();else if(target)activateStation(target);}
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();drag=false});
@@ -1351,9 +1385,11 @@ function frame(now){
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
  const value=String(degrees).padStart(3,'0')+'°';
  if(bearing.textContent!==value)bearing.textContent=value;
+ if(cinemaPlayer&&(lastMotion===now||cinemaPlayer.dataset.viewport!==innerWidth+'/'+innerHeight)){positionCinema();cinemaPlayer.dataset.viewport=innerWidth+'/'+innerHeight}
  if(window.renderShip)window.renderShip(now,x,cameraY,z,yaw,pitch,parseFloat(view.style.perspective));
  else window.drawExterior?.(x,z);
  requestAnimationFrame(frame);
 }
+if(location.hash==='#holodeck'){x=500;z=cabinZ+365;yaw=1.0;pitch=.14;view.focus()}
 requestAnimationFrame(frame);
 

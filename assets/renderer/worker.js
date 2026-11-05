@@ -2,7 +2,7 @@
 // resident; depth testing, rather than room-entry events, determines visibility.
 let wasm,sceneSize,scenePtr=65536,images,display,ctx,pixels,mem;
 const verticesByLeaf=[];let previousShifts=[];
-let phaseBudget=240000,avgDraw=16,drawCount=0,workStart;
+let phaseBudget=720000,avgDraw=16,drawCount=0,workStart;
 let lastMotion=0,lastView='',lastDetail=false;
 let width=0,height=0,paintedPose='';
 const imageBytes=1024*1024*4;
@@ -12,7 +12,7 @@ function reserve(bytes){
   mem=wasm.memory.buffer;
 }
 async function initialize({canvas,scene,doorVertices,urls}){
-  const binary=await (await fetch('software.wasm?v=satin-panel-3')).arrayBuffer();
+  const binary=await (await fetch('software.wasm?v=holodeck-hd-5')).arrayBuffer();
   wasm=(await WebAssembly.instantiate(binary,{env:{abort:()=>{throw Error('Renderer allocation failed')}}})).instance.exports;
   for(const [leaf,index,x,z] of doorVertices){
     (verticesByLeaf[leaf]??=[]).push(index,x,z);
@@ -45,8 +45,8 @@ self.onmessage=async({data})=>{
  // Resolve the stationary view at higher detail once, outside the walking budget.
  if(detailed&&lastDetail){self.postMessage("idle");return;}
  lastDetail=detailed;
- const budget=detailed?Math.max(phaseBudget,950000):phaseBudget;
- const scale=Math.min(1,Math.sqrt(budget/(data.w*data.h)));
+ const budget=detailed?Math.min(8294400,data.w*data.h*Math.min(2,Math.max(1.25,data.dpr))**2):phaseBudget;
+ const scale=Math.sqrt(Math.min(budget/(data.w*data.h),detailed?4:1));
  const w=Math.round(data.w*scale),h=Math.round(data.h*scale),lens=data.lens*scale;
 
  const depth=display+w*h*4,batchPtr=depth+w*h*4;
@@ -75,8 +75,8 @@ self.onmessage=async({data})=>{
    wasm.render(scenePtr,batchPtr,data.batches.length/2,display,depth,images,w,h,...args,lens,0,0,0,0);
    ctx.putImageData(pixels,0,0);paintedPose=pose;
    avgDraw=avgDraw*.85+(performance.now()-workStart)*.15;
-   if(!detailed&&++drawCount>=12){drawCount=0;const next=avgDraw>8?.78:avgDraw<5?1.12:1;
-     phaseBudget=Math.max(75000,Math.min(1050000,phaseBudget*next));
+   if(!detailed&&++drawCount>=12){drawCount=0;const next=avgDraw>28?.78:avgDraw<17?1.12:1;
+     phaseBudget=Math.max(360000,Math.min(2073600,phaseBudget*next));
    }
  }
  self.postMessage(redraw?'frame':'idle');

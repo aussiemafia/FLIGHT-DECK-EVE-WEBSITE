@@ -56,13 +56,13 @@ function triangle(a:usize,b:usize,c:usize,color:u32,kind:i32):void{
        continue;
      }
      let pixel=color;
-     if(kind>=6){pixel=tex(kind,(wa*au+wb*bu+wc*cu)/z,(wa*av+wb*bv+wc*cv)/z);if((pixel>>24)<64)continue;}
-     if(kind==6){
-       pixel=filtered(texture+usize(6<<22),1024,1024,((wa*au+wb*bu+wc*cu)/z)*1023.,((wa*av+wb*bv+wc*cv)/z)*1023.);
+     if(kind>=6){
+       pixel=filtered(texture+usize(kind<<22),1024,1024,((wa*au+wb*bu+wc*cu)/z)*1023.,((wa*av+wb*bv+wc*cv)/z)*1023.);
+       if(kind>=7&&kind<=9&&(tex(kind,(wa*au+wb*bu+wc*cu)/z,(wa*av+wb*bv+wc*cv)/z)>>24)<64)continue;
      }
      if(kind==1&&!reflected){
        const u=(wa*au+wb*bu+wc*cu)/z,v=(wa*av+wb*bv+wc*cv)/z;
-       const tile=tex(10,u-Math.floor(u),v-Math.floor(v));
+       const tile=filtered(texture+usize(10<<22),1024,1024,(u-Math.floor(u))*1023.,(v-Math.floor(v))*1023.);
        const light=filtered(texture+usize(13<<22),1024,1024,(u*360.+2400.)*1023./4800.,(v*360.+3000.)*1023./22000.);
        const base=blend(tile,0xff000000,61);
        pixel=base+((light>>4)&0x000f0f0f);
