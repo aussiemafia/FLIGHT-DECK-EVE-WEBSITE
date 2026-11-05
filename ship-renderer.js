@@ -244,8 +244,8 @@
      const pts=panel.points.map(([x,y,z])=>({x,y,z}));
      const cx=pts.reduce((v,p)=>v+p.x,0)/4,cy=pts.reduce((v,p)=>v+p.y,0)/4,cz=pts.reduce((v,p)=>v+p.z,0)/4;
      const fill=panel.darkLeaf&&panel.finish==='pearl'?'#34414a':{glass:'#73929e',hazardYellow:'#e4b333',hazardBlack:'#23272a',oxblood:'#923c36',pearl:'#a6b7bb',alloy:'#73858e',gasket:'#263642',glasslight:'#c8f4fb',upholstery:'#c4b9a5',sienna:'#b47148',bronze:'#79766c',smoked:'#40525a',warmline:'#edc78a',titanGold:'#be9d61',titanBronze:'#8b713e',titanIron:'#62594a',titanDark:'#302f30'}[panel.finish];
-     const textured=panel.skin;
-     items.push({pts,a:panel.plating?'plating':textured?'avatar':null,poly:panel.plating||(textured?panel.points.map(avatarUV):null),avatar:panel.avatar,distant:!!panel.distant,leaf:panel.leaf,kind:panel.finish,fill,cx,cy,cz,nx:0,ny:0,nz:0,size:Math.max(...pts.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),two:true,zone:room(cx,cz)});
+     const textured=!!panel.skinUV;
+     items.push({pts,a:panel.plating?'plating':textured?'avatar':null,poly:panel.plating||panel.skinUV,avatar:panel.avatar,distant:!!panel.distant,leaf:panel.leaf,kind:panel.finish,fill,cx,cy,cz,nx:0,ny:0,nz:0,size:Math.max(...pts.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),two:true,zone:room(cx,cz)});
    }
    const packed=[],doorVertices=[],bins=new Map(),chunks=[];
    for(const item of items){
@@ -288,7 +288,7 @@
    const scene=new Float32Array(packed),words=new Int32Array(scene.buffer);
    for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
    const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
-   for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/satin-panel.webp','assets/avatar-armour.webp','assets/lower-armour.webp'])urls.push(new URL(path,document.baseURI).href);
+   for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/satin-panel.webp','assets/avatar-broadside.webp','assets/avatar-collar.webp'])urls.push(new URL(path,document.baseURI).href);
    const worker=new Worker('assets/renderer/worker.js?v=holodeck-hd-5'),offscreen=canvas.transferControlToOffscreen();
    let ready=false,pending=false;
    worker.onmessage=({data})=>{
@@ -435,8 +435,8 @@
      previousPose=null;
    });
  }
- surfaceTexture(7,uniforms.galleryFinish,'assets/lower-armour.webp');
- surfaceTexture(6,uniforms.avatarFinish,'assets/avatar-armour.webp');
+ surfaceTexture(7,uniforms.galleryFinish,'assets/avatar-collar.webp');
+ surfaceTexture(6,uniforms.avatarFinish,'assets/avatar-broadside.webp');
  surfaceTexture(4,uniforms.wallFinish,'assets/bulkhead-2k.webp');
  surfaceTexture(5,uniforms.deckFinish,'assets/satin-panel.webp');
  const lightingTex=gl.createTexture();gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,lightingTex);
@@ -523,8 +523,8 @@
    for(const i of panel.points[2].every((v,j)=>v===d[j])?[0,1,2]:[0,1,2,0,2,3]){
      const v=panel.points[i];
      if(panel.plating){groups.get(key).push(...v,n[0]/len,n[1]/len,n[2]/len,...panel.plating[i],8);continue;}
-     if(panel.skin){
-       groups.get(key).push(...v,n[0]/len,n[1]/len,n[2]/len,...avatarUV(v),7);continue;
+     if(panel.skinUV){
+       groups.get(key).push(...v,n[0]/len,n[1]/len,n[2]/len,...panel.skinUV[i],7);continue;
      }
      groups.get(key).push(...v,n[0]/len,n[1]/len,n[2]/len,(tx+tile*.5)/atlas.width,(ty+tile*.5)/atlas.height,name==='window'?2:name==='cyan'?3:0);
    }

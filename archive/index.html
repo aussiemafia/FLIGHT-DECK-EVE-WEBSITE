@@ -38,7 +38,7 @@
      if(match&&A.fits[match][variant]){fitHull=match;fitKey=variant;fits()}
    }
    if(route==='fits'&&(key==='fit'||key.startsWith('fit-'))&&chosen!=='fit'&&!chosen){show(fitHull==='Loki'?'ship-29990':'fit-'+fitHull.toLowerCase()+'-'+fitKey,true)}
-   else show(key,true);
+   else show(key,!chosen);
  }
  new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['data-view']});sync();
 })();

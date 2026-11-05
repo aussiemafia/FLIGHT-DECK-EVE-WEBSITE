@@ -221,13 +221,13 @@ function terminal(title,list,x,z,angle){
      wire(projection,[route,label]);wire(parts.caption,[route,label]);
      projection.dataset.plate=parts.caption.dataset.plate=key;
    }
-   roomProjector=(item)=>displaySlide(routePlate(item[0]),item[0],item[1]);
+   roomProjector=([route,label])=>{displaySlide(routePlate(route),route,label);return projection};
    s.projectTopic=roomProjector;
    next.dataset.station='Next exhibit';next.dataset.route='cycle';
    next.advance=()=>{current=(current+1)%slides.length;displaySlide(slides[current])};
    next.onclick=e=>{e.stopPropagation();next.advance()};
    projection.showRecord=displaySlide;
-   displaySlide(slides[0]);roomScreens.push({el:projection,hx,hz,showPlate:displaySlide});
+   displaySlide(slides[0]);roomScreens.push({el:projection,hx,hz,roomX:x,roomZ:z,showPlate:displaySlide});
  }
  const switches=plane('switches',480,108,x+Math.sin(rad)*31,209,z+Math.cos(rad)*31,angle,52);
  switches.projectTopic=roomProjector;
@@ -694,98 +694,31 @@ for(const side of [-1,1])plane('guide-light',7,padStart-outerLockZ,side*156,414,
 // The flight deck exits on the flank of an Avatar. The hull axis runs
 // across the observer's view: flared segmented bow to port, engines to starboard.
 const avatarStart=formedPanels.length;
-// Units in this table are local to the model. Scale the main hull about the
-// observation port so the existing human-scale airlock stays on its surface.
-const avatarScale=112,portX=2300;
-const avatarStations=[
- [-12500,520,510],[-12410,1820,1740],[-12190,3620,3440],[-11760,5200,4970],
- [-10950,5870,5610],[-10100,5980,5760],[-9250,5540,5280],[-8600,4300,4060],
- [-8060,3460,3300],[-6270,3050,2890],[-4200,2760,2640],[-2150,2600,2450],
- [0,2540,2350],[2300,2350,2150],[5100,2070,1920],[7800,1610,1550],
- [10100,1310,1300],[11900,1270,1200],[13300,1560,1390],[15000,1490,1300],[15500,1100,1050]
-];
-const hullAxisY=165,hullAxisZ=outerLockZ-560000-2150*avatarScale;
-function profileAt(x){
- const i=avatarStations.findIndex(s=>s[0]>=x);
- if(i<=0)return i===0?avatarStations[0]:avatarStations.at(-1);
- const a=avatarStations[i-1],b=avatarStations[i],t=(x-a[0])/(b[0]-a[0]);
- return [x,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+// Port looks along the Avatar's broadside. Actual model vertices supply the
+// crown, engines and recessed structures. The atlas is lit from the port side.
+function meshWords(encoded,Type){
+ const bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
+ return new Type(bytes.buffer);
 }
-function hullPoint(station,angle,lift=0){
- const [x,ry,rz]=station;
- return [(x-portX)*avatarScale,hullAxisY+(ry+lift)*avatarScale*Math.sin(angle),hullAxisZ+(rz+lift)*avatarScale*Math.cos(angle)];
+const positions=meshWords(avatarMesh.positions,Int16Array);
+const triangles=meshWords(avatarMesh.triangles,Uint16Array);
+const shipVertices=[],shipUV=[];
+const hullScale=3.6;
+for(let i=0;i<positions.length;i+=3){
+ const [sx,sy,sz]=[positions[i]/4,positions[i+1]/4,positions[i+2]/4];
+ shipVertices.push([(-sz*.978+sx*.208)*hullScale-1300,-sy*hullScale-6700,outerLockZ-32000+(sx*.978+sz*.208)*hullScale]);
+ shipUV.push([(6289-sz)/13834,(3087-sy)/6179]);
 }
-function avatarUV([xx,yy]){
- const x=xx/avatarScale+portX,r=profileAt(x)[1];
- return [Math.max(.001,Math.min(.999,(x+12500)/28000)),Math.max(.001,Math.min(.999,.5+.5*(yy-hullAxisY)/(r*avatarScale)))];
+for(let i=0;i<triangles.length;i+=3){
+ const ids=[triangles[i],triangles[i+1],triangles[i+2],triangles[i+2]];
+ formedQuad(ids.map(j=>shipVertices[j]),'titanIron');
+ formedPanels.at(-1).skinUV=ids.map(j=>shipUV[j]);
 }
-function plate(points,finish,skin=false){formedQuad(points,finish);formedPanels.at(-1).skin=skin;}
-// Add a real opening through the flank under the docking blister.
-const bands=[...avatarStations,profileAt(portX-10),profileAt(portX+10)].sort((a,b)=>a[0]-b[0]);
-const angles=[-.004,.004,...Array.from({length:32},(_,i)=>(i-16)*Math.PI/16).filter(a=>a!==0),Math.PI].sort((a,b)=>a-b);
-for(let i=1;i<bands.length;i++)for(let j=1;j<angles.length;j++){
- const a=bands[i-1],b=bands[i],t=angles[j-1],u=angles[j];
- if(a[0]>=portX-10&&b[0]<=portX+10&&t>=-.004&&u<=.004)continue;
- plate([hullPoint(a,t),hullPoint(b,t),hullPoint(b,u),hullPoint(a,u)],'titanIron',true);
-}
-// Swept, overlapping armour petals form the head. Each has a raised centre
-// and a long rib projecting aft beyond the rim into the narrower neck.
-for(let j=0;j<16;j++){
- const angle=j*Math.PI/8,offset=Math.cos(j*Math.PI)*170;
- const ribs=[[-12450,.075,22],[-12050,.145,64],[-11350,.182,122],[-10400,.187,175],[-9500,.155,300],[-8660,.098,535],[-7880+offset,.024,810]];
- let prev;
- for(const [x,width,raise] of ribs){
-   const base=profileAt(x),mid=angle+(x+12450)*.000009;
-   const row=[hullPoint(base,mid-width,raise),hullPoint(base,mid,raise+115),hullPoint(base,mid+width,raise)];
-   if(prev)for(let k=0;k<2;k++)plate([prev[k],row[k],row[k+1],prev[k+1]],k?'titanBronze':'titanGold',true);
-   prev=row;
- }
-}
-// Stepped armour belts, inset service channels and the heavier ventral keel.
-for(const x of [-7430,-3890,250,8640,12370]){
- for(let j=0;j<32;j++){
-   const a=j*Math.PI/16,b=a+Math.PI/16-.006;
-   const ring=(offset,lift,angle)=>hullPoint(profileAt(x+offset),angle,lift);
-   plate([ring(-62,2,a),ring(-22,54,a),ring(-22,54,b),ring(-62,2,b)],'titanBronze');
-   plate([ring(-22,54,a),ring(71,48,a),ring(71,48,b),ring(-22,54,b)],'titanIron',true);
- }
-}
-for(const [start,end,height] of [[-7750,-2100,660],[-3080,5300,420],[11200,15000,290]]){
- let prev;
- for(const [t,lift,width] of [[0,0,.11],[.12,height*.72,.24],[.30,height,.27],[.83,height*.77,.19],[1,0,.08]]){
-   const base=profileAt(start+(end-start)*t),a=Math.PI/2;
-   const row=[hullPoint(base,a-width),hullPoint(base,a-width*.74,lift),hullPoint(base,a+width*.74,lift),hullPoint(base,a+width)];
-   if(prev)for(let k=0;k<3;k++)plate([prev[k],row[k],row[k+1],prev[k+1]],k===1?'titanIron':'titanDark',k===1);
-   prev=row;
- }
-}
-// Recessed circular apertures at the stern and inside the crown.
-function aperture(x,cy,cz,r,dir){
- const levels=[[0,r],[-dir*65,r*.81],[-dir*115,r*.65],[-dir*120,0]];
- let prev;
- for(let n=0;n<levels.length;n++){
-   const [dx,rad]=levels[n],row=[];
-   for(let i=0;i<24;i++){const a=i*Math.PI/12;row.push([(x+dx-portX)*avatarScale,hullAxisY+(cy+rad*Math.sin(a))*avatarScale,hullAxisZ+(cz+rad*Math.cos(a))*avatarScale])}
-   if(prev)for(let i=0;i<24;i++){const k=(i+1)%24;plate([prev[i],prev[k],row[k],row[i]],['','titanBronze','smoked','titanDark'][n])}
-   prev=row;
- }
-}
-for(const end of [avatarStations[0],avatarStations.at(-1)]){
- const front=end[0]<0;
- for(let j=0;j<32;j++){const a=hullPoint(end,j*Math.PI/16),b=hullPoint(end,(j+1)*Math.PI/16);plate([[(end[0]-portX)*avatarScale,hullAxisY,hullAxisZ],a,b,b],'titanDark')}
- aperture(end[0]+(front?-150:150),0,0,front?490:600,front?-1:1);
- if(!front)for(let j=0;j<6;j++){const a=j*Math.PI/3;aperture(end[0]+155,765*Math.sin(a),765*Math.cos(a),165,1)}
-}
-// Flared armour around the docking blister meets the airlock on all sides.
-// Keep the opening aligned with the existing door and walkable gangway.
-// A projecting observation spar places the deck clear of the curvature.
-// From the Titan flank to the outer airlock, one continuous armoured
-// command section encloses the bridge, labs and accommodation. The final
-// section stops at the hatch; the gangway and platform are outside it.
-const collarSections=[[-568000,16500,-8500,15600],[-422000,11900,-6700,11600],
- [-198000,7300,-4300,7060],[-65000,4440,-2600,3900],[-17500,2830,-1640,1980],
- [-15500,2610,-1420,1780],[-12300,2370,-1170,1520],[-8100,2160,-1040,1380],
- [-2700,1950,-900,1190],[-1150,1650,-790,1020],[-700,740,-450,655],[-15,249,-226,426]];
+function plate(points,finish){formedQuad(points,finish)}
+// The lower docking collar returns to the flank without crossing the view
+// of the crown. Its last section meets the existing full-size airlock.
+const collarSections=[[-33000,1480,-5200,820],[-18500,1820,-1840,780],[-8700,1720,-1100,810],
+ [-2900,1540,-850,770],[-1000,1410,-660,725],[-560,610,-460,585],[-15,249,-226,426]];
 function commandRing([dz,w,top,bottom]){
  const bevel=Math.min(w*.24,(bottom-top)*.2),z=outerLockZ+dz;
  return [[-w+bevel,top],[w-bevel,top],[w,top+bevel],[w,bottom-bevel],
@@ -795,98 +728,24 @@ for(let i=1;i<collarSections.length;i++){
  const a=commandRing(collarSections[i-1]),b=commandRing(collarSections[i]);
  for(let j=0;j<8;j++){
    const k=(j+1)%8;plate([a[j],a[k],b[k],b[j]],j%2?'titanBronze':'titanIron');
+   const u=.12+.15*(j%4),v=.08+.19*(i%4);
+   formedPanels.at(-1).plating=[[u,v],[u+.26,v],[u+.26,v+.17],[u,v+.17]];
  }
 }
-// Maintenance galleries flank the pressure port. Human-sized windows and
-// separate projecting armour courses carry the sense of scale up to the rail.
-for(const side of [-1,1])for(let bay=0;bay<3;bay++){
- const along=-3700-bay*3000;
- // The spar tapers from 2,270 to 1,450 units over this section.
- const halfWidth=z=>{const i=collarSections.findIndex(s=>s[0]>=z),a=collarSections[i-1],b=collarSections[i];return a[1]+(b[1]-a[1])*(z-a[0])/(b[0]-a[0]);};
- for(let row=0;row<2;row++){
-   const y=-530+row*870;
-   const project=(u,v,relief)=>[side*(halfWidth(along+u)+relief),y+v,outerLockZ+along+u];
-   const outline=[[-714,-450],[520,-450],[735,-250],[735,360],[-510,360],[-714,185]];
-   const face=outline.map(([u,v])=>project(u,v,96)),back=outline.map(([u,v])=>project(u,v,-110));
-   for(let k=0;k<6;k++){
-     const n=(k+1)%6;plate([back[k],back[n],face[n],face[k]],'smoked');
-     if(k>0&&k<5){plate([face[0],face[k],face[n],face[n]],'titanIron');const f=formedPanels.at(-1);f.plating=[0,k,n,n].map(i=>[.04+((bay+row)%3)*.16+(outline[i][0]+720)/1460*.57,.04+((bay*2+row)%3)*.15+(outline[i][1]+460)/830*.6]);}
+// Continuous metal returns and narrow illuminated portholes along the collar.
+for(let section=1;section<collarSections.length;section++){
+ const back=commandRing(collarSections[section-1]),front=commandRing(collarSections[section]);
+ for(const face of [1,2,6,7]){
+   const next=(face+1)%8;
+   function surface(u,v){
+     return back[face].map((a,k)=>(a+(front[face][k]-a)*u)*(1-v)+(back[next][k]+(front[next][k]-back[next][k])*u)*v);
    }
-   for(let k=0;k<9;k++){const u=-510+k*120;if((bay+row+k)%5===0)continue;plate([project(u,411,26),project(u+26,411,26),project(u+26,425,26),project(u,425,26)],'warmline');}
- }
-}
-// Layered shoulder armour projects from the dorsal collar over the observation spar.
-for(const side of [-1,1]){
- for(let row=0;row<3;row++){
-   const root=outerLockZ-3500+row*740;
-   const tip=padCenter+1350-row*520;
-   const sections=[[root,55,1320,-1070],[outerLockZ,80,980,-1280],
-     [padStart+340,130,700,-1580],[tip,260,360,-1800]];
-   let last;
-   for(const [z,inner,outer,y] of sections){
-     const surface=(u,v)=>[side*(u+row*585),y+v-row*225,z];
-     const rib=[surface(inner,0),surface(inner+48,30),surface(outer-48,65),surface(outer,12),surface(outer,-80)];
-     if(last)for(let n=0;n<4;n++){
-       plate([last[n],last[n+1],rib[n+1],rib[n]],['titanGold','titanIron','titanBronze','titanDark'][n]);
-       if(n===1)formedPanels.at(-1).plating=[[0,0],[1,0],[1,1],[0,1]];
-     }
-     last=rib;
+   for(let i=0;i<6;i++){
+     const u=(i+.25)/6,t=(i+.43)/6;
+     const rim=[surface(u,.28),surface(t,.28),surface(t,.305),surface(u,.305)];
+     const offset=face<4?2:-2;rim.forEach(pt=>pt[0]+=offset);
+     plate(rim,'warmline');
    }
- }
-}
-// Plate courses on the near flank follow the Avatar's changing cross-section.
-// A gap between courses exposes the dark pressure hull and the gallery windows.
-for(let bay=0;bay<34;bay++){
- const start=-11850+bay*770;
- for(let tier=-4;tier<4;tier++){
-   const angle=tier*.21;
-   const point=(u,v,h)=>hullPoint(profileAt(start+u),angle+v,h);
-   // The raised shield has a swept leading edge, a crowned back and a
-   // thick bevel. The dark machinery underneath stays visible between shields.
-   const outline=[[28,.022],[545,.018],[721,.055],[659,.145],[418,.187],[61,.173]];
-   const edge=outline.map(([u,v])=>point(u,v,32));
-   const bevel=outline.map(([u,v])=>point(360+(u-360)*.91,.102+(v-.102)*.87,68));
-   const crown=point(305,.093,102);
-   const crop=(bay+Math.abs(tier))%4*.08;
-   const uv=([u,v])=>[crop+.72*u/770,.12+.76*v/.21];
-   for(let k=0;k<outline.length;k++){
-     const n=(k+1)%outline.length;
-     plate([edge[k],edge[n],bevel[n],bevel[k]],k<3?'titanGold':'titanBronze');
-     plate([bevel[k],bevel[n],crown,crown],'titanIron');
-     formedPanels.at(-1).plating=[uv(outline[k]),uv(outline[n]),uv([305,.093]),uv([305,.093])];
-   }
-   if(tier%2===0)for(let w=0;w<4;w++){
-     const u=135+w*112;
-     plate([point(u,.198,70),point(u+50,.198,70),point(u+50,.204,70),point(u,.204,70)],'warmline');
-   }
- }
-}
-// Armoured port banks face the observer on the sloping walls around the hatch.
-// Each mouth has a projecting lip, a recessed throat and internal shutter blades.
-for(const side of [-1,1]){
- const point=(u,v,h)=>[side*u,v,outerLockZ-15-(u-249)*.44+h];
- const patch=(u,v,w,h,d,finish)=>{
-   plate([point(u,v,d),point(u+w,v,d),point(u+w,v+h,d),point(u,v+h,d)],finish);
-   if(w>220&&h>80)formedPanels.at(-1).plating=[[0,0],[1,0],[1,1],[0,1]];
- };
- for(let bay=0;bay<4;bay++){
-   const u=318+bay*308,top=-228-bay*58;
-   patch(u,top,288,620+bay*54,32,'titanDark');
-   patch(u+8,top+7,270,109,44,'titanBronze');
-   patch(u+16,top+15,220,9,51,'titanGold');
-   for(let k=0;k<6;k++)patch(u+23+k*38,top+68,22,13,53,k%4===2?'smoked':'warmline');
-   const cx=u+143,cy=top+262;
-   const rings=[[128,46],[116,85],[94,88],[79,48]];
-   const rim=(ring,i)=>{const a=(i+.5)*Math.PI/6;return point(cx+ring[0]*Math.cos(a),cy+ring[0]*Math.sin(a),ring[1])};
-   for(let k=1;k<rings.length;k++)for(let i=0;i<12;i++){
-     plate([rim(rings[k-1],i),rim(rings[k-1],i+1),rim(rings[k],i+1),rim(rings[k],i)],['','titanBronze','titanGold','smoked'][k]);
-   }
-   for(let k=-2;k<=2;k++){
-     const chord=Math.sqrt(73**2-(k*25)**2);
-     patch(cx-chord,cy+k*25,2*chord,8,49,'titanIron');
-   }
-   patch(u+15,cy+142,254,88,49,'titanIron');
-   for(let k=0;k<8;k++)patch(u+28+k*29,cy+160,12,48,55,'gasket');
  }
 }
 for(let i=avatarStart;i<formedPanels.length;i++)formedPanels[i].avatar=true;
@@ -1029,7 +888,7 @@ for(const [index,bay] of bayScreens.entries()){
  const {face,wx,wz,label}=bay;
  let nearby=null,dist=Infinity;
  for(const projector of roomScreens){
-   const dx=projector.hx-wx,dz=projector.hz-wz,d=dx*dx+dz*dz;
+   const dx=projector.roomX-wx,dz=projector.roomZ-wz,d=dx*dx+dz*dz;
    if(d<dist){dist=d;nearby=projector}
  }
  const local=wz>1200&&nearby;
@@ -1039,7 +898,10 @@ for(const [index,bay] of bayScreens.entries()){
  const image=document.createElement('img');image.src=exhibitFile(still.includes('.')?still:still+'.webp');image.alt='';image.loading='lazy';
  const button=document.createElement('button');button.textContent=caption;
  face.append(image,button);wire(face,[route,caption]);wire(button,[route,caption]);
- if(local)face.projectTopic=()=>nearby.showPlate(key);
+ face.projectTopic=()=>{
+   if(local){nearby.showPlate(key);return nearby.el}
+   showBridgeRecord(key,route,caption);return hologram;
+ };
 }
 function nearestRoom(pz){
  return roomStations.reduce((best,r)=>Math.abs(r.z-pz)<Math.abs(best.z-pz)?r:best);
@@ -1060,7 +922,7 @@ function corridorStation(title,item,side,z){
  const status=document.createElement('div');status.className='status-wave';
  const button=document.createElement('button');button.textContent=item[1]+'  ›';
  const closest=roomScreens.reduce((best,r)=>Math.hypot(r.hx-side*222,r.hz-z)<Math.hypot(best.hx-side*222,best.hz-z)?r:best);
- face.projectTopic=()=>closest.showPlate(routePlate(item[0]),item[0],item[1]);
+ face.projectTopic=()=>{closest.showPlate(routePlate(item[0]),item[0],item[1]);return closest.el};
  const preview=document.createElement('img');const still=exhibitPlates[routePlate(item[0])][2];
  preview.src=exhibitFile(still.includes('.')?still:still+'.webp');preview.alt=item[1];preview.style.cssText='width:100%;height:95px;object-fit:contain';
  wire(face,item);wire(button,item);button.replaceChildren(mark,preview,document.createTextNode(item[1]+'  ›'));face.append(button);
@@ -1151,10 +1013,11 @@ function activateStation(control){
  const local=control.closest('.room-console,.switches,.bay-display,.wall-pad');
  if(local?.projectTopic){
    const selected=[control.dataset.route,control.dataset.station];
-   local.projectTopic(selected);
+   const destination=local.projectTopic(selected);
    if(local.classList.contains('room-console'))mountExhibit(local,routePlate(selected[0])).classList.add('station-feed');
-   const notice=$('projectionNotice');notice.textContent=selected[1]+' · Open on the corner projector';
-   notice.hidden=false;clearTimeout(messageTimer);messageTimer=setTimeout(()=>notice.hidden=true,3500);return;
+   const key=destination===hologram?projected[2]:destination.dataset.plate;
+   openRecord(selected[0],selected[1],key,destination);
+   return;
  }
  projected=[control.dataset.route,control.dataset.station];
  const consoleFace=control.closest('.screen,.helm-display');
@@ -1216,17 +1079,14 @@ function rebuildPicking(){
    pickPlanes.push({el,inv,controls,solid,cx:model.m41,cy:model.m42,cz:model.m43,radius:Math.hypot(parseFloat(el.style.width),parseFloat(el.style.height))/2,w:parseFloat(el.style.width),h:parseFloat(el.style.height)});
  }
 }
-function refreshHitBoxes(){
- for(const p of pickPlanes){
-   if(!p.controls.length||!p.el.isConnected||!p.el.offsetWidth)continue;
-   p.boxes=p.controls.map(c=>{
-     let l=p.el.clientLeft,t=p.el.clientTop;
-     for(let node=c;node&&node!==p.el;node=node.offsetParent){
-       l+=node.offsetLeft;t+=node.offsetTop;
-     }
-     return {control:c,l,t,r:l+c.offsetWidth,b:t+c.offsetHeight};
-   });
+function controlAtPoint(surface,controls,u,v){
+ for(const button of controls){
+   if(!button.offsetWidth||!button.offsetHeight)continue;
+   let l=surface.clientLeft,t=surface.clientTop;
+   for(let node=button;node&&node!==surface;node=node.offsetParent){l+=node.offsetLeft;t+=node.offsetTop}
+   if(u>=l&&u<=l+button.offsetWidth&&v>=t&&v<=t+button.offsetHeight)return button;
  }
+ return null;
 }
 function pickStation(clientX,clientY){
  const lens=parseFloat(view.style.perspective);
@@ -1260,24 +1120,12 @@ function pickStation(clientX,clientY){
      if(verts.length&&!inside)continue;
    }
    if(window.displayPointHidden?.(p.el,u,v))continue;
-   if(p.controls.length&&!p.boxes&&p.el.offsetWidth)refreshHitBoxes();
-   const control=p.boxes?.find(b=>u>=b.l&&u<=b.r&&v>=b.t&&v<=b.b)?.control;
+   const control=controlAtPoint(p.el,p.controls,u,v);
    nearest=dist;hit=control||(p.el.dataset.station?p.el:null);
- }
- // Resolve the visible label after selecting the unobstructed surface. Screen
- // rows can reflow after fonts, projector content or responsive styles load.
- const surface=hit?.closest('.surface');
- if(surface){
-   const buttons=surface.querySelectorAll('button[data-route],button[data-seat],.holo-open');
-   for(const button of buttons){
-     const rect=button.getBoundingClientRect();
-     if(rect.width&&clientX>=rect.left&&clientX<=rect.right&&clientY>=rect.top&&clientY<=rect.bottom)return button;
-   }
  }
  return hit;
 }
-rebuildPicking();refreshHitBoxes();
-window.addEventListener('load',refreshHitBoxes);document.fonts.ready.then(refreshHitBoxes);
+rebuildPicking();
 document.addEventListener('pointerdown',e=>{
  if(panel.open||e.target.closest('header,footer,#jita-player,#use'))return;
  dragged=false;totalDrag=0;
@@ -1378,6 +1226,13 @@ function frame(now){
  const cameraY=seated?105:0;
  const cameraTransform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(-cameraY)+'px,'+(-z)+'px)';
  if(lastCameraTransform!==cameraTransform){world.style.transform=cameraTransform;lastCameraTransform=cameraTransform;lastMotion=now;}
+ if(lastMotion===now){
+   for(const {el,hx,hz} of roomScreens){
+     if(Math.abs(z-hz)>1800||Math.abs(x-hx)>2000)continue;
+     const facing=Math.atan2(x-hx,z-hz);
+     el.style.transform='translate3d('+hx+'px,8px,'+hz+'px) rotateY('+facing+'rad)';
+   }
+ }
  if(now-lastAim>55){target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);lastAim=now;}
  $('use').hidden=!target;if(target && $('use').textContent!=='E　'+target.dataset.station)$('use').textContent='E　'+target.dataset.station;
  const sector=z>outerLockZ?'Exterior · Avatar viewing deck':z>=passageEnd?'Avatar · Observation airlock':z<1200?'Avatar · Flight deck':Math.abs(x)<245?'Aft passage':nearestRoom(z).names[x>0?1:0];
@@ -1390,6 +1245,7 @@ function frame(now){
  else window.drawExterior?.(x,z);
  requestAnimationFrame(frame);
 }
+if(location.hash==='#viewing-deck'){x=0;z=padCenter;yaw=0;pitch=-.16;view.focus()}
 if(location.hash==='#holodeck'){x=500;z=cabinZ+365;yaw=1.0;pitch=.14;view.focus()}
 requestAnimationFrame(frame);
 
