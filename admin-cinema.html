@@ -8,11 +8,12 @@
  player.allow='autoplay; fullscreen; encrypted-media';player.allowFullscreen=true;player.title='YouTube video';player.id='youtube-admin';
  player.src=origin+'/embed/'+access.id+'?autoplay=1&playsinline=1&controls=1&mute=1&enablejsapi=1&origin='+encodeURIComponent(location.origin);
  const send=(func,args)=>player.contentWindow.postMessage(JSON.stringify({event:'command',func,args}),origin);
- function volume(){const gain=parent.websiteGain();send('setVolume',[Math.round(100*gain)]);send(gain?'unMute':'mute',[]);}
+ function distance(){send('setVolume',[Math.round(100*parent.cinemaGain())]);}
+ function volume(){const gain=parent.cinemaGain();send('setVolume',[Math.round(100*gain)]);send(gain?'unMute':'mute',[]);}
  let timer;
  player.onload=()=>{let tries=0;timer=setInterval(()=>{player.contentWindow.postMessage(JSON.stringify({event:'listening',id:player.id,channel:'widget'}),origin);if(++tries>=40)clearInterval(timer);},250);};
  window.addEventListener('message',e=>{if(e.origin!==origin||e.source!==player.contentWindow)return;try{const msg=JSON.parse(e.data);if(['onReady','initialDelivery'].includes(msg.event)){clearInterval(timer);volume();}}catch{}});
- parent.addEventListener('websitevolume',volume);window.addEventListener('pagehide',()=>{clearInterval(timer);parent.removeEventListener('websitevolume',volume);});
+ parent.addEventListener('cinemadistance',distance);parent.addEventListener('websitevolume',volume);window.addEventListener('pagehide',()=>{clearInterval(timer);parent.removeEventListener('cinemadistance',distance);parent.removeEventListener('websitevolume',volume);});
  document.body.append(player);
 })();
 </script></body></html>

@@ -1230,15 +1230,36 @@ function watchMedia(id){
  cinemaPlayer.tabIndex=0;cinemaPlayer.style.pointerEvents='auto';cinemaPlayer.allowFullscreen=true;
  cinemaPlayer.allow='autoplay; fullscreen; encrypted-media';
  cinemaPlayer.referrerPolicy='strict-origin-when-cross-origin';
- cinemaPlayer.src=!film?'admin-cinema.html?v=1':'https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&mute=1&playsinline=1&controls=1&rel=0&enablejsapi=1&origin='+encodeURIComponent(location.origin);
+ cinemaPlayer.src=!film?'admin-cinema.html?v=distance':'https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&mute=1&playsinline=1&controls=1&rel=0&enablejsapi=1&origin='+encodeURIComponent(location.origin);
  $('stop-video').hidden=false;
  setFavoriteTrack({kind:'youtube',id,title:film?.title||'YouTube '+id});
  movieScreen().append(cinemaPlayer);movieScreen().classList.add('showing');
  $('media-library').close();view.focus();
 }
+// Sound escapes through the holodeck doorway into the passage.
+function updateCinemaDistance(dt){
+ if(!cinemaPlayer)return;
+ let target=1;
+ if(cinemaPlayer.parentElement===cinemaWall){
+   const inside=x>=245 && x<=1265 && Math.abs(z-cabinZ)<=cabinDepth/2;
+   if(!inside){
+     const distance=Math.hypot(x-245,z-cabinZ);
+     target=1/(1+(distance/1000)**2);
+   }
+ }
+ const previous=window.cinemaDistanceGain??1;
+ const smooth=previous+(target-previous)*(1-Math.exp(-dt*7));
+ window.cinemaDistanceGain=Math.abs(target-smooth)<.001?target:smooth;
+ const percent=Math.round(window.cinemaDistanceGain*100);
+ if(cinemaPlayer.distancePercent!==percent){
+   cinemaPlayer.distancePercent=percent;
+   window.dispatchEvent(new Event('cinemadistance'));
+ }
+}
 function movieScreen(){return seated?.pod ? canopyPicture : cinemaWall;}
 function clearMovie(){
  const player=cinemaPlayer;
+ window.cinemaDistanceGain=1;
  cinemaPlayer=null;
  setFavoriteTrack?.(null);
  if(!player)return;
@@ -1591,6 +1612,7 @@ function frame(now){
   if(isClear(x,nextZ))z=nextZ;
  }
  advancePod(now);
+ updateCinemaDistance(dt);
  const cameraY=seated?.pod?podEye:seated?105:0;
  const cameraTransform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(-cameraY)+'px,'+(-z)+'px)';
  if(lastCameraTransform!==cameraTransform){world.style.transform=cameraTransform;lastCameraTransform=cameraTransform;lastMotion=now;}

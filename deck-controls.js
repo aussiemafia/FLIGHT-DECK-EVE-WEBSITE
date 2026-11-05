@@ -18,16 +18,18 @@
   const saved = read('website-volume');
   if (saved !== null && /^\d{1,3}$/.test(saved)) slider.value = saved;
   window.websiteGain = () => Number(slider.value) / 100;
+  window.cinemaGain=()=>window.websiteGain()*(window.cinemaDistanceGain??1);
+  function mediaGain(media){return media.id==='holodeck-movie'?window.cinemaGain():window.websiteGain();}
   const playerOrigin = 'https://www.youtube-nocookie.com';
-  function syncPlayer() {
+  function syncPlayer(distanceOnly=false) {
     const player = document.getElementById('cinema-player');
     if (!player) return;
     const send = (func, args) => player.contentWindow?.postMessage(JSON.stringify({event:'command', func, args}), playerOrigin);
-    send('setVolume', [Number(slider.value)]);
-    send(Number(slider.value) ? 'unMute' : 'mute', []);
+    send('setVolume', [Math.round(100*window.cinemaGain())]);
+    if(!distanceOnly)send(Number(slider.value) ? 'unMute' : 'mute', []);
   }
   function apply(doc) {
-    doc.querySelectorAll('audio,video').forEach(media => { media.volume = window.websiteGain(); });
+    doc.querySelectorAll('audio,video').forEach(media => { media.volume = mediaGain(media); });
     doc.querySelectorAll('iframe').forEach(frame => {
       try { if (frame.contentDocument) apply(frame.contentDocument); } catch {}
     });
@@ -43,7 +45,7 @@
   function observe(doc) {
     if (observed.has(doc)) return;
     observed.add(doc);
-    doc.addEventListener('play', event => { if ('volume' in event.target) event.target.volume = window.websiteGain(); }, true);
+    doc.addEventListener('play', event => { if ('volume' in event.target) event.target.volume = mediaGain(event.target); }, true);
     doc.addEventListener('load', event => {
       const frame = event.target;
       if (frame.tagName !== 'IFRAME') return;
@@ -70,6 +72,11 @@
         syncPlayer();
       }
     } catch {}
+  });
+  window.addEventListener('cinemadistance',()=>{
+    const media=document.getElementById('holodeck-movie');
+    if(media)media.volume=window.cinemaGain();
+    syncPlayer(true);
   });
   slider.oninput = () => { save('website-volume', slider.value); update(); };
   observe(document);

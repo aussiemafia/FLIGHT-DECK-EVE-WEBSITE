@@ -31,7 +31,7 @@ function installMovieSearch({dialog,form,query,list,filter}) {
      player.lastChild.addEventListener('error',()=>{if(player===cinemaPlayer){openMedia();note.textContent='This host could not stream that movie. Choose another result.';}});
      clearMovie();document.getElementById('stop-video').hidden=false;cinemaPlayer=player;movieScreen().append(player);movieScreen().classList.add('showing');
      setFavoriteTrack({kind:'peer',uuid:film.uuid,url:result.url,title:film.name});
-     player.volume=window.websiteGain();dialog.close();player.play().catch(()=>{});player.focus();
+     player.volume=window.cinemaGain();dialog.close();player.play().catch(()=>{});player.focus();
    }catch{if(!signal.aborted)note.textContent='This movie is unavailable for filtered playback. Choose another result.';}
  }
  setFavoriteTrack=installFavorites(play);
