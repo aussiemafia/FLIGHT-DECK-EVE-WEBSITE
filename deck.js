@@ -160,12 +160,31 @@ function buildHelmConsole(h,items){
  const display=part('helm-display',h.w-22,194,0,0,2);
  const heading=document.createElement('button');heading.className='helm-title';heading.textContent=h.title;
  wire(heading,items[0]);display.append(heading);
- addInstrument(display,items,h.x,h.z);
- items.forEach(([id,label],i)=>{
-   const row=document.createElement('button');row.className='helm-row';
-   row.innerHTML='<span>'+label+'</span><span aria-hidden="true">›</span>';
-   wire(row,[id,label]);display.append(row);
- });
+ if(h.title==='Navigation'){
+   heading.textContent='Jump destinations';
+   heading.advance=()=>window.openJumpConsole();
+   display.style.padding='9px';
+   display.style.gridTemplateRows='30px 1fr';
+   const cards=document.createElement('div');
+   cards.style.cssText='display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;min-height:0';
+   for(const [id,label,face,shade] of [['forge','Jita','pz','#123143'],['amarr','Amarr','px','#614019'],['pochven','Raravoss','nz','#64232b']]){
+     const card=document.createElement('button');
+     card.type='button';
+     card.style.cssText='display:flex;align-items:flex-end;padding:5px 3px;color:white;font:bold 14px system-ui;text-shadow:0 1px 3px black;border:1px solid #64909b;border-radius:5px;background:linear-gradient(0deg,#020812 0%,transparent 70%),url(assets/forge/'+face+'.webp) center/cover,'+shade+';background-blend-mode:normal,luminosity';
+     card.textContent=label;
+     wire(card,['bridge-control','Jump to '+label]);
+     card.advance=()=>{const target=document.querySelector('#routes button[value="'+id+'"]');if(!target||target.disabled)window.openJumpConsole();else target.click()};
+     cards.append(card);
+   }
+   display.append(cards);
+ }else{
+   addInstrument(display,items,h.x,h.z);
+   items.forEach(([id,label],i)=>{
+     const row=document.createElement('button');row.className='helm-row';
+     row.innerHTML='<span>'+label+'</span><span aria-hidden="true">›</span>';
+     wire(row,[id,label]);display.append(row);
+   });
+ }
  wire(display,items[0]);
  const ledge=part('console-keys',h.w-16,65,0,123,32,0,62);
  for(const item of items){
