@@ -873,9 +873,9 @@ for(const side of [-1,1]){
    const chairZ=cabinZ+120;
    const screenZ=cabinZ-cabinDepth/2+165;
    cinemaWall=plane('holo-display cinema-wall',roomWidth*.75,roomWidth*.75*9/16,mid,105,screenZ);
-   cinemaWall.dataset.station='Play New Eden films';
+   cinemaWall.dataset.station='Open holodeck media';
    const play=document.createElement('button');
-   play.className='cinema-play';play.textContent='Play films';
+   play.className='cinema-play';play.textContent='Browse media';
    play.dataset.station=cinemaWall.dataset.station;play.onclick=playCinema;
    cinemaWall.innerHTML='<span class="cinema-title">New Eden cinema</span>';cinemaWall.append(play);
    for(const edge of [-1,1]){
@@ -1102,19 +1102,56 @@ holoAction.onclick=()=>openRecord(...projected);
 hologram.dataset.station='Open projection';hologram.onclick=e=>{if(e.target!==holoAction)openRecord(...projected)};
 const cinemaFilms=['3l0k2xkcT3g','k1AbLH_uGLw'];
 let cinemaPlayer=null;
-function playCinema(){
- if(cinemaPlayer)return;
- const iframe=document.createElement('iframe');
- iframe.title='New Eden cinema · YouTube player';
- iframe.id='cinema-player';iframe.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
- iframe.allowFullscreen=true;iframe.referrerPolicy='strict-origin-when-cross-origin';
- iframe.src='https://www.youtube.com/embed/'+cinemaFilms[0]+'?autoplay=1&playsinline=1&loop=1&playlist='+cinemaFilms.join(',')+'&rel=0';
- cinemaWall.append(iframe);cinemaPlayer=iframe;cinemaWall.classList.add('showing');
- cinemaWall.removeAttribute('data-station');
- $('cinema-link').hidden=false;
- view.focus();
+function openMedia(){
+ if(document.pointerLockElement)document.exitPointerLock();
+ keys.clear();drag=false;
+ const dialog=$('media-library');
+ if(!dialog.open)dialog.showModal();
+ $('media-query').focus();
 }
-
+function watchMedia(src,url,label){
+ if(!cinemaPlayer){
+  cinemaPlayer=document.createElement('iframe');
+  cinemaPlayer.id='cinema-player';cinemaPlayer.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
+  cinemaPlayer.allowFullscreen=true;cinemaPlayer.referrerPolicy='strict-origin-when-cross-origin';
+  cinemaWall.append(cinemaPlayer);cinemaWall.classList.add('showing');
+ }
+ cinemaPlayer.title=label;cinemaPlayer.src=src;
+ const link=$('cinema-link');link.href=url;link.textContent=label+' ↗';link.hidden=false;
+ $('media-library').close();view.focus();
+}
+function playCinema(){openMedia()}
+function setupHolodeck(){
+ const dialog=$('media-library'),form=$('media-form'),query=$('media-query'),service=$('media-service'),note=$('media-note');
+ dialog.addEventListener('keydown',e=>e.stopPropagation());
+ $('change-media').onclick=openMedia;
+ $('media-close').onclick=()=>dialog.close();
+ dialog.addEventListener('close',()=>view.focus());
+ $('media-feature').onclick=()=>watchMedia('https://www.youtube.com/embed/'+cinemaFilms[0]+'?autoplay=1&playsinline=1','https://www.youtube.com/watch?v='+cinemaFilms[0],'New Eden films');
+ service.onchange=()=>{query.placeholder=service.value==='twitch'?'Channel name or Twitch link':'Video title or YouTube link';note.textContent='';};
+ form.onsubmit=e=>{
+  e.preventDefault();const value=query.value.trim();if(!value)return;
+  let url;try{url=new URL(/^https?:/.test(value)?value:'https://'+value)}catch{}
+  const host=url?.hostname.toLowerCase().replace(/^(www|m)\./,'');
+  const twitch=host==='twitch.tv'||(!value.includes('/')&&service.value==='twitch');
+  if(twitch){
+   const name=(host==='twitch.tv'?url.pathname.split('/')[1]:value).replace(/^@/,'');
+   if(!/^[A-Za-z0-9_]{1,25}$/.test(name)){note.textContent='Enter a Twitch channel name or its channel link.';return;}
+   watchMedia('https://player.twitch.tv/?channel='+name+'&parent='+encodeURIComponent(location.hostname)+'&autoplay=true','https://www.twitch.tv/'+name,'Twitch · '+name);return;
+  }
+  const parts=url?.pathname.split('/')||[];
+  const id=host==='youtu.be'?parts[1]:['youtube.com','youtube-nocookie.com'].includes(host)?(url.searchParams.get('v')||(['live','shorts','embed'].includes(parts[1])?parts[2]:'')):'';
+  if(/^[\w-]{11}$/.test(id||'')){
+   watchMedia('https://www.youtube.com/embed/'+id+'?autoplay=1&playsinline=1','https://www.youtube.com/watch?v='+id,'YouTube video');return;
+  }
+  if(service.value==='youtube'&&!value.includes('://')){
+   window.open('https://www.youtube.com/results?search_query='+encodeURIComponent(value),'_blank','noopener');
+   note.textContent='Copy a video link from the results and paste it here to play on the holodeck.';return;
+  }
+  note.textContent='Use a Twitch channel or a YouTube video link.';
+ };
+}
+document.addEventListener('DOMContentLoaded',setupHolodeck);
 let messageTimer;
 function activateStation(control){
  if(control===cinemaWall||control.classList.contains('cinema-play')){playCinema();return}
@@ -1124,7 +1161,7 @@ function activateStation(control){
    const [sx,sz]=control.dataset.seat.split(',').map(Number);
    if(seated)standUp();
    seated={x:sx,z:sz};x=sx;z=sz-8;yaw=0;pitch=0;keys.clear();$('stand').hidden=false;view.focus();
-   if(control.closest('.cinema-chair'))playCinema();
+   if(control.closest('.cinema-chair')&&!cinemaPlayer)openMedia();
    return;
  }
  if(control===hologram||control===holoAction){openRecord(...projected);return;}
@@ -1261,7 +1298,7 @@ document.addEventListener('click',e=>{
 },true);
 $('use').onclick=()=>{if(target)activateStation(target)};
 window.addEventListener('keydown',e=>{
- if(panel.open)return;
+ if(panel.open||$('media-library')?.open)return;
  if(['KeyW','KeyS','KeyA','KeyD','ShiftLeft','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();keys.add(e.code)}
  if(e.code==='KeyE'&&!e.repeat){if(seated)standUp();else if(target)activateStation(target);}
 });
@@ -1354,6 +1391,7 @@ function frame(now){
  if(now-lastAim>55){target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);lastAim=now;}
  $('use').hidden=!target;if(target && $('use').textContent!=='E　'+target.dataset.station)$('use').textContent='E　'+target.dataset.station;
  const sector=z>outerLockZ?'Exterior · Avatar viewing deck':z>=passageEnd?'Avatar · Observation airlock':z<1200?'Avatar · Flight deck':Math.abs(x)<245?'Aft passage':nearestRoom(z).names[x>0?1:0];
+ const mediaControl=$('change-media');if(mediaControl)mediaControl.hidden=!sector.toLowerCase().includes('holodeck');
  if($('sector').textContent!==sector)$('sector').textContent=sector;
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
  const value=String(degrees).padStart(3,'0')+'°';
