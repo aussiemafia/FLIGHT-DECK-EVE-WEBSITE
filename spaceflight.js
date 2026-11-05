@@ -41,6 +41,23 @@ async function systemSky(route){
    ctx.fillStyle=fade;ctx.fillRect(0,0,n,n);ctx.globalCompositeOperation='destination-over';ctx.drawImage(images[4],0,0);
    faces[4]=face;return faces;
   }
+  // Keep the authored Perimeter planet when upgrading its surrounding sky.
+  const originalRoot='https://raw.githubusercontent.com/wannalink/eve-nebulas/cb0307c6743f2da0c0c05cb88e4359ebedab703d/nebulas/';
+  try{
+   const originals=await Promise.all(skyKeys.map(async key=>{
+    const face=new Image();face.crossOrigin='anonymous';
+    face.src=originalRoot+route.id+'/'+key+'.webp';await face.decode();return face;
+   }));
+   if(route.id==='c01'){
+    const n=originals[4].width,source=art.width/3,face=document.createElement('canvas');
+    face.width=face.height=n;
+    const ctx=face.getContext('2d');ctx.drawImage(originals[4],0,0);
+    const scale=n/1024;
+    ctx.drawImage(art,source+486,source+270,434,434,486*scale,270*scale,434*scale,434*scale);
+    originals[4]=face;
+   }
+   return originals;
+  }catch{/* The bundled atlas also works when the original host is unavailable. */}
   const n=art.width/3;
   return skyKeys.map((key,i)=>{const face=document.createElement('canvas');face.width=face.height=n;
    face.getContext('2d').drawImage(art,i%3*n,Math.floor(i/3)*n,n,n,0,0,n,n);return face});
