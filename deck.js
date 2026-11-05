@@ -1156,7 +1156,9 @@ function openMedia(){
  if(document.pointerLockElement)document.exitPointerLock();
  keys.clear();drag=false;
  const dialog=$('media-library');
- if(!dialog.open)dialog.showModal();
+ const screen=movieScreen();
+ if(dialog.parentElement!==screen)screen.append(dialog);
+ if(!dialog.open)dialog.show();
  $('media-query').focus();
 }
 // Featured films are also available without a search.
@@ -1167,14 +1169,14 @@ const holodeckFilms=Object.freeze([
 ]);
 function watchMedia(id){
  const film=holodeckFilms.find(entry=>entry.id===id);
- if(!film)return;
+ if(!/^[\w-]{11}$/.test(id)||(!film&&!holodeckAdmin.unlocked))return;
  clearMovie();
  cinemaPlayer=document.createElement('iframe');
- cinemaPlayer.id='cinema-player';cinemaPlayer.title=film?.title||"YouTube video";
+ cinemaPlayer.id=film?'cinema-player':'admin-cinema-host';cinemaPlayer.dataset.video=id;cinemaPlayer.title=film?.title||"YouTube video";
  cinemaPlayer.tabIndex=0;cinemaPlayer.style.pointerEvents='auto';cinemaPlayer.allowFullscreen=true;
  cinemaPlayer.allow='autoplay; fullscreen; encrypted-media';
  cinemaPlayer.referrerPolicy='strict-origin-when-cross-origin';
- cinemaPlayer.src='https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&mute=1&playsinline=1&controls=1&rel=0&enablejsapi=1&origin='+encodeURIComponent(location.origin);
+ cinemaPlayer.src=!film?'admin-cinema.html?v=1':'https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&mute=1&playsinline=1&controls=1&rel=0&enablejsapi=1&origin='+encodeURIComponent(location.origin);
  $('stop-video').hidden=false;
  movieScreen().append(cinemaPlayer);movieScreen().classList.add('showing');
  $('media-library').close();view.focus();
@@ -1204,7 +1206,7 @@ function setupHolodeck(){
   }
   $('media-note').textContent=list.childElementCount?'':'No matching EVE films.';
  }
- dialog.addEventListener('keydown',e=>e.stopPropagation());
+ dialog.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();dialog.close();}});
  $('change-media').onclick=openMedia;
  $('stop-video').onclick=()=>{clearMovie();view.focus()};
  $('media-close').onclick=()=>dialog.close();
@@ -1296,6 +1298,7 @@ function enterPod(pod){
 }
 function leavePod(immediate=false){
  const {pod}=seated;
+ if(pod.glass.contains($('media-library')))$('media-library').close();
  if(pod.glass.contains(cinemaPlayer))clearMovie();
  if(seated.phase==='leaving'&&!immediate)return;
  seated.phase='leaving';podTravel=null;keys.clear();
@@ -1416,7 +1419,7 @@ document.addEventListener('click',e=>{
 },true);
 $('use').onclick=()=>{if(target)activateStation(target)};
 window.addEventListener('keydown',e=>{
- if(panel.open||$('media-library')?.open)return;
+ if(panel.open||e.target.closest?.('#media-library'))return;
  if(['KeyW','KeyS','KeyA','KeyD','ShiftLeft','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();keys.add(e.code)}
  if(e.code==='KeyE'&&!e.repeat){if(seated?.aft&&target?.closest('.learning-desk'))activateStation(target);else if(seated)standUp();else if(target)activateStation(target);}
 });
@@ -1473,7 +1476,7 @@ function resize(){
  $('camera').style.transform='translateZ('+lens+'px)';
 }
 view.addEventListener('wheel',event=>{
- if(event.ctrlKey||event.metaKey||!event.deltaY||document.querySelector('dialog[open]')||seated?.pod)return;
+ if(event.ctrlKey||event.metaKey||!event.deltaY||(panel.open||event.target.closest?.('#media-library'))||seated?.pod)return;
  event.preventDefault();
  const degrees=walkingFov??(Math.atan(innerWidth/(2*parseFloat(view.style.perspective)))*360/Math.PI);
  const unit=event.deltaMode===1?16:event.deltaMode===2?innerHeight:1;
@@ -1523,7 +1526,7 @@ function frame(now){
  if(now-lastAim>55){target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);lastAim=now;}
  $('use').hidden=!target;if(target && $('use').textContent!=='E　'+target.dataset.station)$('use').textContent='E　'+target.dataset.station;
  const sector=z>outerLockZ?'Exterior · Avatar viewing deck':z>=passageEnd?'Avatar · Observation airlock':z<1200?'Avatar · Flight deck':Math.abs(x)<245?'Aft passage':nearestRoom(z).names[x>0?1:0];
- const mediaControl=$('change-media');if(mediaControl)mediaControl.hidden=!cinemaPlayer&&(seated?.pod?seated.phase!=='sealed':!sector.toLowerCase().includes('holodeck'));
+ const mediaControl=$('change-media');if(mediaControl)mediaControl.hidden=seated?.pod?seated.phase!=='sealed':!sector.toLowerCase().includes('holodeck');
  if($('sector').textContent!==sector)$('sector').textContent=sector;
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
  const value=String(degrees).padStart(3,'0')+'°';
@@ -1537,5 +1540,6 @@ if(location.hash==='#briefing'){x=-460;z=650;yaw=Math.PI;pitch=.12;view.focus()}
 if(location.hash==='#viewing-deck'){x=0;z=padCenter;yaw=-1.23;pitch=-.09;view.focus()}
 if(location.hash==='#holodeck'){x=500;z=cabinZ+365;yaw=1.0;pitch=.14;view.focus()}
 requestAnimationFrame(frame);
+
 
 

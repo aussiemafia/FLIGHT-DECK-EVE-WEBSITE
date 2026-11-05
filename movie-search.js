@@ -49,7 +49,7 @@ function installMovieSearch({dialog,form,query,list,filter}) {
        }
      }catch{}
      if(!/^[\w-]{11}$/.test(id||'')){note.textContent='Paste a YouTube video link, or enter a title to search.';return;}
-     if(!holodeckFilms.some(film=>film.id===id)){note.textContent='This YouTube link is outside the approved catalogue. Search by title for filtered videos instead.';return;}
+     if(!holodeckAdmin.unlocked&&!holodeckFilms.some(film=>film.id===id)){note.textContent='Open Admin playback to use your own YouTube links, or search by title for filtered videos.';return;}
      watchMedia(id);return;
    }
    note.textContent='Searching filtered videos…';
