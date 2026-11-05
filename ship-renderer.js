@@ -125,19 +125,20 @@
    el.style.maskMode='luminance';el.style.maskSize='100% 100%';el.style.maskImage='url("data:image/svg+xml,'+encodeURIComponent(svg)+'")';el.dataset.depthMask='1';
  }
 
- let nextSight=0,lastCompartment;
+ let nextSight=0,lastCompartment,lastLens;
  let sightY=Infinity,sightYaw=Infinity,sightPitch=Infinity;
  let sightX=Infinity,sightZ=Infinity,sightDoors=-1;
- function showRoom(ex,ez,ey,yaw,pitch){
+ function showRoom(ex,ez,ey,yaw,pitch,lens){
    const now=performance.now();
    const compartment=displayCompartment(ex,ez),crossed=compartment!==lastCompartment;
    if(!crossed&&now<nextSight)return;
    lastCompartment=compartment;
    nextSight=now+32;
    const openness=hatches.reduce((v,d)=>v+Math.round(d.openness*8),0);
-   if(!crossed&&openness===sightDoors&&Math.abs(ex-sightX)+Math.abs(ez-sightZ)<4&&ey===sightY&&Math.abs(yaw-sightYaw)+Math.abs(pitch-sightPitch)<.025)return;
+   if(lens===lastLens&&!crossed&&openness===sightDoors&&Math.abs(ex-sightX)+Math.abs(ez-sightZ)<4&&ey===sightY&&Math.abs(yaw-sightYaw)+Math.abs(pitch-sightPitch)<.025)return;
    sightYaw=yaw;sightPitch=pitch;const sy=Math.sin(yaw),cy=Math.cos(yaw),sp=Math.sin(pitch),cp=Math.cos(pitch);
-   const lens=Math.min(innerWidth*.59,innerHeight*.96),wide=innerWidth/(2*lens),tall=innerHeight/(2*lens);
+   lastLens=lens;
+   const wide=innerWidth/(2*lens),tall=innerHeight/(2*lens);
    const moved=ex!==sightX||ez!==sightZ||ey!==sightY||openness!==sightDoors;
    sightY=ey;
    const local=largeBlockers.slice();
@@ -292,7 +293,7 @@
    for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
    const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
    for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/satin-panel.webp','assets/avatar-broadside.webp','assets/avatar-collar.webp'])urls.push(new URL(path,document.baseURI).href);
-   const worker=new Worker('assets/renderer/worker.js?v=night-1'),offscreen=canvas.transferControlToOffscreen();
+   const worker=new Worker('assets/renderer/worker.js?v=walking-fov'),offscreen=canvas.transferControlToOffscreen();
    let ready=false,pending=false;
    worker.onmessage=({data})=>{
      if(data==='ready'){
@@ -314,7 +315,7 @@
    };
    worker.postMessage({type:'init',canvas:offscreen,scene:scene.buffer,doorVertices,urls},[offscreen,scene.buffer]);
    window.renderShip=(now,x,y,z,yaw,pitch,lens)=>{
-     showRoom(x,z,y,yaw,pitch);if(!ready||pending)return;pending=true;
+     showRoom(x,z,y,yaw,pitch,lens);if(!ready||pending)return;pending=true;
      const batches=selectRanges(chunks,x,y,z,yaw,pitch,lens).flatMap(c=>[c.start,c.count]);
      worker.postMessage({batches,dpr:devicePixelRatio||1,w:innerWidth,h:innerHeight,x,y,z,yaw,pitch,lens,now,shifts:hatches.flatMap((_,i)=>[leafShift(i*2),leafShift(i*2+1)])});
    };
@@ -558,7 +559,7 @@
  let previousPose=null,lastDraw=0,slowFrames=0,fastFrames=0,resolutionScale=1;updateCabin();
 
  window.renderShip=(now,ex,ey,ez,yaw,pitch,lens)=>{
-   showRoom(ex,ez,ey,yaw,pitch);
+   showRoom(ex,ez,ey,yaw,pitch,lens);
    const elapsed=now-lastDraw;
    if(lastDraw&&elapsed<250&&(keys.size||drag)){
      slowFrames=elapsed>28?slowFrames+1:Math.max(0,slowFrames-1);
@@ -569,7 +570,7 @@
    lastDraw=now;
    const pixelRatio=Math.min(devicePixelRatio||1,2,Math.sqrt(8294400/(innerWidth*innerHeight)))*(keys.size||drag?resolutionScale:1);
    
-   const pose=[ex,ey,ez,yaw,pitch,innerWidth,innerHeight,pixelRatio].join('/');
+   const pose=[ex,ey,ez,yaw,pitch,innerWidth,innerHeight,pixelRatio,lens].join('/');
    const cycling=hatches.some(d=>d.openness>0&&d.openness<1);
    if(previousPose===pose && !cycling)return;
    visibleRanges=selectRanges(ranges,ex,ey,ez,yaw,pitch,lens);

@@ -66,7 +66,7 @@ self.onmessage=async({data})=>{
  if(data.type==='material'){new Uint8Array(mem,images+13*imageBytes,imageBytes).set(new Uint8Array(data.lights));new Uint8Array(mem,images+6*imageBytes,imageBytes).set(new Uint8Array(data.bytes));return;}
  if(!wasm||!ctx)return;
  const {x,y,z,yaw,pitch,now}=data;
- const view=[x,y,z,yaw,pitch,data.w,data.h,...data.shifts.flat()].join('/');
+ const view=[x,y,z,yaw,pitch,data.w,data.h,data.lens,...data.shifts.flat()].join('/');
  if(view!==lastView){lastMotion=now;lastView=view;}
  const detailed=now-lastMotion>450;
  // Resolve the stationary view at higher detail once, outside the walking budget.
@@ -82,7 +82,7 @@ self.onmessage=async({data})=>{
    pixels=new ImageData(new Uint8ClampedArray(mem,display,w*h*4),w,h);
  }
  const shifts=data.shifts;
- const pose=[x,y,z,yaw,pitch,w,h,...shifts.flat()].join('/');
+ const pose=[x,y,z,yaw,pitch,w,h,lens,...shifts.flat()].join('/');
  const geometry=new Float32Array(mem,scenePtr,sceneSize*17);
  for(let leaf=0;leaf<shifts.length;leaf++){
    const [dx,dz]=shifts[leaf],previous=previousShifts[leaf];

@@ -1455,7 +1455,20 @@ function isClear(px,pz){
   return Math.abs(dx*Math.cos(a)-dz*Math.sin(a))>h.w*.48+22 || Math.abs(dx*Math.sin(a)+dz*Math.cos(a)+22)>73;
  });
 }
-function resize(){const lens=Math.min(innerWidth*.59,innerHeight*.96);view.style.perspective=lens+'px';$('camera').style.transform='translateZ('+lens+'px)'}
+let walkingFov=null;
+function resize(){
+ const lens=walkingFov===null?Math.min(innerWidth*.59,innerHeight*.96):innerWidth/(2*Math.tan(walkingFov*Math.PI/360));
+ view.style.perspective=lens+'px';
+ $('camera').style.transform='translateZ('+lens+'px)';
+}
+view.addEventListener('wheel',event=>{
+ if(event.ctrlKey||event.metaKey||!event.deltaY||document.querySelector('dialog[open]')||seated?.pod)return;
+ event.preventDefault();
+ const degrees=walkingFov??(Math.atan(innerWidth/(2*parseFloat(view.style.perspective)))*360/Math.PI);
+ const unit=event.deltaMode===1?16:event.deltaMode===2?innerHeight:1;
+ walkingFov=clamp(degrees+clamp(event.deltaY*unit*.06,-14,14),20,130);
+ resize();
+},{passive:false});
 window.addEventListener('resize',resize);resize();
 let lastAim=-Infinity,lastMotion=0,lastCameraTransform='';
 const bearing=navDisplay.querySelector('.bearing');
