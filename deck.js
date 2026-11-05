@@ -1197,7 +1197,7 @@ function labelProjection(){
 labelProjection();
 holoAction.onclick=()=>openRecord(...projected);
 hologram.dataset.station='Open projection';hologram.onclick=e=>{if(e.target!==holoAction)openRecord(...projected)};
-let cinemaPlayer=null;
+let cinemaPlayer=null, setFavoriteTrack;
 function openMedia(){
  if(seated?.pod && seated.phase!=="sealed")return;
  if(document.pointerLockElement)document.exitPointerLock();
@@ -1225,6 +1225,7 @@ function watchMedia(id){
  cinemaPlayer.referrerPolicy='strict-origin-when-cross-origin';
  cinemaPlayer.src=!film?'admin-cinema.html?v=1':'https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&mute=1&playsinline=1&controls=1&rel=0&enablejsapi=1&origin='+encodeURIComponent(location.origin);
  $('stop-video').hidden=false;
+ setFavoriteTrack({kind:'youtube',id,title:film?.title||'YouTube '+id});
  movieScreen().append(cinemaPlayer);movieScreen().classList.add('showing');
  $('media-library').close();view.focus();
 }
@@ -1232,6 +1233,7 @@ function movieScreen(){return seated?.pod ? canopyPicture : cinemaWall;}
 function clearMovie(){
  const player=cinemaPlayer;
  cinemaPlayer=null;
+ setFavoriteTrack?.(null);
  if(!player)return;
  if(player instanceof HTMLMediaElement){
    player.pause();player.removeAttribute('src');player.replaceChildren();player.load();

@@ -30,9 +30,11 @@ function installMovieSearch({dialog,form,query,list,filter}) {
      for(const url of urls){const source=document.createElement('source');source.src=url.href;player.append(source);}
      player.lastChild.addEventListener('error',()=>{if(player===cinemaPlayer){openMedia();note.textContent='This host could not stream that movie. Choose another result.';}});
      clearMovie();document.getElementById('stop-video').hidden=false;cinemaPlayer=player;movieScreen().append(player);movieScreen().classList.add('showing');
+     setFavoriteTrack({kind:'peer',uuid:film.uuid,url:result.url,title:film.name});
      player.volume=window.websiteGain();dialog.close();player.play().catch(()=>{});player.focus();
    }catch{if(!signal.aborted)note.textContent='This movie is unavailable for filtered playback. Choose another result.';}
  }
+ setFavoriteTrack=installFavorites(play);
  form.onsubmit=async event=>{
    event.preventDefault();
    const term=query.value.trim();const signal=begin();filter();
