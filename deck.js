@@ -51,9 +51,6 @@ function ceilingCove(x,z,angle,length,top){
 }
 // The forward glass and each instrument housing occupy separate planes.
 
-plane('crest-glass',275,115,-295,-380,-743,20);
-plane('orbital',850,310,-830,-135,-2340);
-plane('drifting',830,335,470,-105,-2100);
 // Seven joined panes span 160 degrees around the bow. Their sills, headers
 // and mullions are solid members; the glazing is seated behind their faces.
 const bowPoints=Array.from({length:8},(_,i)=>{
@@ -81,6 +78,28 @@ function wire(button,item) {
   button.dataset.station=item[1]; button.dataset.route=item[0]; button.setAttribute('aria-label',item[1]);
   button.onclick=event=>{event.stopPropagation(); if(!event.detail || !dragged)activateStation(button)};
 }
+const instrumentFeeds=[];
+function addInstrument(display,items,px,pz){
+ const primary=items[0][0];
+ const name=primary==='wormholes'?'scanner':primary==='drifters'?'identity':'telemetry';
+ const video=document.createElement('video');
+ video.className='station-feed';video.muted=true;video.loop=true;video.playsInline=true;
+ video.preload='none';video.poster='assets/instruments/'+name+'.webp';
+ video.src='assets/instruments/'+name+'.mp4';video.setAttribute('aria-hidden','true');
+ display.append(video);instrumentFeeds.push({video,px,pz});
+}
+let nextFeedUpdate=0;
+function updateFeeds(now){
+ if(now<nextFeedUpdate)return;
+ nextFeedUpdate=now+350;
+ for(const {video,px,pz} of instrumentFeeds){
+   const dx=px-x,dz=pz-z,distance=Math.hypot(dx,dz);
+   const facing=dx*Math.sin(yaw)-dz*Math.cos(yaw);
+   const visible=!panel.open&&!document.hidden&&distance<1200&&facing>distance*.35&&!video.parentNode.classList.contains('away');
+   if(visible&&video.paused)video.play().catch(()=>{});
+   else if(!visible&&!video.paused)video.pause();
+ }
+}
 function buildHelmConsole(h,items){
  const assembly=document.createElement('div');
  assembly.className='helm-assembly';
@@ -103,9 +122,7 @@ function buildHelmConsole(h,items){
  const display=part('helm-display',h.w-22,194,0,0,2);
  const heading=document.createElement('button');heading.className='helm-title';heading.textContent=h.title;
  wire(heading,items[0]);display.append(heading);
- const instrument=document.createElement('span');instrument.className='instrument '+items[0][0];
- instrument.setAttribute('aria-hidden','true');
- instrument.innerHTML='<i></i><b></b><em></em>';display.append(instrument);
+ addInstrument(display,items,h.x,h.z);
  items.forEach(([id,label],i)=>{
    const row=document.createElement('button');row.className='helm-row';
    row.innerHTML='<span>'+label+'</span><span aria-hidden="true">›</span>';
@@ -142,6 +159,7 @@ function terminal(title,list,x,z,angle){
  }
  const heading=document.createElement('button');heading.className='screen-title';heading.textContent=title;wire(heading,list[0]);s.append(heading);
  list.forEach(item=>{const b=document.createElement('button');b.className='station-row';b.textContent=item[1]+'　›';wire(b,item);s.append(b)});
+ addInstrument(s,list,x,z);
  wire(s,list[0]);
  const rad=angle*Math.PI/180;
  const scale=z>1200?.68:1, width=460*scale, high=300*scale, depth=32;
@@ -256,8 +274,11 @@ function panelWall(w,h,x,y,z,angle) {
    const count=Math.max(1,Math.round(w/240)),pw=w/count-12;
    for(let i=0;i<count;i++){
      const u=(i+.5)*w/count-w/2, px=x+u*Math.cos(a),pz=z-u*Math.sin(a);
-     const skin=plane('armour-face',pw,h-18,px+nx*11,y,pz+nz*11,angle);
-     skin.style.backgroundPosition=(i%2?'30%':'4%')+' 12%';
+     const rows=Math.max(1,Math.round(h/235)),step=h/rows;
+     for(let j=0;j<rows;j++){
+       const finish=j===rows-1?'lower-armour':(i+j)%3===0?'service-conduits':'';
+       plane('armour-face '+finish,pw,step-10,px+nx*11,y-h/2+(j+.5)*step,pz+nz*11,angle);
+     }
      for(const sign of [-1,1]){
        plane('armour-edge',12,h-18,px+sign*pw*.5*Math.cos(a)+nx*5,y,pz-sign*pw*.5*Math.sin(a)+nz*5,angle+sign*90);
      }
@@ -673,6 +694,7 @@ window.addEventListener('resize',resize);resize();
 let lastAim=-Infinity,lastHoloX,lastHoloZ;
 const fpsReadout=$('frame-rate');let fpsStart=performance.now(),fpsFrames=0,lastPresented=0;
 function frame(now){
+ updateFeeds(now);
  if(panel.open || document.hidden){previous=now;fpsStart=now;fpsFrames=0;lastPresented=window.presentedShipFrames||0;requestAnimationFrame(frame);return;}
  fpsFrames++;
  if(now-fpsStart>=1000){
