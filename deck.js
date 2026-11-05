@@ -439,7 +439,7 @@ function plaque(title,x,y,z,angle,width=330) {
 }
 // Ribbed pressure-door collars run through the partition. Cross ties and
 // chamfered corners expose its return faces from either adjoining room.
-const hatches=[];
+const hatches=[],webOccluders=[];
 // Chamfered observation glass, centred in the upper portion of each leaf.
 const portTop=-86,portBottom=327,portCentre=98,portHalfWidth=56,portBevel=16;
 // The inclined load-bearing webs split the glazing into four viewing blocks.
@@ -450,17 +450,29 @@ function insideWeb(u,y){
    return Math.hypot(u-a-t*x,y-b-t*z)<=width/2;
  });
 }
-function portHalf(y){return portHalfWidth-Math.max(0,portTop+portBevel-y,y-portBottom+portBevel)}
+function portHalf(y){
+ const offset=Math.max(0,portTop+portBevel-y,y-portBottom+portBevel);
+ return portHalfWidth-portBevel+Math.sqrt(Math.max(0,portBevel*portBevel-offset*offset));
+}
 
 function fitHatch(x,z,angle,panoramic){
  const a=angle*Math.PI/180,ux=Math.cos(a),uz=-Math.sin(a),nx=-uz,nz=ux;
  const id=hatches.length,door={x,z,ux,uz,openness:0,panoramic};
  hatches.push(door);
  // The offset joint makes a fitted tooth through the full depth of both leaves.
- const seam=[[-117,0],[portTop,0],[portTop+portBevel,0],[26,0],[61,28],[130,28],[165,0],[276,0],[303,-19],[portBottom-portBevel,-19],[portBottom,-19],[356,-19],[379,0],[416,0]];
+ const seamKeys=[[-117,0],[portTop,0],[portTop+portBevel,0],[26,0],[61,28],[130,28],[165,0],[276,0],[303,-19],[portBottom-portBevel,-19],[portBottom,-19],[356,-19],[379,0],[416,0]];
+ const levels=new Set(seamKeys.map(k=>k[0]));
+ for(let i=1;i<4;i++){
+   const arc=portBevel*(1-Math.cos(i*Math.PI/8));levels.add(portTop+arc);levels.add(portBottom-arc);
+ }
+ for(let j=1;j<seamKeys.length;j++)if(seamKeys[j][1]!==seamKeys[j-1][1])for(let i=1;i<4;i++)levels.add(seamKeys[j-1][0]+(seamKeys[j][0]-seamKeys[j-1][0])*i/4);
+ const seam=[...levels].sort((a,b)=>a-b).map(y=>{
+   const j=Math.max(1,seamKeys.findIndex(k=>k[0]>=y)),[lo,u]=seamKeys[j-1],[hi,v]=seamKeys[j];
+   const t=(y-lo)/(hi-lo);return [y,u+(v-u)*t*t*(3-2*t)];
+ });
  for(const side of [-1,1]){
    const vertex=(u,y,d)=>[x+u*ux+d*nx,y,z+u*uz+d*nz];
-   const face=(points,finish)=>formedPanels.push({points:points.map(q=>vertex(...q)),finish,leaf:id*2+(side===1?1:0)});
+   const face=(points,finish,mask=true)=>formedPanels.push({points:points.map(q=>vertex(...q)),finish,mask,leaf:id*2+(side===1?1:0)});
    for(let j=1;j<seam.length;j++){
      const [top,start]=seam[j-1],[bottom,end]=seam[j];
      const left=side*168,lip=start+side*1.5,tip=end+side*1.5;
@@ -477,27 +489,48 @@ function fitHatch(x,z,angle,panoramic){
    }
    const loop=(inset,depth)=>{
      const lo=portCentre-portHalfWidth+inset,hi=portCentre+portHalfWidth-inset,t=portTop+inset,b=portBottom-inset,k=portBevel;
-     return [[lo+k,t],[hi-k,t],[hi,t+k],[hi,b-k],[hi-k,b],[lo+k,b],[lo,b-k],[lo,t+k]].map(([u,y])=>[side*u,y,depth]);
+     const contour=[];
+     for(const [cx,cy,angle] of [[hi-k,t+k,-90],[hi-k,b-k,0],[lo+k,b-k,90],[lo+k,t+k,180]]){
+       for(let j=0;j<=4;j++){const rad=(angle+j*22.5)*Math.PI/180;contour.push([side*(cx+k*Math.cos(rad)),cy+k*Math.sin(rad),depth])}
+     }return contour;
    };
    for(const sign of [-1,1]){
      const rings=[loop(-4,11*sign),loop(1,13*sign),loop(5,9*sign),loop(7,2*sign)];
-     for(let layer=0;layer<3;layer++)for(let i=0;i<8;i++){
-       const j=(i+1)%8;face([rings[layer][i],rings[layer][j],rings[layer+1][j],rings[layer+1][i]],layer===0?'alloy':'gasket');
+     for(let layer=0;layer<3;layer++)for(let i=0;i<rings[layer].length;i++){
+       const j=(i+1)%rings[layer].length;face([rings[layer][i],rings[layer][j],rings[layer+1][j],rings[layer+1][i]],layer===0?'alloy':'gasket');
      }
    }
    if(panoramic)for(const sign of [-1,1]){
      const edge=loop(2,sign*14),inner=loop(3.3,sign*14);
-     for(let i=0;i<8;i++){const j=(i+1)%8;face([edge[i],edge[j],inner[j],inner[i]],'glasslight')}
+     for(let i=0;i<edge.length;i++){const j=(i+1)%edge.length;face([edge[i],edge[j],inner[j],inner[i]],'glasslight')}
    }
-   const rim=loop(7,0);for(let i=1;i<7;i++)face([rim[0],rim[i],rim[i+1],rim[i+1]],'glass');
+   // Inset service plates and painted amber safety chevrons remain on the
+   // solid heel of the door, clear of the line of sight through its glazing.
+   for(const sign of [-1,1]){
+     const depth=sign*11;
+     face([[side*48,351,depth],[side*151,351,depth],[side*151,390,depth],[side*48,390,depth]],'gasket');
+     for(let n=0;n<5;n++){
+       const u=53+n*18;face([[side*u,383,depth*1.06],[side*(u+6),383,depth*1.06],[side*(u+17),360,depth*1.06],[side*(u+11),360,depth*1.06]],'warmline');
+     }
+   }
+   const rim=loop(7,0);for(let i=1;i<rim.length-1;i++)face([rim[0],rim[i],rim[i+1],rim[i+1]],'glass');
    for(const [a,b,c,d,width] of panoramic?[]:hatchWebs){
      const len=Math.hypot(c-a,d-b),du=-(d-b)/len,dv=(c-a)/len;
-     const strip=(thick,depth)=>[[a+du*thick,b+dv*thick],[c+du*thick,d+dv*thick],[c-du*thick,d-dv*thick],[a-du*thick,b-dv*thick]].map(([u,y])=>[side*u,y,depth]);
-     const back=strip(width/2,-12),front=strip(width/2,12);
-     for(let i=0;i<4;i++){const j=(i+1)%4;face([back[i],back[j],front[j],front[i]],'gasket')}
+     const dirU=(c-a)/len,dirY=(d-b)/len;
+     const capsule=(r,depth)=>{
+       const points=[];
+       for(const [u,y,base] of [[c,d,-Math.PI/2],[a,b,Math.PI/2]])for(let i=0;i<=5;i++){
+         const t=base+i*Math.PI/5;points.push([side*(u+r*(dirU*Math.cos(t)+du*Math.sin(t))),y+r*(dirY*Math.cos(t)+dv*Math.sin(t)),depth]);
+       }return points;
+     };
+     const back=capsule(width*.55,-12),front=capsule(width*.55,12);
+     for(let i=0;i<front.length;i++){const j=(i+1)%front.length;face([back[i],back[j],front[j],front[i]],'gasket')}
      for(const sign of [-1,1]){
-       face(strip(width/2,sign*12),'pearl');
-       face(strip(width*.23,sign*12.7),'sienna');
+       const edge=capsule(width*.55,sign*12),faceRing=capsule(width*.47,sign*14);
+       const accent=capsule(width*.19,sign*14.4);
+       for(let i=0;i<edge.length;i++){const j=(i+1)%edge.length;face([edge[i],edge[j],faceRing[j],faceRing[i]],'alloy')}
+       if(sign===1)webOccluders.push({points:faceRing.map(q=>vertex(...q)),leaf:id*2+(side===1?1:0)});
+       for(const [ring,finish] of [[faceRing,'pearl'],[accent,'sienna']])for(let i=1;i<ring.length-1;i++)face([ring[0],ring[i],ring[i+1],ring[i+1]],finish,false);
      }
    }
    for(const d of [-11,11])face([[side*157,141,d],[side*161,141,d],[side*161,202,d],[side*157,202,d]],'glasslight');
@@ -546,11 +579,20 @@ function hatchCollar(x,z,angle,panoramic=false){
    member('guide-light',sign*169,118,13,5,160,4);
  }
  // Faceted gunmetal surround and recessed header lighting on both approaches.
- const outline=(w,top,bot,r,d)=>[[-w,top+r],[-w+r,top],[w-r,top],[w,top+r],[w,bot-r],[w-r,bot],[-w+r,bot],[-w,bot-r]].map(([u,v])=>[x+u*Math.cos(a)+d*Math.sin(a),v,z-u*Math.sin(a)+d*Math.cos(a)]);
+ const outline=(w,top,bot,r,d)=>{
+   const ring=[];
+   for(const [cx,cy,start] of [[w-r,top+r,-90],[w-r,bot-r,0],[-w+r,bot-r,90],[-w+r,top+r,180]]){
+     for(let i=0;i<=4;i++){
+       const t=(start+i*22.5)*Math.PI/180,u=cx+r*Math.cos(t);
+       ring.push([x+u*Math.cos(a)+d*Math.sin(a),cy+r*Math.sin(t),z-u*Math.sin(a)+d*Math.cos(a)]);
+     }
+   }
+   return ring;
+ };
  for(const [d,sign] of [[22,1],[-74,-1]]){
    const profiles=[outline(219,-166,416,38,d),outline(211,-158,416,34,d+sign*7),outline(179,-126,416,23,d+sign*8),outline(168,-117,416,17,d-sign*8)];
-   for(let layer=0;layer<3;layer++)for(let i=0;i<8;i++){
-     const j=(i+1)%8;formedQuad([profiles[layer][i],profiles[layer][j],profiles[layer+1][j],profiles[layer+1][i]],['alloy','smoked','gasket'][layer]);
+   for(let layer=0;layer<3;layer++)for(let i=0;i<profiles[layer].length;i++){
+     const j=(i+1)%profiles[layer].length;formedQuad([profiles[layer][i],profiles[layer][j],profiles[layer+1][j],profiles[layer+1][i]],['alloy','smoked','gasket'][layer]);
    }
    member('case-back',0,-146,d+sign*8,123,15,7);
    member('lamp',0,-147,d+sign*13,95,5,3);

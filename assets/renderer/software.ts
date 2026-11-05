@@ -39,9 +39,16 @@ function triangle(a:usize,b:usize,c:usize,color:u32,kind:i32):void{
  const da=(by-vy)/determinant,db=(vy-ay)/determinant,ea=(cx-bx)/determinant,eb=(ax-cx)/determinant;
  const au=load<f32>(a+12)*za,av=load<f32>(a+16)*za,bu=load<f32>(b+12)*zb,bv=load<f32>(b+16)*zb,cu=load<f32>(c+12)*zc,cv=load<f32>(c+16)*zc;
  for(let y=ly;y<=ry;y++){
-   let wa=da*(f32(lx)+.5-cx)+ea*(f32(y)+.5-vy),wb=db*(f32(lx)+.5-cx)+eb*(f32(y)+.5-vy);
-   let addr=usize((y*width+lx)<<2);
-   for(let x=lx;x<=rx;x++,addr+=4,wa+=da,wb+=db){
+   // Intersect this scanline with the triangle before visiting pixels. Narrow
+   // deck strips crossing the viewport otherwise scan a whole rectangle.
+   const row=f64(y)+.5;let left=f64(width),right=-1.0;
+   if((ay<=row)!=(by<=row)){const q=ax+(row-ay)*(bx-ax)/(by-ay);left=Math.min(left,q);right=Math.max(right,q);}
+   if((by<=row)!=(vy<=row)){const q=bx+(row-by)*(cx-bx)/(vy-by);left=Math.min(left,q);right=Math.max(right,q);}
+   if((vy<=row)!=(ay<=row)){const q=cx+(row-vy)*(ax-cx)/(ay-vy);left=Math.min(left,q);right=Math.max(right,q);}
+   const start=i32(Math.max(lx,Math.ceil(left-.5001))),end=i32(Math.min(rx,Math.floor(right-.4999)));
+   let wa=da*(f32(start)+.5-cx)+ea*(row-vy),wb=db*(f32(start)+.5-cx)+eb*(row-vy);
+   let addr=usize((y*width+start)<<2);
+   for(let x=start;x<=end;x++,addr+=4,wa+=da,wb+=db){
      const wc=1.0-wa-wb;if(wa<-.0001||wb<-.0001||wc<-.0001)continue;
      const z=za*wa+zb*wb+zc*wc;if(z<=load<f32>(depths+addr))continue;
      let pixel=color;
@@ -59,9 +66,12 @@ function triangle(a:usize,b:usize,c:usize,color:u32,kind:i32):void{
    }
  }
 }
-export function render(scene:usize,count:i32,target:usize,depth:usize,images:usize,w:i32,h:i32,ex:f64,ey:f64,ez:f64,sine:f64,cosine:f64,sinp:f64,cosp:f64,f:f64,mirror:bool,mirrorBuf:usize,mw:i32,mh:i32):void{
+export function render(base:usize,batches:usize,batchCount:i32,target:usize,depth:usize,images:usize,w:i32,h:i32,ex:f64,ey:f64,ez:f64,sine:f64,cosine:f64,sinp:f64,cosp:f64,f:f64,mirror:bool,mirrorBuf:usize,mw:i32,mh:i32):void{
  width=w;height=h;buffer=target;depths=depth;texture=images;eyesX=ex;eyesY=ey;eyesZ=ez;sy=sine;cy=cosine;sp=sinp;cp=cosp;lens=f;reflected=mirror;reflection=mirrorBuf;reflW=mw;reflH=mh;
  memory.fill(depth,0,usize(w*h*4));
+ for(let group=0;group<batchCount;group++){
+ const entry=batches+usize(group*8),count=load<i32>(entry+4);
+ let scene=base+usize(load<i32>(entry)*68);
  for(let n=0;n<count;n++,scene+=68){
    const kind=load<i32>(scene+64);if(mirror&&kind==1)continue;
    let front=0,left=0,right=0,up=0,down=0;
@@ -82,6 +92,7 @@ export function render(scene:usize,count:i32,target:usize,depth:usize,images:usi
      if(bz>=3)memory.copy(clip+usize(num++*20),b,20);
    }
    for(let i=1;i<num-1;i++)triangle(clip,clip+usize(i*20),clip+usize((i+1)*20),col,kind);
+ }
  }
  for(let y=0;y<h;y++){
    const v=(f32(y)+.5-f32(h)*.5)/f,vert=cp*v+sp,fr=sp*v-cp;

@@ -1,8 +1,14 @@
 // Static hulls and furniture share vertex buffers. HTML remains responsible for
 // the readable, accessible instruments; their controls keep their original IDs.
 (() => {
- const canvas=document.createElement('canvas');canvas.id='ship-scene';canvas.setAttribute('aria-hidden','true');
- const gl=canvas.getContext('webgl',{alpha:false,antialias:true,powerPreference:'high-performance',depth:true});
+ function sceneCanvas(){const c=document.createElement('canvas');c.id='ship-scene';c.setAttribute('aria-hidden','true');return c}
+ let canvas=sceneCanvas(),gl=canvas.getContext('webgl',{alpha:false,antialias:true,powerPreference:'high-performance',depth:true});
+ // A CPU-backed WebGL driver competes with layout on the main thread. Use the
+ // dedicated raster worker there while retaining native WebGL on real GPUs.
+ const info=gl?.getExtension('WEBGL_debug_renderer_info');
+ if(info&&/swiftshader|llvmpipe|software rasterizer/i.test(gl.getParameter(info.UNMASKED_RENDERER_WEBGL))&&canvas.transferControlToOffscreen&&typeof Worker!=='undefined'){
+   gl.getExtension('WEBGL_lose_context')?.loseContext();gl=null;canvas=sceneCanvas();
+ }
  const nativeSelector='.bay-display,.screen,.switches,.helm-display,.console-keys,.wall-pad,.plaque,.course-display,.holo-display,.seat-control,.chair-keypad';
  const all=Array.from(world.querySelectorAll('.surface'));
  const matrixFor=el=>{
@@ -10,8 +16,8 @@
    return el.parentElement.classList.contains('helm-assembly')?new DOMMatrix(el.parentElement.style.transform).multiply(m):m;
  };
  function room(x,z){return z<1230?'bridge':Math.abs(x)<285?'passage':(x<0?'left':'right')+(z<3630?'lab':'aft');}
- const live=all.filter(e=>e.matches(nativeSelector)).map(el=>{const m=matrixFor(el);return {el,room:room(m.m41,m.m43)};});
- let lastRoom='';
+ const live=all.filter(e=>e.matches(nativeSelector)).map(el=>{const m=matrixFor(el);return {el,radius:Math.hypot(parseFloat(el.style.width),parseFloat(el.style.height))*.52,room:room(m.m41,m.m43)};});
+ 
  const partitions=all.filter(el=>el.matches('.hull-panel,.hull-back')).map(el=>({inv:matrixFor(el).inverse(),w:parseFloat(el.style.width)/2,h:parseFloat(el.style.height)/2}));
  const nativeCentres=live.map(({el})=>{const m=matrixFor(el);return [m.m41,m.m42,m.m43]});
  // Project nearby opaque geometry into each native display's own coordinate system.
@@ -23,7 +29,8 @@
    const c=lo.map((v,j)=>(v+hi[j])/2);
    blockers.push({points,owner,convex,c,leaf,r:Math.hypot(...hi.map((v,j)=>v-c[j]))});
  }
- for(const p of formedPanels)if(p.leaf!==undefined&&p.finish==='pearl'){
+ for(const p of webOccluders)addBlocker(p.points,null,false,p.leaf);
+ for(const p of formedPanels)if(p.leaf!==undefined&&p.finish==='pearl'&&p.mask!==false){
    // One face per leaf segment masks the UI while leaving each window open.
    const d=hatches[p.leaf>>1],pt=p.points[0];if((pt[2]-d.z)*d.ux-(pt[0]-d.x)*d.uz>0)addBlocker(p.points,null,false,p.leaf);
  }
@@ -77,11 +84,13 @@
    el.style.maskMode='luminance';el.style.maskSize='100% 100%';el.style.maskImage='url("data:image/svg+xml,'+encodeURIComponent(svg)+'")';el.dataset.depthMask='1';
  }
 
- let sightY=Infinity;
+ let sightY=Infinity,sightYaw=Infinity,sightPitch=Infinity;
  let sightX=Infinity,sightZ=Infinity,sightDoors=-1;
- function showRoom(ex,ez,ey){
+ function showRoom(ex,ez,ey,yaw,pitch){
    const openness=hatches.reduce((v,d)=>v+Math.round(d.openness*8),0);
-   if(openness===sightDoors&&ex===sightX&&ez===sightZ&&ey===sightY)return;
+   if(openness===sightDoors&&Math.abs(ex-sightX)+Math.abs(ez-sightZ)<4&&ey===sightY&&Math.abs(yaw-sightYaw)+Math.abs(pitch-sightPitch)<.025)return;
+   sightYaw=yaw;sightPitch=pitch;const sy=Math.sin(yaw),cy=Math.cos(yaw),sp=Math.sin(pitch),cp=Math.cos(pitch);
+   const lens=Math.min(innerWidth*.59,innerHeight*.96),wide=innerWidth/(2*lens),tall=innerHeight/(2*lens);
    sightY=ey;
    const nearby=blockers.filter(b=>Math.abs(b.c[0]-ex)<2500+b.r&&Math.abs(b.c[2]-ez)<2500+b.r).map(b=>{
      if(b.leaf===undefined)return b;
@@ -92,7 +101,9 @@
    sightX=ex;sightZ=ez;
    live.forEach(({el},i)=>{
      const [xx,yy,zz]=nativeCentres[i],dx=xx-ex,dy=yy,dz=zz-ez;
-     const blocked=Math.abs(dx)>2200||Math.abs(dz)>2200||partitions.some(({inv:m,w,h})=>{
+     const forward=sy*dx-cy*dz,depth=cp*forward+sp*(dy-ey),margin=live[i].radius;
+     const offscreen=depth < -margin||Math.abs(cy*dx+sy*dz)>Math.max(depth,0)*wide+margin*(1+wide)||Math.abs(cp*(dy-ey)-sp*forward)>Math.max(depth,0)*tall+margin*(1+tall);
+     const blocked=offscreen||Math.abs(dx)>2200||Math.abs(dz)>2200||partitions.some(({inv:m,w,h})=>{
        const oz=ex*m.m13+ez*m.m33+m.m43,vz=dx*m.m13+dy*m.m23+dz*m.m33;
        if(Math.abs(vz)<.001)return false;const t=-oz/vz;if(t<=0||t>=.992)return false;
        const px=ex+dx*t,py=dy*t,pz=ez+dz*t;
@@ -101,9 +112,31 @@
      el.classList.toggle('away',blocked);
      if(!blocked)depthMask(el,[ex,ey,ez],nearby);
    });
-   refreshHitBoxes();
+
  }
- const surfaceRoom=el=>{const m=matrixFor(el);return room(m.m41,m.m43);};
+ function selectRanges(ranges,ex,ey,ez,yaw,pitch,lens){
+   const sy=Math.sin(yaw),cy=Math.cos(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch),tanX=innerWidth/(2*lens),tanY=innerHeight/(2*lens);
+   return ranges.filter(r=>{
+     if(r.zone==='exterior')return true;
+     const [x,y,z]=r.c,dx=x-ex,dz=z-ez;
+     // A ray from inside the passage to side-room geometry must pass its doorway.
+     if(Math.abs(ex)<240&&ez>1250&&ez<passageEnd&&r.lo[2]>1400&&(r.lo[0]>260||r.hi[0]<-260)){
+       const near=nearestRoom(z);
+       if(r.lo[2]>near.z-near.depth/2&&r.hi[2]<near.z+near.depth/2){
+         const wall=Math.sign(x)*245;
+         const f1=(wall-ex)/(r.lo[0]-ex),f2=(wall-ex)/(r.hi[0]-ex);
+         const z1=(r.lo[2]-ez)*f1,z2=(r.hi[2]-ez)*f1,z3=(r.lo[2]-ez)*f2,z4=(r.hi[2]-ez)*f2;
+         if(ez+Math.max(z1,z2,z3,z4)<near.z-210||ez+Math.min(z1,z2,z3,z4)>near.z+210)return false;
+       }
+     }
+     const fw=sy*dx-cy*dz,side=cy*dx+sy*dz;
+     for(const yy of [y,832-y]){
+       const depth=fw*cp+(yy-ey)*sp;
+       if(depth>=-r.r&&Math.abs(side)<depth*tanX+r.r*Math.hypot(1,tanX)&&Math.abs((yy-ey)*cp-fw*sp)<depth*tanY+r.r*Math.hypot(1,tanY))return true;
+     }return false;
+   }).sort((a,b)=>(a.zone==='exterior')-(b.zone==='exterior')||Math.hypot(a.c[0]-ex,a.c[2]-ez)-Math.hypot(b.c[0]-ex,b.c[2]-ez));
+ }
+
  if(!gl){
    // One small raster surface replaces thousands of composited CSS planes on
    // browsers where WebGL is disabled. Keep the six real sky faces behind it.
@@ -155,12 +188,20 @@
      const fill={pearl:'#a6b7bb',alloy:'#73858e',gasket:'#263642',glasslight:'#c8f4fb',upholstery:'#c4b9a5',sienna:'#b47148',bronze:'#79766c',smoked:'#40525a',warmline:'#edc78a'}[panel.finish];
      items.push({pts,leaf:panel.leaf,kind:panel.finish,fill,cx,cy,cz,nx:0,ny:0,nz:0,size:Math.max(...pts.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),two:true,zone:room(cx,cz)});
    }
-   const packed=[],doorVertices=[];
-   const kindOf={armour:6,crest:7,orbital:8,drifting:9};
+   const packed=[],doorVertices=[],bins=new Map(),chunks=[];
    for(const item of items){
+     const key=Math.floor(item.cx/500)+'/'+Math.floor(item.cz/700);
+     if(!bins.has(key))bins.set(key,[]);bins.get(key).push(item);
+   }
+   const kindOf={armour:6,crest:7,orbital:8,drifting:9};
+   for(const group of bins.values()){
+    const start=packed.length/17,lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
+    for(const item of group){
      if(item.kind==='glass'||item.ring)continue;
      const pts=item.pts,uv=item.poly||rect;
-     const sides=indices(uv);
+     const pad=item.leaf===undefined?0:202;
+     for(const p of pts)for(const [j,v] of [p.x,p.y,p.z].entries()){lo[j]=Math.min(lo[j],v-pad);hi[j]=Math.max(hi[j],v+pad)}
+     const sides=pts.length===4&&pts[2].x===pts[3].x&&pts[2].y===pts[3].y&&pts[2].z===pts[3].z?[0,1,2]:indices(uv);
      const ns=item.fill.match(/\d+/g);
      const col=item.fill[0]==='#'?parseInt(item.fill.slice(1),16):null;
      const rgb=col===null?ns.map(Number):[col>>16,(col>>8)&255,col&255];
@@ -172,11 +213,15 @@
        packed.push(word,item.kind==='floor'?1:(kindOf[item.a]||0));
      }
    }
+    const count=packed.length/17-start;if(count){
+      const c=lo.map((v,i)=>(v+hi[i])/2);chunks.push({lo,hi,c,r:Math.hypot(...hi.map((v,i)=>v-c[i])),start,count,zone:'scene'});
+    }
+   }
    const scene=new Float32Array(packed),words=new Int32Array(scene.buffer);
    for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
    const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
    for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/promenade-2k.webp'])urls.push(new URL(path,document.baseURI).href);
-   const worker=new Worker('assets/renderer/worker.js?v=finish11'),offscreen=canvas.transferControlToOffscreen();
+   const worker=new Worker('assets/renderer/worker.js?v=frames16'),offscreen=canvas.transferControlToOffscreen();
    let ready=false,pending=false;
    worker.onmessage=({data})=>{
      if(data==='ready'){
@@ -184,13 +229,14 @@
          const ink=bitmap.getContext('2d');ink.drawImage(img,0,0,1024,1024);const bytes=ink.getImageData(0,0,1024,1024).data.buffer;
          worker.postMessage({type:'material',bytes},[bytes]);ready=true;};img.src=urls[6];
      }
-     if(data==='frame'){pending=false;window.presentedShipFrames=(window.presentedShipFrames||0)+1;}
+     if(data==='frame'||data==='idle'){pending=false;if(data==='frame')window.presentedShipFrames=(window.presentedShipFrames||0)+1;}
      if(data?.error)console.error(data.error);
    };
    worker.postMessage({type:'init',canvas:offscreen,scene:scene.buffer,doorVertices,urls},[offscreen,scene.buffer]);
    window.renderShip=(now,x,y,z,yaw,pitch,lens)=>{
-     showRoom(x,z,y);if(!ready||pending)return;pending=true;
-     worker.postMessage({w:innerWidth,h:innerHeight,x,y,z,yaw,pitch,lens,now,shifts:hatches.flatMap((_,i)=>[leafShift(i*2),leafShift(i*2+1)])});
+     showRoom(x,z,y,yaw,pitch);if(!ready||pending)return;pending=true;
+     const batches=selectRanges(chunks,x,y,z,yaw,pitch,lens).flatMap(c=>[c.start,c.count]);
+     worker.postMessage({batches,w:innerWidth,h:innerHeight,x,y,z,yaw,pitch,lens,now,shifts:hatches.flatMap((_,i)=>[leafShift(i*2),leafShift(i*2+1)])});
    };
    return;
  }
@@ -378,7 +424,8 @@
    const ui=uiTiles.get(el),cell=ui?cellSize:tile;const [ax,ay]=ui||tileOrigin(name);
    const k=ui?(el.matches('.course-display,.holo-display,.room-projection')?4.25:4):name==='armour'?-1:name==='floor'?1:name==='window'?2:name==='sky'?5:name==='drifting'?6:['cyan','lamp','orange','ring','screen','crest','orbital'].includes(name)?3:0;
    const zone=['orbital','drifting','sky'].includes(name)?'exterior':room(m.m41,m.m43);
-   const key=zone+(name==='window'?':glass':':solid');
+   const cluster=zone==='exterior'?'exterior':Math.floor(m.m41/500)+'/'+Math.floor(m.m43/700);
+   const key=cluster+(name==='window'?':glass':':solid');
    if(!groups.has(key))groups.set(key,[]);
    const dest=groups.get(key);
    for(const i of indices(poly)){
@@ -390,21 +437,27 @@
    const [a,b,,d]=panel.points,e=b.map((v,i)=>v-a[i]),f=d.map((v,i)=>v-a[i]);
    const n=[e[1]*f[2]-e[2]*f[1],e[2]*f[0]-e[0]*f[2],e[0]*f[1]-e[1]*f[0]];
    const len=Math.hypot(...n)||1;const name={pearl:'white',alloy:'shell',gasket:'dark',glasslight:'cyan',upholstery:'linen',sienna:'copper',bronze:'warm',smoked:'dark',warmline:'lamp',glass:'window'}[panel.finish];
-   const [tx,ty]=tileOrigin(name),key=panel.leaf===undefined?'formed:solid':'leaf'+panel.leaf+(name==='window'?':glass':':solid');if(!groups.has(key))groups.set(key,[]);
-   for(const i of [0,1,2,0,2,3]){
+   const [tx,ty]=tileOrigin(name),key=panel.leaf===undefined?Math.floor(a[0]/500)+'/'+Math.floor(a[2]/700)+':solid':'leaf'+panel.leaf+(name==='window'?':glass':':solid');if(!groups.has(key))groups.set(key,[]);
+   for(const i of panel.points[2].every((v,j)=>v===d[j])?[0,1,2]:[0,1,2,0,2,3]){
      const v=panel.points[i];groups.get(key).push(...v,n[0]/len,n[1]/len,n[2]/len,(tx+tile*.5)/atlas.width,(ty+tile*.5)/atlas.height,name==='window'?2:name==='cyan'?3:0);
    }
  }
  const ranges=[],data=[];
  for(const [key,verts] of groups){
-   const [zone,mode]=key.split(':');ranges.push({zone,mode,offset:data.length/9,count:verts.length/9});
+   const [zone,mode]=key.split(':');
+   const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
+   for(let i=0;i<verts.length;i+=9)for(let j=0;j<3;j++){lo[j]=Math.min(lo[j],verts[i+j]);hi[j]=Math.max(hi[j],verts[i+j])}
+   const c=lo.map((v,i)=>(v+hi[i])/2);
+   ranges.push({zone,mode,c,r:Math.hypot(...hi.map((v,i)=>v-c[i]))+(zone.startsWith('leaf')?202:0),lo,hi,offset:data.length/9,count:verts.length/9});
    for(const v of verts)data.push(v);
  }
  const sceneBuffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,sceneBuffer);
  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);
  
+ let visibleRanges=ranges;
+
  function draw(mode){
-   for(const r of ranges){
+   for(const r of visibleRanges){
      if(r.mode!==mode)continue;
      const shift=r.zone.startsWith('leaf')?leafShift(Number(r.zone.slice(4))):[0,0];
      gl.uniform2f(uniforms.leafOffset,shift[0],shift[1]);gl.drawArrays(gl.TRIANGLES,r.offset,r.count);
@@ -414,7 +467,7 @@
    const i=gl.getAttribLocation(pr,key);gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,n,gl.FLOAT,false,36,offset*4);
  }
  const mirrorTex=gl.createTexture();gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,mirrorTex);
- let rw=0,rh=0;
+ let rw=0,rh=0,mirrorWidth=0,mirrorHeight=0;
  for(const k of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,k,gl.LINEAR);
  for(const k of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,k,gl.CLAMP_TO_EDGE);
  const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,mirrorTex,0);
@@ -428,11 +481,20 @@
  const software=gpuInfo&&/swiftshader|llvmpipe|software/i.test(gl.getParameter(gpuInfo.UNMASKED_RENDERER_WEBGL));
 
  let lastReflection=-Infinity;
- let previousPose=null;
+ let previousPose=null,lastDraw=0,slowFrames=0,fastFrames=0,resolutionScale=1;
 
  window.renderShip=(now,ex,ey,ez,yaw,pitch,lens)=>{
-   showRoom(ex,ez,ey);
-   const pixelRatio=Math.min(devicePixelRatio||1,2);
+   showRoom(ex,ez,ey,yaw,pitch);
+   const elapsed=now-lastDraw;
+   if(lastDraw&&elapsed<250&&(keys.size||drag)){
+     slowFrames=elapsed>25?slowFrames+1:Math.max(0,slowFrames-1);
+     fastFrames=elapsed<18?fastFrames+1:0;
+     if(slowFrames>18){resolutionScale=Math.max(.75,resolutionScale-.1);slowFrames=0}
+     if(fastFrames>180){resolutionScale=Math.min(1,resolutionScale+.05);fastFrames=0}
+   }
+   lastDraw=now;
+   const pixelRatio=Math.min(devicePixelRatio||1,1.5)*resolutionScale;
+   visibleRanges=selectRanges(ranges,ex,ey,ez,yaw,pitch,lens);
    const pose=[ex,ey,ez,yaw,pitch,innerWidth,innerHeight,pixelRatio].join('/');
    const cycling=hatches.some(d=>d.openness>0&&d.openness<1);
    if(previousPose===pose && !cycling && now-lastReflection<110)return;
@@ -441,14 +503,15 @@
    const w=Math.round(innerWidth*pixelRatio),h=Math.round(innerHeight*pixelRatio);
    if(rw!==w||rh!==h){
      canvas.width=rw=w;canvas.height=rh=h;
-     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,mirrorTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
-     gl.bindRenderbuffer(gl.RENDERBUFFER,depth);gl.renderbufferStorage(gl.RENDERBUFFER,gl.DEPTH_COMPONENT16,w,h);
+     mirrorWidth=Math.max(1,Math.round(w*.5));mirrorHeight=Math.max(1,Math.round(h*.5));
+     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,mirrorTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,mirrorWidth,mirrorHeight,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+     gl.bindRenderbuffer(gl.RENDERBUFFER,depth);gl.renderbufferStorage(gl.RENDERBUFFER,gl.DEPTH_COMPONENT16,mirrorWidth,mirrorHeight);
      lastReflection=-Infinity;
    }
    gl.uniform3f(uniforms.eye,ex,ey,ez);gl.uniform4f(uniforms.angles,Math.sin(yaw),Math.cos(yaw),Math.sin(pitch),Math.cos(pitch));
    gl.uniform2f(uniforms.proj,2*lens/innerWidth,2*lens/innerHeight);gl.uniform1f(uniforms.clock,now*.001);
-   if(moving||cycling||now-lastReflection>100){
-     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,null);gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.viewport(0,0,rw,rh);
+   if(now-lastReflection>=(software?180:60)){
+     gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,null);gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.viewport(0,0,mirrorWidth,mirrorHeight);
      gl.uniform1f(uniforms.mirror,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);draw('solid');
      gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.bindTexture(gl.TEXTURE_2D,mirrorTex);lastReflection=now;
    }

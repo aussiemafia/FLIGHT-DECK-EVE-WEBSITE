@@ -1,7 +1,8 @@
 // Offscreen fallback for machines that do not expose WebGL. The hull is always
 // resident; depth testing, rather than room-entry events, determines visibility.
 let wasm,sceneSize,scenePtr=65536,images,display,ctx,pixels,mem;
-let leafVertices=[];
+let leafVertices=[],previousShifts=[];
+let phaseBudget=480000,avgDraw=16,drawCount=0,workStart;
 let width=0,height=0,lastMirror=-Infinity,paintedPose='';
 const imageBytes=1024*1024*4;
 function reserve(bytes){
@@ -10,7 +11,7 @@ function reserve(bytes){
   mem=wasm.memory.buffer;
 }
 async function initialize({canvas,scene,doorVertices,urls}){
-  const binary=await (await fetch('software.wasm?v=finish11')).arrayBuffer();
+  const binary=await (await fetch('software.wasm?v=frames16')).arrayBuffer();
   wasm=(await WebAssembly.instantiate(binary,{env:{abort:()=>{throw Error('Renderer allocation failed')}}})).instance.exports;
   leafVertices=doorVertices;sceneSize=scene.byteLength/68;images=scenePtr+scene.byteLength;display=images+urls.length*imageBytes;
   reserve(display+32);
@@ -33,28 +34,40 @@ self.onmessage=async({data})=>{
  if(data.type==='init'){try{await initialize(data)}catch(e){self.postMessage({error:String(e)})}return;}
  if(data.type==='material'){new Uint8Array(mem,images+6*imageBytes,imageBytes).set(new Uint8Array(data.bytes));return;}
  if(!wasm||!ctx)return;
- const {w,h,x,y,z,yaw,pitch,lens,now}=data;
- const mw=Math.max(1,Math.round(w*.55)),mh=Math.max(1,Math.round(h*.55));
+ const {x,y,z,yaw,pitch,now}=data;
+ const scale=Math.min(1,Math.sqrt(phaseBudget/(data.w*data.h)));
+ const w=Math.round(data.w*scale),h=Math.round(data.h*scale),lens=data.lens*scale;
+ const mw=Math.max(1,Math.round(w*.42)),mh=Math.max(1,Math.round(h*.42));
  const depth=display+w*h*4,mirror=depth+w*h*4,mirrorDepth=mirror+mw*mh*4;
  if(width!==w||height!==h){
-   width=w;height=h;self.output.width=w;self.output.height=h;reserve(mirrorDepth+mw*mh*4);
+   width=w;height=h;self.output.width=w;self.output.height=h;reserve(mirrorDepth+mw*mh*4+65536);
    pixels=new ImageData(new Uint8ClampedArray(mem,display,w*h*4),w,h);lastMirror=-Infinity;
  }
  const shifts=data.shifts;
  const pose=[x,y,z,yaw,pitch,w,h,...shifts.flat()].join('/');
- if(pose!==paintedPose){
+ if(shifts.some((s,i)=>s[0]!==previousShifts[i]?.[0]||s[1]!==previousShifts[i]?.[1])){
    const geometry=new Float32Array(mem,scenePtr,sceneSize*17);
    for(const [leaf,idx,ox,oz] of leafVertices){
+     if(shifts[leaf][0]===previousShifts[leaf]?.[0]&&shifts[leaf][1]===previousShifts[leaf]?.[1])continue;
      geometry[idx]=ox+shifts[leaf][0];geometry[idx+2]=oz+shifts[leaf][1];
    }
+   previousShifts=shifts;
  }
- if(pose!==paintedPose||now-lastMirror>160){
+ const redraw=pose!==paintedPose||now-lastMirror>180;
+ if(redraw){
+   workStart=performance.now();
    const args=[x,y,z,Math.sin(yaw),Math.cos(yaw),Math.sin(pitch),Math.cos(pitch)];
-   if(pose!==paintedPose||now-lastMirror>160){
-     wasm.render(scenePtr,sceneSize,mirror,mirrorDepth,images,mw,mh,...args,lens*mw/w,1,0,0,0);lastMirror=now;
+   const batchPtr=mirrorDepth+mw*mh*4;
+   new Int32Array(mem,batchPtr,data.batches.length).set(data.batches);
+   if(now-lastMirror>180){
+     wasm.render(scenePtr,batchPtr,data.batches.length/2,mirror,mirrorDepth,images,mw,mh,...args,lens*mw/w,1,0,0,0);lastMirror=now;
    }
-   wasm.render(scenePtr,sceneSize,display,depth,images,w,h,...args,lens,0,mirror,mw,mh);
+   wasm.render(scenePtr,batchPtr,data.batches.length/2,display,depth,images,w,h,...args,lens,0,mirror,mw,mh);
    ctx.putImageData(pixels,0,0);paintedPose=pose;
+   avgDraw=avgDraw*.85+(performance.now()-workStart)*.15;
+   if(++drawCount>=12){drawCount=0;const next=avgDraw>20?.76:avgDraw<9?1.18:1;
+     phaseBudget=Math.max(200000,Math.min(1050000,phaseBudget*next));
+   }
  }
- self.postMessage('frame');
+ self.postMessage(redraw?'frame':'idle');
 };
