@@ -275,6 +275,7 @@ function bulkhead(x,z,span,height,opening,angle) {
  panelWall(opening,lintel,x,floorY-height+lintel/2,z,angle);
 }
 function plaque(title,x,y,z,angle,width=330) {
+ displayCase(width,50,x,y,z,angle);
  const sign=plane('plaque',width,50,x,y,z,angle);
  sign.textContent=title;
 }
@@ -375,7 +376,16 @@ for(const side of [-1,1]){
  for(const el of Array.from(world.children).slice(start))el.classList.add(lounge?'lounge-zone':'cabin-zone');
 }
 plaque('OBSERVATION  /  CREW QUARTERS   → AFT',-226,60,3410,90,440);
+function displayCase(w,h,x,y,z,angle,depth=9){
+ const a=angle*Math.PI/180, nx=Math.sin(a),nz=Math.cos(a);
+ plane('case-back',w,h,x-depth*nx,y,z-depth*nz,angle+180);
+ for(const sign of [-1,1]){
+   plane('case-edge',depth,h,x+sign*w*.5*nz-nx*depth/2,y,z-sign*w*.5*nx-nz*depth/2,angle+sign*90);
+   plane('case-edge',w,depth,x-nx*depth/2,y+sign*h*.5,z-nz*depth/2,angle,-sign*90);
+ }
+}
 function corridorStation(title,item,side,z){
+ displayCase(173,258,side*222,44,z,-side*90,16);
  const face=plane('wall-pad',173,258,side*222,44,z,-side*90);
  const mark=document.createElement('strong');mark.textContent=title;
  const status=document.createElement('div');status.className='status-wave';
@@ -538,7 +548,10 @@ document.addEventListener('pointerdown',e=>{
 document.addEventListener('click',e=>{
  if(panel.open||e.target.closest('header,footer,#jita-player,#use,dialog'))return;
  if(!e.detail && e.target.closest('button'))return;
- const picked=document.pointerLockElement?target:pickStation(e.clientX,e.clientY);
+ const direct=e.target.closest('button[data-route],button[data-seat],.holo-open');
+ // Preserve the exact native button when the browser resolves one. Use the
+ // model ray for oblique displays that Chromium reports as bare scenery.
+ const picked=document.pointerLockElement?target:(direct||pickStation(e.clientX,e.clientY));
  if(!picked||(!document.pointerLockElement&&dragged))return;
  e.preventDefault();e.stopImmediatePropagation();activateStation(picked);
 },true);
