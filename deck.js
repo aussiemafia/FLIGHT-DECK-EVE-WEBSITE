@@ -441,15 +441,23 @@ function plaque(title,x,y,z,angle,width=330) {
 // chamfered corners expose its return faces from either adjoining room.
 const hatches=[];
 // Chamfered observation glass, centred in the upper portion of each leaf.
-const portTop=-72,portBottom=98,portCentre=97,portHalfWidth=44,portBevel=14;
+const portTop=-86,portBottom=327,portCentre=98,portHalfWidth=56,portBevel=16;
+// The inclined load-bearing webs split the glazing into four viewing blocks.
+const hatchWebs=[[43,-53,149,49,15],[149,49,48,151,16],[49,181,150,181,14],[49,179,148,290,16]];
+function insideWeb(u,y){
+ return hatchWebs.some(([a,b,c,d,width])=>{
+   const x=c-a,z=d-b,t=Math.max(0,Math.min(1,((u-a)*x+(y-b)*z)/(x*x+z*z)));
+   return Math.hypot(u-a-t*x,y-b-t*z)<=width/2;
+ });
+}
 function portHalf(y){return portHalfWidth-Math.max(0,portTop+portBevel-y,y-portBottom+portBevel)}
 
-function fitHatch(x,z,angle){
+function fitHatch(x,z,angle,panoramic){
  const a=angle*Math.PI/180,ux=Math.cos(a),uz=-Math.sin(a),nx=-uz,nz=ux;
- const id=hatches.length,door={x,z,ux,uz,openness:0};
+ const id=hatches.length,door={x,z,ux,uz,openness:0,panoramic};
  hatches.push(door);
  // The offset joint makes a fitted tooth through the full depth of both leaves.
- const seam=[[-117,0],[portTop,0],[portTop+portBevel,0],[26,0],[61,28],[portBottom-portBevel,28],[portBottom,28],[130,28],[165,0],[276,0],[303,-19],[356,-19],[379,0],[416,0]];
+ const seam=[[-117,0],[portTop,0],[portTop+portBevel,0],[26,0],[61,28],[130,28],[165,0],[276,0],[303,-19],[portBottom-portBevel,-19],[portBottom,-19],[356,-19],[379,0],[416,0]];
  for(const side of [-1,1]){
    const vertex=(u,y,d)=>[x+u*ux+d*nx,y,z+u*uz+d*nz];
    const face=(points,finish)=>formedPanels.push({points:points.map(q=>vertex(...q)),finish,leaf:id*2+(side===1?1:0)});
@@ -477,8 +485,22 @@ function fitHatch(x,z,angle){
        const j=(i+1)%8;face([rings[layer][i],rings[layer][j],rings[layer+1][j],rings[layer+1][i]],layer===0?'alloy':'gasket');
      }
    }
+   if(panoramic)for(const sign of [-1,1]){
+     const edge=loop(2,sign*14),inner=loop(3.3,sign*14);
+     for(let i=0;i<8;i++){const j=(i+1)%8;face([edge[i],edge[j],inner[j],inner[i]],'glasslight')}
+   }
    const rim=loop(7,0);for(let i=1;i<7;i++)face([rim[0],rim[i],rim[i+1],rim[i+1]],'glass');
-   for(const d of [-11,11])face([[side*147,141,d],[side*152,141,d],[side*152,202,d],[side*147,202,d]],'glasslight');
+   for(const [a,b,c,d,width] of panoramic?[]:hatchWebs){
+     const len=Math.hypot(c-a,d-b),du=-(d-b)/len,dv=(c-a)/len;
+     const strip=(thick,depth)=>[[a+du*thick,b+dv*thick],[c+du*thick,d+dv*thick],[c-du*thick,d-dv*thick],[a-du*thick,b-dv*thick]].map(([u,y])=>[side*u,y,depth]);
+     const back=strip(width/2,-12),front=strip(width/2,12);
+     for(let i=0;i<4;i++){const j=(i+1)%4;face([back[i],back[j],front[j],front[i]],'gasket')}
+     for(const sign of [-1,1]){
+       face(strip(width/2,sign*12),'pearl');
+       face(strip(width*.23,sign*12.7),'sienna');
+     }
+   }
+   for(const d of [-11,11])face([[side*157,141,d],[side*161,141,d],[side*161,202,d],[side*157,202,d]],'glasslight');
  }
 }
 function animateHatches(px,pz,dt){
@@ -500,7 +522,7 @@ function hatchHit(ex,ey,ez,dx,dy,dz){
    const y=ey+t*dy,u=(ex+t*dx-d.x)*d.ux+(ez+t*dz-d.z)*d.uz;
    const offset=202*d.openness*d.openness*(3-2*d.openness);
    const leafU=Math.abs(u)-offset;
-   if(y>=portTop+7&&y<=portBottom-7&&Math.abs(leafU-portCentre)<portHalf(y)-8)continue;
+   if(y>=portTop+7&&y<=portBottom-7&&Math.abs(leafU-portCentre)<portHalf(y)-8&&(d.panoramic||!insideWeb(leafU,y)))continue;
    if(y>=-117&&y<=416&&leafU<=168&&leafU>=0)nearest=t;
  }
  return nearest;
@@ -510,8 +532,8 @@ function leafShift(leaf){
  const amount=(leaf%2?1:-1)*202*t*t*(3-2*t);
  return [d.ux*amount,d.uz*amount];
 }
-function hatchCollar(x,z,angle){
- fitHatch(x,z,angle);
+function hatchCollar(x,z,angle,panoramic=false){
+ fitHatch(x,z,angle,panoramic);
  const a=angle*Math.PI/180;
  function member(type,u,y,d,w,h,thick){
    const cx=x+u*Math.cos(a)+d*Math.sin(a),cz=z-u*Math.sin(a)+d*Math.cos(a);
@@ -522,6 +544,20 @@ function hatchCollar(x,z,angle){
    member('hatch-jaw',sign*179,147,-24,24,538,79);
    for(const lintel of [-49,0])member('hatch-flange',sign*188,147,lintel,47,538,17);
    member('guide-light',sign*169,118,13,5,160,4);
+ }
+ // Faceted gunmetal surround and recessed header lighting on both approaches.
+ const outline=(w,top,bot,r,d)=>[[-w,top+r],[-w+r,top],[w-r,top],[w,top+r],[w,bot-r],[w-r,bot],[-w+r,bot],[-w,bot-r]].map(([u,v])=>[x+u*Math.cos(a)+d*Math.sin(a),v,z-u*Math.sin(a)+d*Math.cos(a)]);
+ for(const [d,sign] of [[22,1],[-74,-1]]){
+   const profiles=[outline(219,-166,416,38,d),outline(211,-158,416,34,d+sign*7),outline(179,-126,416,23,d+sign*8),outline(168,-117,416,17,d-sign*8)];
+   for(let layer=0;layer<3;layer++)for(let i=0;i<8;i++){
+     const j=(i+1)%8;formedQuad([profiles[layer][i],profiles[layer][j],profiles[layer+1][j],profiles[layer+1][i]],['alloy','smoked','gasket'][layer]);
+   }
+   member('case-back',0,-146,d+sign*8,123,15,7);
+   member('lamp',0,-147,d+sign*13,95,5,3);
+   for(const u of [-194,194]){
+     member('case-back',u,75,d+sign*9,25,85,6);
+     for(let j=0;j<3;j++)member('strip',u,57+j*10,d+sign*14,13,3,2);
+   }
  }
  member('hatch-jaw',0,-130,-24,382,32,80);
  for(const d of [-52,5])member('hatch-flange',0,-133,d,417,42,15);
@@ -576,7 +612,7 @@ for(const side of [-1,1]){
  plane('guide-light',12,730,side*167,410,(outerLockZ+passageEnd)/2,0,90);
 }
 for(const zz of [passageEnd,outerLockZ]){
- bulkhead(0,zz,490,roomHeight,360,180);hatchCollar(0,zz,180);
+ bulkhead(0,zz,490,roomHeight,360,180);hatchCollar(0,zz,180,zz===outerLockZ);
  plaque(zz===passageEnd?'AFT OBSERVATION · AIRLOCK':'EXTERIOR DECK',0,-174,zz-55,180,370);
 }
 const innerDoor=hatches[hatches.length-2],outerDoor=hatches.at(-1);
