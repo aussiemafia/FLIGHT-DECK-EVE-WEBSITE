@@ -5,11 +5,11 @@
  const feed=document.getElementById('stationFeed'),video=feed.querySelector('video');
  function sync(){
    const route=document.body.dataset.view,link=document.querySelector('#nav a[href="#'+CSS.escape(route||'home')+'"]');
-   feed.hidden=!route||route==='home'||!link;
+   feed.hidden=!route||route==='home';
    if(feed.hidden){video.pause();return}
    const base='../assets/instruments/'+stationMedia(route);
    if(video.getAttribute('src')!==base+'.mp4'){video.poster=base+'.webp';video.src=base+'.mp4'}
-   feed.querySelector('span').textContent=link.textContent.replace(link.querySelector('b')?.textContent||'','').trim();
+   feed.querySelector('span').textContent=link?link.textContent.replace(link.querySelector('b')?.textContent||'','').trim():(document.querySelector('#app h1,#app h2')?.textContent||route);
    if(document.hidden||document.body.classList.contains('motion-paused')||matchMedia('(prefers-reduced-motion: reduce)').matches)video.pause();else video.play().catch(()=>{});
  }
  new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['data-view','class']});
