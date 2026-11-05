@@ -64,6 +64,23 @@
   });
   document.addEventListener('click', unlock, true);
   document.addEventListener('keydown', event => { if (!event.repeat) unlock(event); }, true);
+  window.addEventListener('shipwarp', () => {
+    if (!audio || muted || document.hidden) return;
+    const now = audio.currentTime;
+    const drive = audio.createOscillator(), envelope = audio.createGain();
+    drive.type = 'triangle';
+    drive.frequency.setValueAtTime(42, now);
+    drive.frequency.exponentialRampToValueAtTime(138, now + 1.4);
+    drive.frequency.exponentialRampToValueAtTime(112, now + 3.45);
+    drive.frequency.exponentialRampToValueAtTime(38, now + 4.6);
+    envelope.gain.setValueAtTime(0, now);
+    envelope.gain.linearRampToValueAtTime(0.105, now + 1.45);
+    envelope.gain.linearRampToValueAtTime(0.072, now + 3.45);
+    envelope.gain.linearRampToValueAtTime(0, now + 4.6);
+    drive.connect(envelope); envelope.connect(master);
+    drive.onended = () => { drive.disconnect(); envelope.disconnect(); };
+    drive.start(now); drive.stop(now + 4.62);
+  });
   document.addEventListener('visibilitychange', mix);
   new MutationObserver(mix).observe(sector, { childList: true, characterData: true, subtree: true });
   label();
