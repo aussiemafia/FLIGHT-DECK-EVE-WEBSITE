@@ -122,20 +122,11 @@ function clipWarpWindows(ctx,w,h){
   clipped.forEach(([u,v,d],i)=>ctx[i?'lineTo':'moveTo'](w/2+lens*u/d,h/2+lens*v/d));
   if(clipped.length)ctx.closePath();
  }
- if(z<1200){
-  for(let i=1;i<bowPoints.length;i++){
-   const [a,b]=bowPoints.slice(i-1,i+1);
-   const p=t=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
-   const [lx,lz]=p(.065),[rx,rz]=p(.935);
-   pane([[lx,-532,lz],[rx,-532,rz],[rx,-20,rz],[lx,-20,lz]]);
-  }
-  for(const sign of [-1,1]){
-   const start=bowPoints[0][1],len=1200-start;
-   for(const off of [-.36,-.12,.12,.36]){
-    const mid=(start+1200)/2+off*len;
-    pane([[sign*793,-300,mid-140],[sign*793,-300,mid+140],[sign*793,-26,mid+140],[sign*793,-26,mid-140]]);
-   }
-  }
+ const compartment=displayCompartment(x,z);
+ for(const window of exteriorWindowBounds){
+  if(compartment===displayCompartment(window.wx,window.wz))pane(window.corners);
+ }
+ if(compartment==='bridge'){
   for(let j=0;j<4;j++){
    const front=canopyFront+j*paneLength+14,aft=front+paneLength-28;
    pane([[-canopyHalf,roofY,front],[0,vaultHeight(0),front],[canopyHalf,roofY,front],[canopyHalf,roofY,aft],[0,vaultHeight(0),aft],[-canopyHalf,roofY,aft]]);
@@ -223,3 +214,52 @@ lightSlider.oninput=setCabinLight;updateButtons();
 
 
 window.plotWarp=id=>document.querySelector('#routes button[value="'+id+'"]')?.click();
+
+(() => {
+ const field=document.createElement('canvas');
+ field.setAttribute('aria-hidden','true');
+ field.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:1';
+ trail.before(field);
+ const ctx=field.getContext('2d');
+ const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+ // A sparse cloud in ship coordinates. Translation along the ship's axis
+ // creates parallax; turning the camera changes the direction of the drift.
+ const extent=11000;
+ const particles=Array.from({length:1350},(_,i)=>({
+  x:((i*.754877666)%1-.5)*extent,
+  y:((i*.569840296)%1-.5)*extent,
+  z:((i*.438579021)%1)*extent,
+  size:.8+(i%5)*.34
+ }));
+ let previous=0,travel=0,dirty=false;
+ function cruise(now){
+  requestAnimationFrame(cruise);
+  if(document.hidden||reduced.matches||!trail.hidden||panel.open||jumpPanel.open){
+   if(dirty){ctx.clearRect(0,0,innerWidth,innerHeight);dirty=false;}
+   previous=now;return;
+  }
+  const dt=now-previous;
+  if(dt<40)return;
+  travel=(travel+Math.min(dt,100)*.095)%extent;previous=now;
+  const w=innerWidth,h=innerHeight,ratio=Math.min(devicePixelRatio||1,1.5);
+  if(field.width!==Math.round(w*ratio)||field.height!==Math.round(h*ratio)){
+   field.width=Math.round(w*ratio);field.height=Math.round(h*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);
+  }
+  ctx.clearRect(0,0,w,h);ctx.save();clipWarpWindows(ctx,w,h);
+  const lens=parseFloat(view.style.perspective),cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+  ctx.fillStyle='#d9ecff';
+  for(const p of particles){
+   const wz=(p.z+travel)%extent-extent/2;
+   const d=p.x*sy-wz*cy,depth=d*cp+p.y*sp;
+   if(depth<100)continue;
+   const u=w/2+lens*(p.x*cy+wz*sy)/depth,v=h/2+lens*(p.y*cp-d*sp)/depth;
+   if(u<0||u>w||v<0||v>h)continue;
+   const radius=Math.min(1.7,Math.max(.55,lens*p.size/depth));
+   const edgeFade=Math.min(1,(extent/2-Math.abs(wz))/500);
+   ctx.globalAlpha=Math.min(.78,.16+550/depth)*edgeFade;
+   ctx.beginPath();ctx.arc(u,v,radius,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();dirty=true;
+ }
+ requestAnimationFrame(cruise);
+})();
