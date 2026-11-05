@@ -32,11 +32,36 @@ const roomExhibits={
 function exhibitFile(file,root=''){
  return root+(file.includes('/')?file:'assets/exhibits/'+file);
 }
+const fittingImages=new Map();
+function exhibitStill(key,root=''){
+ const still=exhibitPlates[key][2];
+ const fit=key==='fit'?'fit-golem-5n':key;
+ if(!fit.startsWith('fit-')||!subjectNotes[fit])return exhibitFile(still.includes('.')?still:still+'.webp',root);
+ if(fittingImages.has(fit))return fittingImages.get(fit);
+ const [title,...groups]=subjectNotes[fit];
+ const escape=value=>value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+ let plate='<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 1200 675"><rect width="1200" height="675" fill="#0b1924"/><g font-family="system-ui,sans-serif" fill="#f0f8fa">';
+ plate+='<text x="28" y="52" font-size="32">'+escape(title.replace(/^\[|\]$/g,''))+'</text>';
+ ['Low slots','Mid slots','High slots','Rigs'].forEach((label,i)=>{
+   const x=28+(i%2)*580,y=85+Math.floor(i/2)*290;
+   plate+='<rect x="'+x+'" y="'+y+'" width="560" height="276" rx="9" fill="#152d3b"/><text x="'+(x+16)+'" y="'+(y+36)+'" fill="#85dede" font-size="22">'+label+'</text>';
+   const counts=new Map();
+   for(const module of groups[i].split(' · '))counts.set(module,(counts.get(module)||0)+1);
+   let row=0;
+   for(const [name,count] of counts){
+     const line=(count>1?count+' × ':'')+name;
+     const size=Math.min(22,Math.floor(900/line.length));
+     plate+='<text x="'+(x+16)+'" y="'+(y+70+row++*27)+'" font-size="'+size+'">'+escape(line)+'</text>';
+   }
+ });
+ const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(plate+'</g></svg>');
+ fittingImages.set(fit,url);return url;
+}
 function mountExhibit(host,key,root=''){
  const [label,,still,movie]=exhibitPlates[key];
  if(host.dataset.mounted===key&&host.querySelector('.exhibit-media'))return host.querySelector('.exhibit-media');
  host.dataset.mounted=key;
- const src=exhibitFile(still.includes('.')?still:still+'.webp',root);
+ const src=exhibitStill(key,root);
  let media=host.querySelector('.exhibit-media');
  if(media?.tagName!==(movie?'VIDEO':'IMG')){
    media?.remove();media=document.createElement(movie?'video':'img');media.className='exhibit-media';host.prepend(media);

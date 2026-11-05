@@ -257,7 +257,8 @@ for(const z of [-700,-50,580,1080]){
 const upholsteredSilhouettes=[];
 function upholstery(finish,x,y,z,w,h,d,tilt=0,shape=.55){
  const count=24,a=tilt*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a);
- const profile=[[-.50,.70],[-.46,.87],[-.33,.98],[0,1],[.33,.98],[.46,.87],[.50,.70]];
+ const soft=finish==='upholstery'||finish==='sienna';
+ const profile=soft?[[-.55,.36],[-.52,.68],[-.45,.88],[-.32,.97],[-.29,.995],[-.25,.975],[0,1],[.29,.975],[.33,.985],[.46,.86],[.50,.65]]:[[-.50,.70],[-.46,.87],[-.33,.98],[0,1],[.33,.98],[.46,.87],[.50,.70]];
  function point(i,level,scale){
    const t=i*2*Math.PI/count,c=Math.cos(t),s=Math.sin(t);
    const u=Math.sign(c)*Math.pow(Math.abs(c),shape)*w*.5*scale;
@@ -265,10 +266,10 @@ function upholstery(finish,x,y,z,w,h,d,tilt=0,shape=.55){
    return [x+u,y+h*level*cs-v*sn,z+h*level*sn+v*cs];
  }
  const outline=[];
- let previous=Array(count).fill([x,y-h*.50*cs,z-h*.50*sn]);
+ let previous=Array(count).fill([x,y-h*(soft?.56:.50)*cs,z-h*(soft?.56:.50)*sn]);
  for(const [level,scale] of profile){
    const ring=Array.from({length:count},(_,i)=>point(i,level,scale));
-   for(let i=0;i<count;i++){const j=(i+1)%count;formedQuad([previous[j],previous[i],ring[i],ring[j]],finish)}
+   for(let i=0;i<count;i++){const j=(i+1)%count;formedQuad([previous[j],previous[i],ring[i],ring[j]],soft&&level===-.29?'welt':finish)}
    outline.push(...ring);previous=ring;
  }
  upholsteredSilhouettes.push(outline);
@@ -703,10 +704,15 @@ function meshWords(encoded,Type){
 const positions=meshWords(avatarMesh.positions,Int16Array);
 const triangles=meshWords(avatarMesh.triangles,Uint16Array);
 const shipVertices=[],shipUV=[];
-const hullScale=3.6;
+// The mesh coordinates are metres. The standing camera is 1.70 m above
+// the deck; use that same scale for the ship, gangway and observation rail.
+const hullScale=floorY/1.70;
+// Port-side mounting point in rotated model coordinates. At this elevation
+// the hull surface is 712 m from the axis. The collar reaches into the hull.
+const mountHeight=900, mountDepth=712, airlockOffset=265000;
 for(let i=0;i<positions.length;i+=3){
  const [sx,sy,sz]=[positions[i]/4,positions[i+1]/4,positions[i+2]/4];
- shipVertices.push([(-sz*.978+sx*.208)*hullScale-1300,-sy*hullScale-6700,outerLockZ-32000+(sx*.978+sz*.208)*hullScale]);
+ shipVertices.push([(-sz*.978+sx*.208)*hullScale,(mountHeight-sy)*hullScale,outerLockZ-airlockOffset+(sx*.978+sz*.208-mountDepth)*hullScale]);
  shipUV.push([(6289-sz)/13834,(3087-sy)/6179]);
 }
 for(let i=0;i<triangles.length;i+=3){
@@ -717,7 +723,7 @@ for(let i=0;i<triangles.length;i+=3){
 function plate(points,finish){formedQuad(points,finish)}
 // The lower docking collar returns to the flank without crossing the view
 // of the crown. Its last section meets the existing full-size airlock.
-const collarSections=[[-33000,1480,-5200,820],[-18500,1820,-1840,780],[-8700,1720,-1100,810],
+const collarSections=[[-airlockOffset-19000,4050,-8600,2700],[-110000,2450,-6200,1450],[-33000,1480,-5200,820],[-18500,1820,-1840,780],[-8700,1720,-1100,810],
  [-2900,1540,-850,770],[-1000,1410,-660,725],[-560,610,-460,585],[-15,249,-226,426]];
 function commandRing([dz,w,top,bottom]){
  const bevel=Math.min(w*.24,(bottom-top)*.2),z=outerLockZ+dz;
@@ -805,13 +811,12 @@ for(const side of [-1,1]){
  plane('residential-ring',710,710,mid,-209,cabinZ,0,-90);
  if(lounge){
    const chairZ=cabinZ+120;
-   const seatTag=mid+','+chairZ;
-   const screenZ=cabinZ-cabinDepth/2+32;
+   const screenZ=cabinZ-cabinDepth/2+165;
    cinemaWall=plane('holo-display cinema-wall',roomWidth*.75,roomWidth*.75*9/16,mid,105,screenZ);
-   cinemaWall.dataset.seat=seatTag;cinemaWall.dataset.station='Watch New Eden films';
+   cinemaWall.dataset.station='Play New Eden films';
    const play=document.createElement('button');
-   play.className='cinema-play';play.textContent='Sit and watch';
-   play.dataset.seat=seatTag;play.dataset.station='Watch New Eden films';
+   play.className='cinema-play';play.textContent='Play films';
+   play.dataset.station=cinemaWall.dataset.station;play.onclick=playCinema;
    cinemaWall.innerHTML='<span class="cinema-title">New Eden cinema</span>';cinemaWall.append(play);
    for(const edge of [-1,1]){
      plane('glass-light',7,roomWidth*.75*9/16,mid+edge*(roomWidth*.375+10),105,screenZ);
@@ -858,8 +863,23 @@ for(let bay=0;bay<aftBays.length;bay++){
    floorAndCeiling(roomWidth,depth,mid,cz);
    windowWall(depth,roomHeight,outer,96,cz,angle,[-365,365],350,245,-68);
    terminal(title.toUpperCase(),groups[group],outer-side*34,cz,angle);
+   // Recessed reading lights flank the terminal and stand proud of the bulkhead.
+   for(const offset of [-270,270]){
+     plane('case-back',142,26,outer-side*10,-164,cz+offset,angle);
+     plane('lamp',112,9,outer-side*14,-163,cz+offset,angle);
+   }
    plaque(title.toUpperCase(),inner-side*17,-172,cz,angle,330);
    plane('lab-wash',440,15,mid,-192,cz-depth/2+7,0);
+   if(title==='Pilot ready room'||title==='Fleet briefing'){
+     const benchZ=cz-depth/2+115;
+     furnishing('lounge-base',mid,360,benchZ,476,82,151);
+     for(const offset of [-150,0,150]){
+       upholstery('upholstery',mid+offset,301,benchZ,149,45,145);
+       upholstery('upholstery',mid+offset,244,benchZ-57,148,114,42,8);
+     }
+     for(const edge of [-1,1])upholstery('sienna',mid+edge*222,270,benchZ,28,82,147);
+     furnishings.push([mid,benchZ,240,80]);
+   }
    if(group===1||group===3)addChair(mid,cz+305,group===1?'lab':'pod');
    else{
      furnishing('lounge-base',mid,365,cz+330,246,90,117);
@@ -894,14 +914,20 @@ for(const [index,bay] of bayScreens.entries()){
  const local=wz>1200&&nearby;
  const title=local?nearby.el.querySelector('.holo-caption').textContent.replace(/ PROJECTOR$/,''):'NAVIGATION LAB';
  const plates=roomExhibits[title],key=plates[(Math.floor(index/2)+(label==='upper'?0:1))%plates.length];
- const [caption,route,still]=exhibitPlates[key];
- const image=document.createElement('img');image.src=exhibitFile(still.includes('.')?still:still+'.webp');image.alt='';image.loading='lazy';
+ const [caption,route]=exhibitPlates[key];
+ const image=document.createElement('img');image.src=exhibitStill(key);image.alt='';image.loading='lazy';
  const button=document.createElement('button');button.textContent=caption;
  face.append(image,button);wire(face,[route,caption]);wire(button,[route,caption]);
  face.projectTopic=()=>{
    if(local){nearby.showPlate(key);return nearby.el}
    showBridgeRecord(key,route,caption);return hologram;
  };
+}
+function displayCompartment(px,pz){
+ if(pz<=passageStart)return 'bridge';
+ if(pz>passageEnd)return 'exterior';
+ if(Math.abs(px)<=245)return 'passage';
+ return nearestRoom(pz).names[px>0?1:0];
 }
 function nearestRoom(pz){
  return roomStations.reduce((best,r)=>Math.abs(r.z-pz)<Math.abs(best.z-pz)?r:best);
@@ -923,8 +949,8 @@ function corridorStation(title,item,side,z){
  const button=document.createElement('button');button.textContent=item[1]+'  ›';
  const closest=roomScreens.reduce((best,r)=>Math.hypot(r.hx-side*222,r.hz-z)<Math.hypot(best.hx-side*222,best.hz-z)?r:best);
  face.projectTopic=()=>{closest.showPlate(routePlate(item[0]),item[0],item[1]);return closest.el};
- const preview=document.createElement('img');const still=exhibitPlates[routePlate(item[0])][2];
- preview.src=exhibitFile(still.includes('.')?still:still+'.webp');preview.alt=item[1];preview.style.cssText='width:100%;height:95px;object-fit:contain';
+ const preview=document.createElement('img');
+ preview.src=exhibitStill(routePlate(item[0]));preview.alt=item[1];preview.style.cssText='width:100%;height:95px;object-fit:contain';
  wire(face,item);wire(button,item);button.replaceChildren(mark,preview,document.createTextNode(item[1]+'  ›'));face.append(button);
 }
 corridorStation('CARGO CONTROL',groups[2][1],1,1770);
@@ -977,36 +1003,29 @@ holoAction.onclick=()=>openRecord(...projected);
 hologram.dataset.station='Open projection';hologram.onclick=e=>{if(e.target!==holoAction)openRecord(...projected)};
 const cinemaFilms=['3l0k2xkcT3g','k1AbLH_uGLw'];
 let cinemaPlayer=null;
-function positionCinema(){
- if(!cinemaPlayer)return;
- const rect=cinemaWall.getBoundingClientRect();
- Object.assign(cinemaPlayer.style,{left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',height:rect.height+'px'});
-}
 function playCinema(){
  if(cinemaPlayer)return;
- document.exitPointerLock?.();
  const iframe=document.createElement('iframe');
  iframe.title='New Eden cinema · YouTube player';
  iframe.id='cinema-player';iframe.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
  iframe.allowFullscreen=true;iframe.referrerPolicy='strict-origin-when-cross-origin';
  iframe.src='https://www.youtube.com/embed/'+cinemaFilms[0]+'?autoplay=1&playsinline=1&loop=1&playlist='+cinemaFilms.join(',')+'&rel=0';
- document.body.append(iframe);cinemaPlayer=iframe;
+ cinemaWall.append(iframe);cinemaPlayer=iframe;cinemaWall.classList.add('showing');
+ cinemaWall.removeAttribute('data-station');
  $('cinema-link').hidden=false;
- positionCinema();
-}
-function stopCinema(){
- cinemaPlayer?.remove();cinemaPlayer=null;$('cinema-link').hidden=true;
+ view.focus();
 }
 
 let messageTimer;
 function activateStation(control){
+ if(control===cinemaWall||control.classList.contains('cinema-play')){playCinema();return}
  if(control.advance){control.advance();return;}
  if(control.dataset.plate){openRecord(control.dataset.route,control.dataset.station,control.dataset.plate,control.closest('.holo-display'));return;}
  if(control.dataset.seat){
    const [sx,sz]=control.dataset.seat.split(',').map(Number);
    if(seated)standUp();
    seated={x:sx,z:sz};x=sx;z=sz-8;yaw=0;pitch=0;keys.clear();$('stand').hidden=false;view.focus();
-   if(control.dataset.seat===cinemaWall.dataset.seat)playCinema();
+   if(control.closest('.cinema-chair'))playCinema();
    return;
  }
  if(control===hologram||control===holoAction){openRecord(...projected);return;}
@@ -1035,7 +1054,6 @@ let x=0,z=365,yaw=0,pitch=0,drag=false,dragged=false,totalDrag=0,target=null,pre
 let seated=null;
 function standUp(){
  if(!seated)return;
- stopCinema();
  x=seated.x;z=seated.z-160;seated=null;$('stand').hidden=true;keys.clear();view.focus();
 }
 $('stand').onclick=standUp;
@@ -1058,7 +1076,7 @@ document.onpointerlockchange=()=>{$('walk').textContent=document.pointerLockElem
 view.onpointerdown=e=>{drag=!e.target.closest('button,[data-station]');dragged=false;totalDrag=0};
 window.addEventListener('pointerup',()=>{drag=false});
 window.addEventListener('pointermove',e=>{
- if(cinemaPlayer||panel.open||(!drag&&!document.pointerLockElement))return;
+ if(panel.open||(!drag&&!document.pointerLockElement))return;
  totalDrag+=Math.abs(e.movementX)+Math.abs(e.movementY);
  if(totalDrag>4)dragged=true;
  yaw+=e.movementX*.0022;pitch=clamp(pitch+e.movementY*.0022,-1.22,1.22);
@@ -1095,7 +1113,9 @@ function pickStation(clientX,clientY){
  const dz=vertical*sp-cp,dx=horizontal*cy-dz*sy,dy=vertical*cp+sp,wz=horizontal*sy+dz*cy;
  const eyeY=seated?105:0;
  let nearest=hatchHit(x,eyeY,z,dx,dy,wz),hit=null;
+ const compartment=displayCompartment(x,z);
  for(const p of pickPlanes){
+   if(p.el.displayCompartment&&p.el.displayCompartment!==compartment)continue;
    const bx=p.cx-x,by=p.cy-eyeY,bz=p.cz-z;
    const along=(bx*dx+by*dy+bz*wz)/(dx*dx+dy*dy+wz*wz);
    if(along < -p.radius || along>nearest+p.radius || along>1900+p.radius)continue;
@@ -1144,7 +1164,6 @@ $('use').onclick=()=>{if(target)activateStation(target)};
 window.addEventListener('keydown',e=>{
  if(panel.open)return;
  if(['KeyW','KeyS','KeyA','KeyD','ShiftLeft','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();keys.add(e.code)}
- if(cinemaPlayer&&e.code!=='KeyE'){keys.clear();return;}
  if(e.code==='KeyE'&&!e.repeat){if(seated)standUp();else if(target)activateStation(target);}
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();drag=false});
@@ -1240,12 +1259,11 @@ function frame(now){
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
  const value=String(degrees).padStart(3,'0')+'°';
  if(bearing.textContent!==value)bearing.textContent=value;
- if(cinemaPlayer&&(lastMotion===now||cinemaPlayer.dataset.viewport!==innerWidth+'/'+innerHeight)){positionCinema();cinemaPlayer.dataset.viewport=innerWidth+'/'+innerHeight}
  if(window.renderShip)window.renderShip(now,x,cameraY,z,yaw,pitch,parseFloat(view.style.perspective));
  else window.drawExterior?.(x,z);
  requestAnimationFrame(frame);
 }
-if(location.hash==='#viewing-deck'){x=0;z=padCenter;yaw=0;pitch=-.16;view.focus()}
+if(location.hash==='#viewing-deck'){x=0;z=padCenter;yaw=-1.23;pitch=-.09;view.focus()}
 if(location.hash==='#holodeck'){x=500;z=cabinZ+365;yaw=1.0;pitch=.14;view.focus()}
 requestAnimationFrame(frame);
 
