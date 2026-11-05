@@ -14,10 +14,72 @@
  let lastRoom='';
  const partitions=all.filter(el=>el.matches('.hull-panel,.hull-back')).map(el=>({inv:matrixFor(el).inverse(),w:parseFloat(el.style.width)/2,h:parseFloat(el.style.height)/2}));
  const nativeCentres=live.map(({el})=>{const m=matrixFor(el);return [m.m41,m.m42,m.m43]});
+ // Project nearby opaque geometry into each native display's own coordinate system.
+ // A luminance mask removes exactly the covered pieces without rasterising its text.
+ const blockers=[];
+ function addBlocker(points,owner,convex=false){
+   const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
+   for(const p of points)for(let j=0;j<3;j++){lo[j]=Math.min(lo[j],p[j]);hi[j]=Math.max(hi[j],p[j])}
+   const c=lo.map((v,j)=>(v+hi[j])/2);
+   blockers.push({points,owner,convex,c,r:Math.hypot(...hi.map((v,j)=>v-c[j]))});
+ }
+ for(const points of upholsteredSilhouettes)addBlocker(points,null,true);
+ for(const el of all.filter(e=>e.matches('.seat-flank,.seat-band,.bay-display,.screen,.helm-display,.switches,.wall-pad,.console-case,.case-back,.plaque'))){
+   const m=matrixFor(el),w=parseFloat(el.style.width),h=parseFloat(el.style.height);
+   const outline=el.matches('.seat-flank')?[...el.style.clipPath.matchAll(/([\d.]+)% ([\d.]+)%/g)].map(q=>[+q[1]/100,+q[2]/100]):[[0,0],[1,0],[1,1],[0,1]];
+   addBlocker(outline.map(([u,v])=>{const p=m.transformPoint(new DOMPoint((u-.5)*w,(v-.5)*h));return [p.x,p.y,p.z]}),el);
+ }
+ function convexHull(points){
+   const sorted=points.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+   function half(list){const out=[];for(const p of list){while(out.length>1){const a=out.at(-2),b=out.at(-1);if((b[0]-a[0])*(p[1]-a[1])>(b[1]-a[1])*(p[0]-a[0]))break;out.pop()}out.push(p)}return out.slice(0,-1)}
+   return half(sorted).concat(half(sorted.reverse()));
+ }
+ function clipSide(poly,axis,bound,sign){
+   const out=[];let a=poly.at(-1);
+   for(const b of poly){const da=(a[axis]-bound)*sign,db=(b[axis]-bound)*sign;
+     if((da>=0)!==(db>=0)){const t=da/(da-db);out.push(a.map((v,j)=>v+t*(b[j]-v)))}
+     if(db>=0)out.push(b);a=b;
+   }return out;
+ }
+ const masks=new WeakMap();
+ window.displayPointHidden=(el,u,v)=>(masks.get(el)||[]).some(poly=>{
+   let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+     const a=poly[i],b=poly[j];if((a[1]>v)!==(b[1]>v)&&u<(b[0]-a[0])*(v-a[1])/(b[1]-a[1])+a[0])inside=!inside;
+   }return inside;
+ });
+ function depthMask(el,eye,nearby){
+   const m=matrixFor(el),inv=m.inverse(),w=parseFloat(el.style.width),h=parseFloat(el.style.height);
+   const dx=m.m41-eye[0],dy=m.m42-eye[1],dz=m.m43-eye[2],length=Math.hypot(dx,dy,dz),radius=Math.hypot(w,h)/2;
+   if(length<1)return;
+   const localEye=inv.transformPoint(new DOMPoint(...eye)),ez=localEye.z;
+   const polygons=[];
+   if(Math.abs(ez)>1)for(const b of nearby){
+     if(b.owner===el)continue;
+     const vx=b.c[0]-eye[0],vy=b.c[1]-eye[1],vz=b.c[2]-eye[2],along=(vx*dx+vy*dy+vz*dz)/length;
+     if(along < -b.r || along>length+radius+b.r || vx*vx+vy*vy+vz*vz-along*along>(b.r+radius*Math.min(1,(Math.max(0,along)+b.r)/length))**2)continue;
+     let points=b.points.map(([x,y,z])=>[inv.m11*x+inv.m21*y+inv.m31*z+inv.m41,inv.m12*x+inv.m22*y+inv.m32*z+inv.m42,(inv.m13*x+inv.m23*y+inv.m33*z+inv.m43)/ez]);
+     if(b.convex)points=points.filter(p=>p[2]>.0003&&p[2]<.999);
+     else{points=clipSide(points,2,.0003,1);if(points.length)points=clipSide(points,2,.999,-1)}
+     if(points.length<3)continue;
+     let poly=points.map(([x,y,t])=>[(x-t*localEye.x)/(1-t)+w/2,(y-t*localEye.y)/(1-t)+h/2]);
+     if(b.convex)poly=convexHull(poly);
+     for(const [axis,bound,sign] of [[0,0,1],[0,w,-1],[1,0,1],[1,h,-1]]){if(poly.length<3)break;poly=clipSide(poly,axis,bound,sign)}
+     if(poly.length>=3)polygons.push(poly);
+   }
+   masks.set(el,polygons);
+   if(!polygons.length){if(el.dataset.depthMask){el.style.maskImage='';delete el.dataset.depthMask}return}
+   const path=polygons.map(p=>'<polygon points="'+p.map(pt=>pt.map(v=>v.toFixed(1)).join(',')).join(' ')+'"/>').join('');
+   const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none"><rect width="100%" height="100%" fill="white"/>'+path+'</svg>';
+   el.style.maskMode='luminance';el.style.maskSize='100% 100%';el.style.maskImage='url("data:image/svg+xml,'+encodeURIComponent(svg)+'")';el.dataset.depthMask='1';
+ }
+
+ let sightY=Infinity;
  let sightX=Infinity,sightZ=Infinity,sightDoors=-1;
- function showRoom(ex,ez){
+ function showRoom(ex,ez,ey){
    const openness=hatches.reduce((v,d)=>v+Math.round(d.openness*8),0);
-   if(openness===sightDoors&&Math.hypot(ex-sightX,ez-sightZ)<14)return;
+   if(openness===sightDoors&&ex===sightX&&ez===sightZ&&ey===sightY)return;
+   sightY=ey;
+   const nearby=blockers.filter(b=>Math.abs(b.c[0]-ex)<2300+b.r&&Math.abs(b.c[2]-ez)<2300+b.r);
    sightDoors=openness;
    sightX=ex;sightZ=ez;
    live.forEach(({el},i)=>{
@@ -29,6 +91,7 @@
        return Math.abs(px*m.m11+py*m.m21+pz*m.m31+m.m41)<w&&Math.abs(px*m.m12+py*m.m22+pz*m.m32+m.m42)<h;
      });
      el.classList.toggle('away',blocked);
+     if(!blocked)depthMask(el,[ex,ey,ez],nearby);
    });
    refreshHitBoxes();
  }
@@ -118,7 +181,7 @@
    };
    worker.postMessage({type:'init',canvas:offscreen,scene:scene.buffer,doorVertices,urls},[offscreen,scene.buffer]);
    window.renderShip=(now,x,y,z,yaw,pitch,lens)=>{
-     showRoom(x,z);if(!ready||pending)return;pending=true;
+     showRoom(x,z,y);if(!ready||pending)return;pending=true;
      worker.postMessage({w:innerWidth,h:innerHeight,x,y,z,yaw,pitch,lens,now,shifts:hatches.flatMap((_,i)=>[leafShift(i*2),leafShift(i*2+1)])});
    };
    return;
@@ -360,7 +423,7 @@
  let previousPose=null;
 
  window.renderShip=(now,ex,ey,ez,yaw,pitch,lens)=>{
-   showRoom(ex,ez);
+   showRoom(ex,ez,ey);
    const pixelRatio=Math.min(devicePixelRatio||1,2);
    const pose=[ex,ey,ez,yaw,pitch,innerWidth,innerHeight,pixelRatio].join('/');
    const cycling=hatches.some(d=>d.openness>0&&d.openness<1);

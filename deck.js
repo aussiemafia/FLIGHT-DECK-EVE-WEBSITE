@@ -254,6 +254,7 @@ for(const z of [-700,-50,580,1080]){
  }
 }
 // Loft rounded cross-sections into closed shells, cushions and plinths.
+const upholsteredSilhouettes=[];
 function upholstery(finish,x,y,z,w,h,d,tilt=0,shape=.55){
  const count=24,a=tilt*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a);
  const profile=[[-.50,.70],[-.46,.87],[-.33,.98],[0,1],[.33,.98],[.46,.87],[.50,.70]];
@@ -263,12 +264,14 @@ function upholstery(finish,x,y,z,w,h,d,tilt=0,shape=.55){
    const v=Math.sign(s)*Math.pow(Math.abs(s),shape)*d*.5*scale;
    return [x+u,y+h*level*cs-v*sn,z+h*level*sn+v*cs];
  }
+ const outline=[];
  let previous=Array(count).fill([x,y-h*.50*cs,z-h*.50*sn]);
  for(const [level,scale] of profile){
    const ring=Array.from({length:count},(_,i)=>point(i,level,scale));
    for(let i=0;i<count;i++){const j=(i+1)%count;formedQuad([previous[j],previous[i],ring[i],ring[j]],finish)}
-   previous=ring;
+   outline.push(...ring);previous=ring;
  }
+ upholsteredSilhouettes.push(outline);
  const tip=[x,y+h*.50*cs,z+h*.50*sn];
  for(let i=0;i<count;i++)formedQuad([previous[(i+1)%count],previous[i],tip,tip],finish);
 }
@@ -886,6 +889,7 @@ function pickStation(clientX,clientY){
      }
      if(verts.length&&!inside)continue;
    }
+   if(window.displayPointHidden?.(p.el,u,v))continue;
    const control=p.boxes?.find(b=>u>=b.l&&u<=b.r&&v>=b.t&&v<=b.b)?.control;
    nearest=dist;hit=control||(p.el.dataset.station?p.el:null);
  }
@@ -904,6 +908,10 @@ document.addEventListener('click',e=>{
  // Preserve the exact native button when the browser resolves one. Use the
  // model ray for oblique displays that Chromium reports as bare scenery.
  const picked=document.pointerLockElement?target:(direct||pickStation(e.clientX,e.clientY));
+ if(direct&&e.detail&&direct.closest('.surface')?.dataset.depthMask){
+   const ray=pickStation(e.clientX,e.clientY);
+   if(!ray||ray.closest('.surface')!==direct.closest('.surface')){e.preventDefault();e.stopImmediatePropagation();if(ray&&!dragged)activateStation(ray);return;}
+ }
  if(!picked||(!document.pointerLockElement&&dragged))return;
  e.preventDefault();e.stopImmediatePropagation();activateStation(picked);
 },true);
@@ -961,7 +969,7 @@ function isClear(px,pz){
 }
 function resize(){const lens=Math.min(innerWidth*.59,innerHeight*.96);view.style.perspective=lens+'px';$('camera').style.transform='translateZ('+lens+'px)'}
 window.addEventListener('resize',resize);resize();
-let lastAim=-Infinity,lastHoloX,lastHoloZ;
+let lastAim=-Infinity;
 const fpsReadout=$('frame-rate');let fpsStart=performance.now(),fpsFrames=0,lastPresented=0;
 function frame(now){
  updateFeeds(now);
@@ -988,12 +996,8 @@ function frame(now){
   if(isClear(nextX,z))x=nextX;
   if(isClear(x,nextZ))z=nextZ;
  }
- for(const {el,hx,hz} of roomScreens){
-   if(Math.abs(z-hz)>1900)continue;
-   el.style.transform='translate3d('+hx+'px,8px,'+hz+'px) rotateY('+Math.atan2(x-hx,z-hz)+'rad)';
- }
- if(lastHoloX!==x||lastHoloZ!==z){hologram.style.transform='translate3d(0,91px,'+holoZ+'px) rotateY('+Math.atan2(x,z-holoZ)+'rad)';lastHoloX=x;lastHoloZ=z;}
- world.style.transform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(seated?-105:((r||f)?Math.sin(now*.012)*2:0))+'px,'+(-z)+'px)';
+ const cameraY=seated?105:0;
+ world.style.transform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(-cameraY)+'px,'+(-z)+'px)';
  if(now-lastAim>55){target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);lastAim=now;}
  $('use').hidden=!target;if(target && $('use').textContent!=='E　'+target.dataset.station)$('use').textContent='E　'+target.dataset.station;
  const sector=z>outerLockZ?'Exterior observation deck':z>=passageEnd?'Observation airlock':z<1200?'Flight deck':Math.abs(x)<245?'Aft passage':nearestRoom(z).names[x>0?1:0];
@@ -1001,7 +1005,7 @@ function frame(now){
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
  const bearing=navDisplay.querySelector('.bearing'),value=String(degrees).padStart(3,'0')+'°';
  if(bearing.textContent!==value)bearing.textContent=value;
- if(window.renderShip)window.renderShip(now,x,seated?105:0,z,yaw,pitch,parseFloat(view.style.perspective));
+ if(window.renderShip)window.renderShip(now,x,cameraY,z,yaw,pitch,parseFloat(view.style.perspective));
  else window.drawExterior?.(x,z);
  requestAnimationFrame(frame);
 }
