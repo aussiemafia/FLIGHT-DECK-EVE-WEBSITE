@@ -2,7 +2,15 @@
   const toggle = document.getElementById('ship-sound');
   const sector = document.getElementById('sector');
   const AudioEngine = window.AudioContext || window.webkitAudioContext;
-  if (!AudioEngine) { toggle.hidden = true; return; }
+  const control = document.getElementById('volume-control');
+  const slider = document.getElementById('ship-volume');
+  const level = document.getElementById('volume-level');
+  if (!AudioEngine) { control.hidden = true; return; }
+  let volume = 18;
+  try {
+    const saved = localStorage.getItem('titan-volume');
+    if (saved !== null && /^\d{1,3}$/.test(saved)) volume = Math.min(100, Number(saved));
+  } catch {}
 
   let muted = false;
   try { muted = localStorage.getItem('titan-sound-muted') === 'yes'; } catch {}
@@ -30,7 +38,7 @@
     const now = audio.currentTime;
     engines.gain.setTargetAtTime(gain, now, .9);
     filter.frequency.setTargetAtTime(outside ? 160 : hall ? 520 : 360, now, .8);
-    master.gain.setTargetAtTime(muted || document.hidden ? 0 : 0.54, now, 0.18);
+    master.gain.setTargetAtTime(muted || document.hidden ? 0 : volume / 100, now, 0.18);
   }
 
   function build() {
@@ -45,8 +53,12 @@
     mix();
   }
   function label() {
-    toggle.textContent = muted ? 'Ship sound · Off' : 'Ship sound · On';
-    toggle.setAttribute('aria-pressed', String(!muted));
+    slider.value = volume;
+    level.textContent = volume + '%';
+    slider.setAttribute('aria-valuetext', volume + ' percent');
+    control.querySelector('summary').title = 'Ship volume · ' + (muted ? 'Muted' : volume + '%');
+    toggle.textContent = muted ? 'Unmute' : 'Mute';
+    toggle.setAttribute('aria-pressed', String(muted));
   }
   function start() {
     if (muted || document.hidden) return;
@@ -61,6 +73,22 @@
     muted = !muted;
     try { localStorage.setItem('titan-sound-muted', muted ? 'yes' : 'no'); } catch {}
     label(); start(); mix();
+  });
+  slider.addEventListener('input', () => {
+    volume = Number(slider.value);
+    muted = false;
+    try {
+      localStorage.setItem('titan-volume', String(volume));
+      localStorage.setItem('titan-sound-muted', 'no');
+    } catch {}
+    label(); start(); mix();
+  });
+  control.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { control.open = false; control.querySelector('summary').focus(); }
+    event.stopPropagation();
+  });
+  document.addEventListener('pointerdown', event => {
+    if (!control.contains(event.target)) control.open = false;
   });
   document.addEventListener('click', unlock, true);
   document.addEventListener('keydown', event => { if (!event.repeat) unlock(event); }, true);
