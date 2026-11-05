@@ -19,17 +19,32 @@
 
 
 const skyKeys=['px','nx','py','ny','pz','nz'];
-const routes=[
- {id:'forge',name:'Jita',color:'#5caaba',hue:0},
- {id:'amarr',name:'Amarr',color:'#ecab4f',hue:95},
- {id:'pochven',name:'Raravoss',color:'#cb404c',hue:155}
-];
+const routes=vistas.map(([id,name])=>({id,name,hue:155,color:'#cb404c'}));
 const skyImages=Promise.all(skyKeys.map(async key=>{
  const img=new Image();img.src='assets/forge/'+key+'.webp';await img.decode();return img;
 }));
 async function systemSky(route){
  const images=await skyImages;
  if(route.id==='forge')return images;
+ if(route.id!=='pochven'){
+  const art=new Image();
+  const portrait=route.id==='nebula'||route.id==='transit';
+  art.src=route.id==='nebula'?'new-eden-nebula.webp':'assets/vistas/'+route.id+'.webp';
+  await art.decode();
+  if(portrait){
+   const faces=images.slice(),face=document.createElement('canvas'),n=images[4].width;
+   face.width=face.height=n;
+   const ctx=face.getContext('2d'),side=Math.min(art.width,art.height);
+   ctx.drawImage(art,(art.width-side)/2,(art.height-side)/2,side,side,0,0,n,n);
+   const fade=ctx.createRadialGradient(n/2,n/2,n*.27,n/2,n/2,n*.50);
+   fade.addColorStop(0,'white');fade.addColorStop(1,'transparent');ctx.globalCompositeOperation='destination-in';
+   ctx.fillStyle=fade;ctx.fillRect(0,0,n,n);ctx.globalCompositeOperation='destination-over';ctx.drawImage(images[4],0,0);
+   faces[4]=face;return faces;
+  }
+  const n=art.width/3;
+  return skyKeys.map((key,i)=>{const face=document.createElement('canvas');face.width=face.height=n;
+   face.getContext('2d').drawImage(art,i%3*n,Math.floor(i/3)*n,n,n,0,0,n,n);return face});
+ }
  return images.map((img,i)=>{
   const face=document.createElement('canvas');face.width=face.height=img.width;
   const ctx=face.getContext('2d'),n=face.width;
@@ -64,7 +79,7 @@ document.getElementById('jump-console').onclick=openJumpConsole;
 jumpPanel.addEventListener('keydown',event=>event.stopPropagation());
 function updateButtons(){
  const current=routes.find(route=>route.id===exteriorView);
- statusText.textContent='Current system · '+current.name;
+ statusText.textContent=warpReadout.textContent='Current system · '+current.name;
  for(const button of document.querySelectorAll('#routes button'))button.disabled=jumping||button.value===current.id;
 }
 function transit(){
@@ -81,11 +96,11 @@ function transit(){
 }
 for(const route of routes){
  const button=document.createElement('button');button.type='button';button.value=route.id;button.style.setProperty('--route',route.color);
- button.textContent=route.name;button.setAttribute('aria-label','Jump to '+route.name);
+ const picture=document.createElement('img');picture.alt='';picture.src=route.id==='pochven'?'assets/exhibits/poch-hd.webp':'assets/vistas/'+route.id+'-thumb.webp';const caption=document.createElement('span');caption.textContent=route.name;button.append(picture,caption);button.setAttribute('aria-label','Jump to '+route.name);
  button.onclick=async()=>{
   if(jumping||route.id===exteriorView)return;
   jumping=true;updateButtons();statusText.textContent='Aligning to '+route.name;
-  try{const faces=await systemSky(route);jumpPanel.close();await transit();activeSky=Promise.resolve(faces);exteriorView=route.id;
+  try{const faces=await systemSky(route);if(jumpPanel.open)jumpPanel.close();await transit();activeSky=Promise.resolve(faces);exteriorView=route.id;
    window.dispatchEvent(new Event('exteriorchange'));document.getElementById('jump-console').textContent=route.name+' · Jump navigation';
   }catch{statusText.textContent='Exterior failed to load. Select a system to retry.';jumping=false;for(const b of document.querySelectorAll('#routes button'))b.disabled=b.value===exteriorView;return}
   jumping=false;updateButtons();
@@ -98,3 +113,6 @@ function setCabinLight(){
  window.dispatchEvent(new Event('cabinlight'));
 }
 lightSlider.oninput=setCabinLight;updateButtons();
+
+
+window.plotWarp=id=>document.querySelector('#routes button[value="'+id+'"]')?.click();

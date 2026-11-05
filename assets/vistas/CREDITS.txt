@@ -1,0 +1,6 @@
+New Eden cubemaps: EVE Online artwork by CCP hf. / Fenris Creations.
+Prepared by DSuit Community Contributors, https://github.com/wannalink/eve-nebulas .
+The MIT license and third-party artwork notice are included in ../forge/LICENSE.txt.
+The navigation console names real New Eden systems. The scenic views and routes are simulated.
+Gas giant portrait: NASA/JPL/Space Science Institute, Cassini PIA04866.
+Recorded nebula: the supplied November 5, 2026 recording.

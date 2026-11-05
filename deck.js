@@ -138,6 +138,30 @@ function updateFeeds(now){
    else if(!visible&&!video.paused)video.pause();
  }
 }
+const vistas = [
+  ['forge','Jita','The Forge'], ['nebula','Amarr','Golden nebula'], ['a03','Sarum Prime','Amber cloud bank'],
+  ['a07','Yulai','Turquoise rift'], ['a08','Rens','Ember passage'], ['c01','Perimeter','Gas giant orbit'],
+  ['c03','Hek','Blue stellar nursery'], ['g02','Dodixie','Emerald veil'], ['j01','Luminaire','Distant cluster'],
+  ['transit','Thera','Recorded nebula'], ['pochven','Raravoss','Pochven']
+];
+const warpReadout=document.createElement('span');
+function buildRouteDisplay(display){
+ display.classList.add('route-display');
+ const heading=document.createElement('strong');heading.textContent='FLIGHT NAVIGATION';
+ warpReadout.className='warp-readout';warpReadout.textContent='Stand by';
+ const grid=document.createElement('div');grid.className='route-images';
+ for(const [id,system,view] of vistas){
+   const key=document.createElement('button'),image=document.createElement('img'),name=document.createElement('span');
+   image.src=id==='pochven'?'assets/exhibits/poch-hd.webp':'assets/vistas/'+id+'-thumb.webp';image.alt='';name.textContent=system;
+   key.type='button';key.value=id;key.dataset.route='warp';
+   key.dataset.station='Warp to '+system;key.title=system+' · '+view+' (simulated view)';
+   key.setAttribute('aria-label',key.dataset.station);
+   key.advance=()=>window.plotWarp?.(id);
+   key.onclick=e=>{if(!e.detail)key.advance()};
+   key.append(image,name);grid.append(key);
+ }
+ display.append(heading,grid,warpReadout);
+}
 function buildHelmConsole(h,items){
  const assembly=document.createElement('div');
  assembly.className='helm-assembly';
@@ -158,15 +182,18 @@ function buildHelmConsole(h,items){
  casework('console-support',114,180,88,208,-12);
  casework('console-case',h.w,218,64,0,0);
  const display=part('helm-display',h.w-22,194,0,0,2);
- const heading=document.createElement('button');heading.className='helm-title';heading.textContent=h.title;
- wire(heading,items[0]);display.append(heading);
- addInstrument(display,items,h.x,h.z);
- items.forEach(([id,label],i)=>{
-   const row=document.createElement('button');row.className='helm-row';
-   row.innerHTML='<span>'+label+'</span><span aria-hidden="true">›</span>';
-   wire(row,[id,label]);display.append(row);
- });
- wire(display,items[0]);
+ if(h.title==='Navigation')buildRouteDisplay(display);
+ else {
+   const heading=document.createElement('button');heading.className='helm-title';heading.textContent=h.title;
+   wire(heading,items[0]);display.append(heading);
+   addInstrument(display,items,h.x,h.z);
+   items.forEach(([id,label],i)=>{
+     const row=document.createElement('button');row.className='helm-row';
+     row.innerHTML='<span>'+label+'</span><span aria-hidden="true">›</span>';
+     wire(row,[id,label]);display.append(row);
+   });
+   wire(display,items[0]);
+ }
  const ledge=part('console-keys',h.w-16,65,0,123,32,0,62);
  for(const item of items){
    const key=document.createElement('button');key.title=item[1];key.textContent=item[1];wire(key,item);ledge.append(key);
@@ -209,8 +236,6 @@ for(const side of [-1,1]){
    formedQuad([[a,roofY+h,canopyFront],[b,roofY+t,canopyFront],[b,roofY+t,canopyAft],[a,roofY+h,canopyAft]],i===4?'warmline':'alloy');
  }
 }
-
-
 
 
 for(const side of [-1,1]){
@@ -1341,4 +1366,5 @@ if(location.hash==='#briefing'){x=-340;z=900;yaw=0;pitch=.09;view.focus()}
 if(location.hash==='#viewing-deck'){x=0;z=padCenter;yaw=-1.23;pitch=-.09;view.focus()}
 if(location.hash==='#holodeck'){x=500;z=cabinZ+365;yaw=1.0;pitch=.14;view.focus()}
 requestAnimationFrame(frame);
+
 
