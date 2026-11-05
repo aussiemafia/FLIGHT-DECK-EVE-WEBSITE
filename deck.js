@@ -81,7 +81,7 @@ function wire(button,item) {
 const instrumentFeeds=[];
 function addInstrument(display,items,px,pz){
  const primary=items[0][0];
- const name=primary==='wormholes'?'scanner':primary==='drifters'?'identity':'telemetry';
+ const name=stationMedia(primary);
  const video=document.createElement('video');
  video.className='station-feed';video.muted=true;video.loop=true;video.playsInline=true;
  video.preload='none';video.poster='assets/instruments/'+name+'.webp';
@@ -166,6 +166,15 @@ function terminal(title,list,x,z,angle){
  for(const sign of [-1,1]){
    plane('case-edge',depth,high,x+sign*width*.5*Math.cos(rad)-Math.sin(rad)*depth/2,32,z-sign*width*.5*Math.sin(rad)-Math.cos(rad)*depth/2,angle+sign*90);
    plane('case-edge',width,depth,x-Math.sin(rad)*depth/2,32+sign*high/2,z-Math.cos(rad)*depth/2,angle,-sign*90);
+ }
+ if(z>1200){
+   const item=list[list.length>1?1:0];
+   const offset=width*.62+82;
+   const hx=x+Math.cos(rad)*offset+Math.sin(rad)*48,hz=z-Math.sin(rad)*offset+Math.cos(rad)*48;
+   const projection=plane('screen room-projection',158,106,hx,-66,hz,angle);
+   addInstrument(projection,[item],hx,hz);
+   const link=document.createElement('button');link.textContent=item[1];
+   wire(link,item);projection.append(link);wire(projection,item);
  }
  const switches=plane('switches',480,108,x+Math.sin(rad)*31,209,z+Math.cos(rad)*31,angle,52);
  for(const item of list){const key=document.createElement('button');key.textContent=item[1];wire(key,item);switches.append(key);}
@@ -262,7 +271,7 @@ function clad(el,cols,rows,zone){
  }
 }
 // All dimensions use 245 scene units per metre. Deck level is y=416.
-const floorY=416, roomHeight=640, passageStart=1200, passageEnd=5500;
+const floorY=416, roomHeight=640, passageStart=1200, passageEnd=14300;
 const roomCentreZ = 2540, roomDepth = 1560, roomWidth = 1020;
 function panelWall(w,h,x,y,z,angle) {
  // Keep the interior face at its design coordinate and extrude outward 20 cm.
@@ -338,7 +347,57 @@ function plaque(title,x,y,z,angle,width=330) {
 }
 // Ribbed pressure-door collars run through the partition. Cross ties and
 // chamfered corners expose its return faces from either adjoining room.
+const hatches=[];
+function fitHatch(x,z,angle){
+ const a=angle*Math.PI/180,ux=Math.cos(a),uz=-Math.sin(a),nx=-uz,nz=ux;
+ const id=hatches.length,door={x,z,ux,uz,openness:0};
+ hatches.push(door);
+ // The offset joint makes a fitted tooth through the full depth of both leaves.
+ const seam=[[-117,0],[26,0],[61,28],[130,28],[165,0],[276,0],[303,-19],[356,-19],[379,0],[416,0]];
+ for(const side of [-1,1]){
+   const vertex=(u,y,d)=>[x+u*ux+d*nx,y,z+u*uz+d*nz];
+   const face=(points,finish)=>formedPanels.push({points:points.map(q=>vertex(...q)),finish,leaf:id*2+(side===1?1:0)});
+   for(let j=1;j<seam.length;j++){
+     const [top,start]=seam[j-1],[bottom,end]=seam[j];
+     const left=side*168,lip=start+side*1.5,tip=end+side*1.5;
+     for(const depth of [-10,10]){
+       face([[left,top,depth],[lip,top,depth],[tip,bottom,depth],[left,bottom,depth]],'pearl');
+       face([[lip,top,depth*1.03],[lip+side*3,top,depth*1.03],[tip+side*3,bottom,depth*1.03],[tip,bottom,depth*1.03]],'alloy');
+     }
+     face([[lip,top,-10],[tip,bottom,-10],[tip,bottom,10],[lip,top,10]],'gasket');
+   }
+   for(const d of [-11,11])face([[side*116,5,d],[side*122,5,d],[side*122,138,d],[side*116,138,d]],'glasslight');
+ }
+}
+function animateHatches(px,pz,dt){
+ for(const door of hatches){
+   const dx=px-door.x,dz=pz-door.z;
+   const lateral=Math.abs(dx*door.ux+dz*door.uz),normal=Math.abs(dz*door.ux-dx*door.uz);
+   const near=lateral<218&&normal<(door.openness>0?290:240);
+   const change=(near?2.7:-1.65)*dt;
+   door.openness=Math.max(0,Math.min(1,door.openness+change));
+ }
+}
+function hatchHit(ex,ey,ez,dx,dy,dz){
+ let nearest=Infinity;
+ for(const d of hatches){
+   const v=dz*d.ux-dx*d.uz;
+   if(Math.abs(v)<.0001)continue;
+   const t=((d.z-ez)*d.ux-(d.x-ex)*d.uz)/v;
+   if(t<=0||t>=nearest)continue;
+   const y=ey+t*dy,u=(ex+t*dx-d.x)*d.ux+(ez+t*dz-d.z)*d.uz;
+   const offset=202*d.openness*d.openness*(3-2*d.openness);
+   if(y>=-117&&y<=416&&Math.abs(u)<=168&&Math.abs(u)>=offset)nearest=t;
+ }
+ return nearest;
+}
+function leafShift(leaf){
+ const d=hatches[leaf>>1],t=d.openness;
+ const amount=(leaf%2?1:-1)*202*t*t*(3-2*t);
+ return [d.ux*amount,d.uz*amount];
+}
 function hatchCollar(x,z,angle){
+ fitHatch(x,z,angle);
  const a=angle*Math.PI/180;
  function member(type,u,y,d,w,h,thick){
    const cx=x+u*Math.cos(a)+d*Math.sin(a),cz=z-u*Math.sin(a)+d*Math.cos(a);
@@ -395,12 +454,12 @@ for(const side of [-1,1]){
  plane('promenade-light',7,2025,side*220,-202,4440,0,-90);
 }
 windowWall(490,roomHeight,0,floorY-roomHeight/2,passageEnd,180,[0],320,180,-94);
-plaque('OBSERVATION   /   CREW QUARTERS',0,50,passageEnd-14,180,470);
+plaque('AFT OBSERVATION',0,50,passageEnd-14,180,470);
 for(const side of [-1,1]){
  const inner=245*side,outer=(245+roomWidth)*side,mid=(inner+outer)/2;
  const facing=-side*90;
  // One continuous partition with a person-sized opening into each room.
- for(const [start,end] of [[passageStart,roomCentreZ-180],[roomCentreZ+180,4260],[4620,passageEnd]]){
+ for(const [start,end] of [[passageStart,roomCentreZ-180],[roomCentreZ+180,4260],[4620,5500]]){
   panelWall(end-start,roomHeight,inner, floorY-roomHeight/2,(end+start)/2,facing);
  }
  panelWall(360,roomHeight-545,inner,floorY-roomHeight+(roomHeight-545)/2,roomCentreZ,facing);
@@ -462,6 +521,43 @@ for(const side of [-1,1]){
  }
  for(const el of Array.from(world.children).slice(start))el.classList.add(lounge?'lounge-zone':'cabin-zone');
 }
+const aftBays=[
+ [['Cartography',0],['Survey office',0]],
+ [['Engineering',2],['Ore processing',2]],
+ [['Fleet briefing',1],['Signal analysis',1]],
+ [['Records vault',3],['Logistics',2]],
+ [['Science lab',0],['Pilot ready room',3]]
+];
+const roomStations=[{z:roomCentreZ,depth:roomDepth,names:['Intelligence','Navigation lab']},{z:cabinZ,depth:cabinDepth,names:['Crew quarters','Observation lounge']}];
+for(let bay=0;bay<aftBays.length;bay++){
+ const start=5500+bay*1760,cz=start+880,depth=1250;
+ roomStations.push({z:cz,depth,names:aftBays[bay].map(entry=>entry[0])});
+ for(const side of [-1,1]){
+   const [title,group]=aftBays[bay][side<0?0:1],angle=-side*90,inner=245*side,outer=1265*side,mid=755*side;
+   for(const sign of [-1,1]){
+     panelWall(700,roomHeight,inner,96,cz+sign*530,angle);
+     panelWall(roomWidth,roomHeight,mid,96,cz+sign*depth/2,sign<0?0:180);
+   }
+   panelWall(360,roomHeight-545,inner,floorY-roomHeight+(roomHeight-545)/2,cz,angle);
+   hatchCollar(inner,cz,angle);
+   floorAndCeiling(roomWidth,depth,mid,cz);
+   windowWall(depth,roomHeight,outer,96,cz,angle,[-365,365],350,245,-68);
+   terminal(title.toUpperCase(),groups[group],outer-side*34,cz,angle);
+   plaque(title.toUpperCase(),inner-side*17,-172,cz,angle,330);
+   plane('lab-wash',440,15,mid,-192,cz-depth/2+7,0);
+   if(group===1||group===3)addChair(mid,cz+305,group===1?'lab':'pod');
+   else{
+     block('lounge-base',mid,365,cz+330,246,90,117);
+     block('tabletop',mid,312,cz+330,266,17,132);
+     furnishings.push([mid,cz+330,133,66]);
+   }
+   plane('promenade-light',8,1754,side*194,410,cz,0,90);
+   plane('lamp',12,1470,side*150,-211,cz,0,-90);
+ }
+}
+function nearestRoom(pz){
+ return roomStations.reduce((best,r)=>Math.abs(r.z-pz)<Math.abs(best.z-pz)?r:best);
+}
 plaque('OBSERVATION  /  CREW QUARTERS   → AFT',-226,60,3410,90,440);
 function displayCase(w,h,x,y,z,angle,depth=9){
  const a=angle*Math.PI/180, nx=Math.sin(a),nz=Math.cos(a);
@@ -516,6 +612,14 @@ function activateStation(control){
  }
  if(control===hologram||control===holoAction){openRecord(...projected);return;}
  projected=[control.dataset.route,control.dataset.station];
+ const consoleFace=control.closest('.screen,.helm-display');
+ const instrument=consoleFace?.querySelector('.station-feed');
+ if(instrument){
+   const media='assets/instruments/'+stationMedia(projected[0]);
+   if(instrument.getAttribute('src')!==media+'.mp4'){
+     instrument.poster=media+'.webp';instrument.src=media+'.mp4';
+   }
+ }
  labelProjection();
  const brief={
   ships:['naglfar-cutout','HULL IDENTIFICATION','Marauders · Capitals · Drifters'],
@@ -607,7 +711,7 @@ function pickStation(clientX,clientY){
  const sy=Math.sin(yaw),cy=Math.cos(yaw),sp=Math.sin(pitch),cp=Math.cos(pitch);
  const dz=vertical*sp-cp,dx=horizontal*cy-dz*sy,dy=vertical*cp+sp,wz=horizontal*sy+dz*cy;
  const eyeY=seated?105:0;
- let nearest=Infinity,hit=null;
+ let nearest=hatchHit(x,eyeY,z,dx,dy,wz),hit=null;
  for(const p of pickPlanes){
    const bx=p.cx-x,by=p.cy-eyeY,bz=p.cz-z;
    const along=(bx*dx+by*dy+bz*wz)/(dx*dx+dy*dy+wz*wz);
@@ -663,6 +767,11 @@ window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener(
 function isClear(px,pz){
  const radius=42;
 
+ for(const d of hatches){
+   const dx=px-d.x,dz=pz-d.z;
+   if(Math.abs(dz*d.ux-dx*d.uz)<radius+10&&Math.abs(dx*d.ux+dz*d.uz)<168&&
+      Math.abs(dx*d.ux+dz*d.uz)+radius+28>202*d.openness*d.openness*(3-2*d.openness))return false;
+ }
  if(pz < -650 || pz > passageEnd-radius)return false;
  if(pz < passageStart-radius){
    if(Math.abs(px)>793-radius)return false;
@@ -673,8 +782,7 @@ function isClear(px,pz){
  if(Math.abs(pz-passageStart)<=radius && Math.abs(px)>180-radius)return false;
  if(pz>passageStart+radius){
   const distance=Math.abs(px);
-  const cabin=Math.abs(pz-cabinZ)<Math.abs(pz-roomCentreZ);
-  const near=cabin?cabinZ:roomCentreZ,depth=cabin?cabinDepth:roomDepth;
+  const {z:near,depth}=nearestRoom(pz);
   if(distance>245+roomWidth-radius)return false;
   if(distance>245+roomWidth-135 && Math.abs(pz-near)<230)return false;
   if(distance>245-radius && Math.abs(pz-near)>180-radius && distance<245+radius)return false;
@@ -704,6 +812,7 @@ function frame(now){
    fpsStart=now;fpsFrames=0;
  }
  const dt=Math.max(0,Math.min(.075,(now-previous)/1000));previous=now;
+ animateHatches(x,z,dt);
  const f=Number(keys.has('KeyW'))-Number(keys.has('KeyS')),r=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
  const step=dt*315/Math.max(1,Math.hypot(f,r));
  yaw+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.6;
@@ -719,7 +828,7 @@ function frame(now){
  world.style.transform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(seated?-105:((r||f)?Math.sin(now*.012)*2:0))+'px,'+(-z)+'px)';
  if(now-lastAim>55){target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);lastAim=now;}
  $('use').hidden=!target;if(target && $('use').textContent!=='E　'+target.dataset.station)$('use').textContent='E　'+target.dataset.station;
- const sector=z<1200?'Flight deck':Math.abs(x)<245?'Aft passage':z>3650?(x>0?'Observation lounge':'Crew quarters'):(x>0?'Navigation lab':'Intelligence');
+ const sector=z<1200?'Flight deck':Math.abs(x)<245?'Aft passage':nearestRoom(z).names[x>0?1:0];
  if($('sector').textContent!==sector)$('sector').textContent=sector;
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
  const bearing=navDisplay.querySelector('.bearing'),value=String(degrees).padStart(3,'0')+'°';

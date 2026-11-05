@@ -1,6 +1,7 @@
 // Offscreen fallback for machines that do not expose WebGL. The hull is always
 // resident; depth testing, rather than room-entry events, determines visibility.
 let wasm,sceneSize,scenePtr=65536,images,display,ctx,pixels,mem;
+let leafVertices=[];
 let width=0,height=0,lastMirror=-Infinity,paintedPose='';
 const imageBytes=1024*1024*4;
 function reserve(bytes){
@@ -8,10 +9,10 @@ function reserve(bytes){
   if(diff>0)wasm.memory.grow(Math.ceil(diff/65536));
   mem=wasm.memory.buffer;
 }
-async function initialize({canvas,scene,urls}){
+async function initialize({canvas,scene,doorVertices,urls}){
   const binary=await (await fetch('software.wasm?v=3')).arrayBuffer();
   wasm=(await WebAssembly.instantiate(binary,{env:{abort:()=>{throw Error('Renderer allocation failed')}}})).instance.exports;
-  sceneSize=scene.byteLength/68;images=scenePtr+scene.byteLength;display=images+urls.length*imageBytes;
+  leafVertices=doorVertices;sceneSize=scene.byteLength/68;images=scenePtr+scene.byteLength;display=images+urls.length*imageBytes;
   reserve(display+32);
   new Uint8Array(mem,scenePtr,scene.byteLength).set(new Uint8Array(scene));
   ctx=canvas.getContext('2d',{alpha:false});self.output=canvas;
@@ -39,7 +40,14 @@ self.onmessage=async({data})=>{
    width=w;height=h;self.output.width=w;self.output.height=h;reserve(mirrorDepth+mw*mh*4);
    pixels=new ImageData(new Uint8ClampedArray(mem,display,w*h*4),w,h);lastMirror=-Infinity;
  }
- const pose=[x,y,z,yaw,pitch,w,h].join('/');
+ const shifts=data.shifts;
+ const pose=[x,y,z,yaw,pitch,w,h,...shifts.flat()].join('/');
+ if(pose!==paintedPose){
+   const geometry=new Float32Array(mem,scenePtr,sceneSize*17);
+   for(const [leaf,idx,ox,oz] of leafVertices){
+     geometry[idx]=ox+shifts[leaf][0];geometry[idx+2]=oz+shifts[leaf][1];
+   }
+ }
  if(pose!==paintedPose||now-lastMirror>160){
    const args=[x,y,z,Math.sin(yaw),Math.cos(yaw),Math.sin(pitch),Math.cos(pitch)];
    if(pose!==paintedPose||now-lastMirror>160){

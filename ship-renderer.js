@@ -14,13 +14,15 @@
  let lastRoom='';
  const partitions=all.filter(el=>el.matches('.hull-panel,.hull-back')).map(el=>({inv:matrixFor(el).inverse(),w:parseFloat(el.style.width)/2,h:parseFloat(el.style.height)/2}));
  const nativeCentres=live.map(({el})=>{const m=matrixFor(el);return [m.m41,m.m42,m.m43]});
- let sightX=Infinity,sightZ=Infinity;
+ let sightX=Infinity,sightZ=Infinity,sightDoors=-1;
  function showRoom(ex,ez){
-   if(Math.hypot(ex-sightX,ez-sightZ)<14)return;
+   const openness=hatches.reduce((v,d)=>v+Math.round(d.openness*8),0);
+   if(openness===sightDoors&&Math.hypot(ex-sightX,ez-sightZ)<14)return;
+   sightDoors=openness;
    sightX=ex;sightZ=ez;
    live.forEach(({el},i)=>{
      const [xx,yy,zz]=nativeCentres[i],dx=xx-ex,dy=yy,dz=zz-ez;
-     const blocked=partitions.some(({inv:m,w,h})=>{
+     const blocked=Math.abs(dx)>2200||Math.abs(dz)>2200||hatchHit(ex,0,ez,dx,dy,dz)<.992||partitions.some(({inv:m,w,h})=>{
        const oz=ex*m.m13+ez*m.m33+m.m43,vz=dx*m.m13+dy*m.m23+dz*m.m33;
        if(Math.abs(vz)<.001)return false;const t=-oz/vz;if(t<=0||t>=.992)return false;
        const px=ex+dx*t,py=dy*t,pz=ez+dz*t;
@@ -80,9 +82,9 @@
      const pts=panel.points.map(([x,y,z])=>({x,y,z}));
      const cx=pts.reduce((v,p)=>v+p.x,0)/4,cy=pts.reduce((v,p)=>v+p.y,0)/4,cz=pts.reduce((v,p)=>v+p.z,0)/4;
      const fill={pearl:'#a6b7bb',alloy:'#73858e',gasket:'#263642',glasslight:'#c8f4fb'}[panel.finish];
-     items.push({pts,kind:panel.finish,fill,cx,cy,cz,nx:0,ny:0,nz:0,size:Math.max(...pts.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),two:true,zone:room(cx,cz)});
+     items.push({pts,leaf:panel.leaf,kind:panel.finish,fill,cx,cy,cz,nx:0,ny:0,nz:0,size:Math.max(...pts.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),two:true,zone:room(cx,cz)});
    }
-   const packed=[];
+   const packed=[],doorVertices=[];
    const kindOf={armour:6,crest:7,orbital:8,drifting:9};
    for(const item of items){
      if(item.kind==='glass'||item.ring)continue;
@@ -94,7 +96,7 @@
      const word=(255<<24)|(rgb[2]<<16)|(rgb[1]<<8)|rgb[0];
      for(let i=0;i<sides.length;i+=3){
        for(const n of sides.slice(i,i+3)){
-         const p=pts[n];packed.push(p.x,p.y,p.z,uv[n][0],uv[n][1]);
+         const p=pts[n];if(item.leaf!==undefined)doorVertices.push([item.leaf,packed.length,p.x,p.z]);packed.push(p.x,p.y,p.z,uv[n][0],uv[n][1]);
        }
        packed.push(word,item.kind==='floor'?1:(kindOf[item.a]||0));
      }
@@ -103,7 +105,7 @@
    for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
    const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
    for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp'])urls.push(new URL(path,document.baseURI).href);
-   const worker=new Worker('assets/renderer/worker.js?v=3'),offscreen=canvas.transferControlToOffscreen();
+   const worker=new Worker('assets/renderer/worker.js?v=doors4'),offscreen=canvas.transferControlToOffscreen();
    let ready=false,pending=false;
    worker.onmessage=({data})=>{
      if(data==='ready'){
@@ -114,10 +116,10 @@
      if(data==='frame'){pending=false;window.presentedShipFrames=(window.presentedShipFrames||0)+1;}
      if(data?.error)console.error(data.error);
    };
-   worker.postMessage({type:'init',canvas:offscreen,scene:scene.buffer,urls},[offscreen,scene.buffer]);
+   worker.postMessage({type:'init',canvas:offscreen,scene:scene.buffer,doorVertices,urls},[offscreen,scene.buffer]);
    window.renderShip=(now,x,y,z,yaw,pitch,lens)=>{
      showRoom(x,z);if(!ready||pending)return;pending=true;
-     worker.postMessage({w:innerWidth,h:innerHeight,x,y,z,yaw,pitch,lens,now});
+     worker.postMessage({w:innerWidth,h:innerHeight,x,y,z,yaw,pitch,lens,now,shifts:hatches.flatMap((_,i)=>[leafShift(i*2),leafShift(i*2+1)])});
    };
    return;
  }
@@ -182,9 +184,9 @@
  const pr=gl.createProgram();
  gl.attachShader(pr,shader(gl.VERTEX_SHADER,`
  attribute vec3 position,normal;attribute vec2 uv;attribute float kind;
- uniform vec3 eye;uniform vec4 angles;uniform vec2 proj;uniform float mirror,clock;
+ uniform vec2 leafOffset;uniform vec3 eye;uniform vec4 angles;uniform vec2 proj;uniform float mirror,clock;
  varying vec3 wp,norm;varying vec2 tex;varying float type;
- void main(){vec3 p=position;type=kind;tex=uv;norm=normal;wp=p;
+ void main(){vec3 p=position+vec3(leafOffset.x,0.,leafOffset.y);type=kind;tex=uv;norm=normal;wp=p;
  if(kind>4.5&&kind<5.5)p+=vec3(eye.x,0.,eye.z);
  if(kind>5.5)p+=vec3(sin(clock*.045)*140.,cos(clock*.036)*28.,0.);
  if(mirror>.5)p.y=832.-p.y;
@@ -192,7 +194,8 @@
  float forward=angles.x*d.x-angles.y*d.z;
  float vy=angles.w*d.y-angles.z*forward;
  float depth=angles.w*forward+angles.z*d.y;
- gl_Position=vec4(vx*proj.x,-vy*proj.y,depth*1.0002-2.2,depth);}`));
+ gl_Position=vec4(vx*proj.x,-vy*proj.y,depth*1.00006-2.2,depth);
+ if(kind>4.5&&kind<5.5)gl_Position.z=depth*.99999;}`));
  gl.attachShader(pr,shader(gl.FRAGMENT_SHADER,`
  precision highp float;varying vec2 tex;varying vec3 wp,norm;varying float type;
  uniform sampler2D sheet,reflected,displays;uniform float moving;uniform samplerCube space;uniform vec2 viewport;uniform float mirror;uniform vec3 eye;
@@ -215,7 +218,7 @@
  vec3 env=textureCube(space,vec3(ray.x,-ray.y,-ray.z)).rgb;
  gl_FragColor=vec4(mix(base.rgb*light,env,.025+.10*pow(1.-facing,3.)),base.a);}`));
  gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);
- const uniforms=Object.fromEntries(['eye','angles','proj','mirror','clock','sheet','reflected','space','viewport','displays','moving'].map(k=>[k,gl.getUniformLocation(pr,k)]));
+ const uniforms=Object.fromEntries(['leafOffset','eye','angles','proj','mirror','clock','sheet','reflected','space','viewport','displays','moving'].map(k=>[k,gl.getUniformLocation(pr,k)]));
  const atlasTex=gl.createTexture();
  function updateAtlas(){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,atlasTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,atlas);gl.generateMipmap(gl.TEXTURE_2D);}
  updateAtlas();gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
@@ -237,7 +240,7 @@
  }
  // Rasterize control faces once, using the same measured buttons as hit testing.
  // They can move with the hull in one draw while the pilot is walking.
- const uiAtlas=document.createElement('canvas');uiAtlas.width=uiAtlas.height=2048;
+ const uiAtlas=document.createElement('canvas');uiAtlas.width=2048;uiAtlas.height=2**Math.ceil(Math.log2(Math.max(256,Math.ceil(live.length/8)*256)));
  const uc=uiAtlas.getContext('2d'),uiTex=gl.createTexture(),uiTiles=new Map();
  function paintInstruments(){
    live.forEach(({el},i)=>{
@@ -300,7 +303,7 @@
    const [a,b,,d]=panel.points,e=b.map((v,i)=>v-a[i]),f=d.map((v,i)=>v-a[i]);
    const n=[e[1]*f[2]-e[2]*f[1],e[2]*f[0]-e[0]*f[2],e[0]*f[1]-e[1]*f[0]];
    const len=Math.hypot(...n)||1;const name={pearl:'white',alloy:'shell',gasket:'dark',glasslight:'cyan'}[panel.finish];
-   const [tx,ty]=tileOrigin(name),key='formed:solid';if(!groups.has(key))groups.set(key,[]);
+   const [tx,ty]=tileOrigin(name),key=panel.leaf===undefined?'formed:solid':'leaf'+panel.leaf+':solid';if(!groups.has(key))groups.set(key,[]);
    for(const i of [0,1,2,0,2,3]){
      const v=panel.points[i];groups.get(key).push(...v,n[0]/len,n[1]/len,n[2]/len,(tx+tile*.5)/atlas.width,(ty+tile*.5)/atlas.height,name==='cyan'?3:0);
    }
@@ -313,7 +316,13 @@
  const sceneBuffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,sceneBuffer);
  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);
  
- function draw(mode){for(const r of ranges)if(r.mode===mode)gl.drawArrays(gl.TRIANGLES,r.offset,r.count);}
+ function draw(mode){
+   for(const r of ranges){
+     if(r.mode!==mode)continue;
+     const shift=r.zone.startsWith('leaf')?leafShift(Number(r.zone.slice(4))):[0,0];
+     gl.uniform2f(uniforms.leafOffset,shift[0],shift[1]);gl.drawArrays(gl.TRIANGLES,r.offset,r.count);
+   }
+ }
  for(const [key,n,offset] of [['position',3,0],['normal',3,3],['uv',2,6],['kind',1,8]]){
    const i=gl.getAttribLocation(pr,key);gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,n,gl.FLOAT,false,36,offset*4);
  }
@@ -338,7 +347,8 @@
    showRoom(ex,ez);
    const pixelRatio=Math.min(devicePixelRatio||1,1.5);
    const pose=[ex,ey,ez,yaw,pitch,innerWidth,innerHeight,pixelRatio].join('/');
-   if(previousPose===pose && now-lastReflection<110)return;
+   const cycling=hatches.some(d=>d.openness>0&&d.openness<1);
+   if(previousPose===pose && !cycling && now-lastReflection<110)return;
    const moving=previousPose!==pose;previousPose=pose;
    gl.uniform1f(uniforms.moving,0);
    const w=Math.round(innerWidth*pixelRatio),h=Math.round(innerHeight*pixelRatio);
