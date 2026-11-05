@@ -292,10 +292,15 @@
    for(let i=0;i<packed.length;i+=17){words[i+15]=packed[i+15];words[i+16]=packed[i+16];}
    const urls=['px','nx','py','ny','pz','nz'].map(k=>new URL('assets/forge/'+k+'.webp',document.baseURI).href);
    for(const path of ['assets/pearl-bulkhead.svg','archive/assets/expanse-ring-wordmark.webp','archive/assets/fortizar-cutout.webp','archive/assets/naglfar-cutout.webp','assets/satin-panel.webp','assets/avatar-broadside.webp','assets/avatar-collar.webp'])urls.push(new URL(path,document.baseURI).href);
-   const worker=new Worker('assets/renderer/worker.js?v=holodeck-hd-5'),offscreen=canvas.transferControlToOffscreen();
+   const worker=new Worker('assets/renderer/worker.js?v=flight-briefings-9'),offscreen=canvas.transferControlToOffscreen();
    let ready=false,pending=false;
    worker.onmessage=({data})=>{
      if(data==='ready'){
+       const updateSky=()=>applyForwardSky(async face=>{
+         const choice=exteriorView,bitmap=await createImageBitmap(face);
+         if(choice===exteriorView)worker.postMessage({type:'forward-sky',bitmap},[bitmap]);else bitmap.close();
+       });
+       window.addEventListener('exteriorchange',updateSky);if(exteriorView!=='forge')updateSky();
        const img=new Image();img.onload=()=>{const bitmap=document.createElement('canvas');bitmap.width=bitmap.height=1024;
          const ink=bitmap.getContext('2d');ink.drawImage(img,0,0,1024,1024);const bytes=ink.getImageData(0,0,1024,1024).data.buffer;
          const lights=lightInk.getImageData(0,0,1024,1024).data.buffer;
@@ -449,6 +454,11 @@
  gl.uniform1i(uniforms.lighting,2);
  Promise.all(['px','nx','py','ny','pz','nz'].map(f=>loadImage('assets/forge/'+f+'.webp'))).then(imgs=>{
    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_CUBE_MAP,cube);imgs.forEach((im,i)=>gl.texImage2D(gl['TEXTURE_CUBE_MAP_'+cubeTargets[i]],0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,im));
+   const updateSky=()=>applyForwardSky(face=>{
+     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_CUBE_MAP,cube);
+     gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,face);previousPose=null;
+   });
+   window.addEventListener('exteriorchange',updateSky);if(exteriorView!=='forge')updateSky();
  });
  for(const [name,src] of Object.entries({armour:'assets/pearl-bulkhead.svg',crest:'archive/assets/expanse-ring-wordmark.webp',orbital:'archive/assets/fortizar-cutout.webp',drifting:'archive/assets/naglfar-cutout.webp'})){
    loadImage(src).then(im=>{const [x,y]=tileOrigin(name);ctx.clearRect(x,y,tile,tile);

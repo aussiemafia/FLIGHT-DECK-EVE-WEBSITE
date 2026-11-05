@@ -36,6 +36,12 @@ async function initialize({canvas,scene,doorVertices,urls}){
 }
 self.onmessage=async({data})=>{
  if(data.type==='init'){try{await initialize(data)}catch(e){self.postMessage({error:String(e)})}return;}
+ if(data.type==='forward-sky'){
+   const face=new OffscreenCanvas(1024,1024),ink=face.getContext('2d');
+   ink.drawImage(data.bitmap,0,0,1024,1024);data.bitmap.close();
+   new Uint8Array(mem,images+4*imageBytes,imageBytes).set(ink.getImageData(0,0,1024,1024).data);
+   paintedPose='';lastDetail=false;return;
+ }
  if(data.type==='material'){new Uint8Array(mem,images+13*imageBytes,imageBytes).set(new Uint8Array(data.lights));new Uint8Array(mem,images+6*imageBytes,imageBytes).set(new Uint8Array(data.bytes));return;}
  if(!wasm||!ctx)return;
  const {x,y,z,yaw,pitch,now}=data;

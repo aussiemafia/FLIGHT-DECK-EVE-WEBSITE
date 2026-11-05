@@ -993,7 +993,50 @@ let projected=['ships','Fortizar observation feed'];
 function showBridgeRecord(key,route=exhibitPlates[key][1],label=exhibitPlates[key][0]){
  projected=[route,label,key];renderProjection(bridgeParts,key,route);labelProjection();
 }
-hologram.showRecord=showBridgeRecord;showBridgeRecord('fort');
+hologram.showRecord=showBridgeRecord;
+const briefings=[
+ ['hole','Navigation lab','What can a wormhole tell you before you jump?'],
+ ['fit-golem-5n','Pilot ready room','How is a Golem fitted for a C5 site?'],
+ ['veld','Ore processing','Which mineral comes from Veldspar?'],
+ ['pros','Survey office','Which frigate can you take gas harvesting?'],
+ ['drifter','Intelligence','How do you tell Drifter contacts apart?'],
+ ['site-c5-core-garrison','Fleet briefing','What is waiting in a Core Garrison?'],
+ ['salvage','Logistics','Which ship recovers material from wrecks?'],
+ ['scord','Ore processing','What does Scordite refine into?']
+];
+const today=new Date();
+const dailyIndex=Math.floor(Date.UTC(today.getFullYear(),today.getMonth(),today.getDate())/86400000)%briefings.length;
+let briefingIndex=dailyIndex;
+displayCase(305,178,-340,47,535,0,17);
+furnishing('lounge-base',-340,377,521,183,77,110);
+upholstery('bronze',-340,230,521,45,228,29);
+furnishings.push([-340,521,152,57]);
+const learningDesk=plane('screen learning-desk',300,174,-340,47,540);
+const deskHeading=document.createElement('strong'),prompt=document.createElement('p');
+learningDesk.append(deskHeading,prompt);
+function deskButton(action){
+ const button=document.createElement('button');button.className='station-row';button.advance=action;
+ button.dataset.route='bridge-control';button.onclick=e=>{if(!e.detail)action()};
+ learningDesk.append(button);return button;
+}
+const readBrief=deskButton(()=>{selectBriefing(briefingIndex);openRecord(...projected)});
+const anotherBrief=deskButton(()=>selectBriefing((briefingIndex+1)%briefings.length));
+anotherBrief.textContent=anotherBrief.dataset.station='Explore another record';
+const changeSky=deskButton(()=>{
+ exteriorView=exteriorView==='forge'?'nebula':'forge';
+ try{localStorage.setItem('avatar-exterior',exteriorView)}catch{}
+ labelSky();window.dispatchEvent(new Event('exteriorchange'));
+});
+let exteriorView='forge';
+try{if(localStorage.getItem('avatar-exterior')==='nebula')exteriorView='nebula'}catch{}
+function labelSky(){changeSky.textContent=changeSky.dataset.station=exteriorView==='forge'?'View golden nebula':'View The Forge'}
+function selectBriefing(index){
+ briefingIndex=index;const [key,room,question]=briefings[index];
+ deskHeading.textContent=index===dailyIndex?'Today’s flight briefing':'Flight briefing';
+ prompt.textContent=question;readBrief.textContent=readBrief.dataset.station='Read record · '+room;
+ showBridgeRecord(key);
+}
+labelSky();selectBriefing(dailyIndex);
 function labelProjection(){
  holoAction.dataset.station='Open '+projected[1];
  holoAction.textContent=holoAction.dataset.station+'  ›';
@@ -1263,6 +1306,7 @@ function frame(now){
  else window.drawExterior?.(x,z);
  requestAnimationFrame(frame);
 }
+if(location.hash==='#briefing'){x=-340;z=900;yaw=0;pitch=.09;view.focus()}
 if(location.hash==='#viewing-deck'){x=0;z=padCenter;yaw=-1.23;pitch=-.09;view.focus()}
 if(location.hash==='#holodeck'){x=500;z=cabinZ+365;yaw=1.0;pitch=.14;view.focus()}
 requestAnimationFrame(frame);
