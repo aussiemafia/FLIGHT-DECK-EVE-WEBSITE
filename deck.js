@@ -1159,7 +1159,7 @@ function openMedia(){
  if(!dialog.open)dialog.showModal();
  $('media-query').focus();
 }
-// Only repository editors can change the public holodeck catalogue.
+// Featured films are also available without a search.
 const holodeckFilms=Object.freeze([
  {id:'e2X1MIR1KMs',title:'This is EVE',topic:'Official trailer · PG-13 edition'},
  {id:'ArCI4bi9Eyg',title:'Fitting your ship',topic:'EVE Academy · Mission running'},
@@ -1170,16 +1170,26 @@ function watchMedia(id){
  if(!film)return;
  clearMovie();
  cinemaPlayer=document.createElement('iframe');
- cinemaPlayer.id='cinema-player';cinemaPlayer.title=film.title;
+ cinemaPlayer.id='cinema-player';cinemaPlayer.title=film?.title||"YouTube video";
  cinemaPlayer.tabIndex=0;cinemaPlayer.style.pointerEvents='auto';cinemaPlayer.allowFullscreen=true;
  cinemaPlayer.allow='autoplay; fullscreen; encrypted-media';
  cinemaPlayer.referrerPolicy='strict-origin-when-cross-origin';
- cinemaPlayer.src='https://www.youtube-nocookie.com/embed/'+film.id+'?autoplay=1&mute=1&playsinline=1&controls=1&rel=0&enablejsapi=1&origin='+encodeURIComponent(location.origin);
+ cinemaPlayer.src='https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&mute=1&playsinline=1&controls=1&rel=0&enablejsapi=1&origin='+encodeURIComponent(location.origin);
+ $('stop-video').hidden=false;
  movieScreen().append(cinemaPlayer);movieScreen().classList.add('showing');
  $('media-library').close();view.focus();
 }
 function movieScreen(){return seated?.pod?.glass || cinemaWall;}
-function clearMovie(){cinemaPlayer?.parentElement?.classList.remove("showing");cinemaPlayer?.remove();cinemaPlayer=null;}
+function clearMovie(){
+ const player=cinemaPlayer;
+ cinemaPlayer=null;
+ if(!player)return;
+ if(player instanceof HTMLMediaElement){
+   player.pause();player.removeAttribute('src');player.replaceChildren();player.load();
+ }
+ player.parentElement?.classList.remove('showing');player.remove();
+ $('stop-video').hidden=true;
+}
 function playCinema(){openMedia()}
 function setupHolodeck(){
  const dialog=$('media-library'),form=$('media-form'),query=$('media-query'),list=$('media-results');
@@ -1196,6 +1206,7 @@ function setupHolodeck(){
  }
  dialog.addEventListener('keydown',e=>e.stopPropagation());
  $('change-media').onclick=openMedia;
+ $('stop-video').onclick=()=>{clearMovie();view.focus()};
  $('media-close').onclick=()=>dialog.close();
  dialog.addEventListener('close',()=>view.focus());
  $('media-stop').onclick=()=>{clearMovie();dialog.close()};
@@ -1512,7 +1523,7 @@ function frame(now){
  if(now-lastAim>55){target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);lastAim=now;}
  $('use').hidden=!target;if(target && $('use').textContent!=='E　'+target.dataset.station)$('use').textContent='E　'+target.dataset.station;
  const sector=z>outerLockZ?'Exterior · Avatar viewing deck':z>=passageEnd?'Avatar · Observation airlock':z<1200?'Avatar · Flight deck':Math.abs(x)<245?'Aft passage':nearestRoom(z).names[x>0?1:0];
- const mediaControl=$('change-media');if(mediaControl)mediaControl.hidden=seated?.pod?seated.phase!=='sealed':!sector.toLowerCase().includes('holodeck');
+ const mediaControl=$('change-media');if(mediaControl)mediaControl.hidden=!cinemaPlayer&&(seated?.pod?seated.phase!=='sealed':!sector.toLowerCase().includes('holodeck'));
  if($('sector').textContent!==sector)$('sector').textContent=sector;
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
  const value=String(degrees).padStart(3,'0')+'°';

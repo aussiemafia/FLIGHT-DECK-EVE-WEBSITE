@@ -29,7 +29,7 @@ function installMovieSearch({dialog,form,query,list,filter}) {
      player.id='holodeck-movie';player.setAttribute('aria-label',film.name);
      for(const url of urls){const source=document.createElement('source');source.src=url.href;player.append(source);}
      player.lastChild.addEventListener('error',()=>{if(player===cinemaPlayer){openMedia();note.textContent='This host could not stream that movie. Choose another result.';}});
-     clearMovie();cinemaPlayer=player;movieScreen().append(player);movieScreen().classList.add('showing');
+     clearMovie();document.getElementById('stop-video').hidden=false;cinemaPlayer=player;movieScreen().append(player);movieScreen().classList.add('showing');
      player.volume=window.websiteGain();dialog.close();player.play().catch(()=>{});player.focus();
    }catch{if(!signal.aborted)note.textContent='This movie is unavailable for filtered playback. Choose another result.';}
  }
@@ -37,6 +37,21 @@ function installMovieSearch({dialog,form,query,list,filter}) {
    event.preventDefault();
    const term=query.value.trim();const signal=begin();filter();
    if(!term)return;
+   if(/^(?:https?:\/\/|(?:www\.|m\.)?youtube\.com\/|youtu\.be\/)/i.test(term)){
+     let id;
+     try {
+       const url=new URL(/^https?:/i.test(term)?term:'https://'+term);
+       const parts=url.pathname.split('/').filter(Boolean);
+       if(url.hostname==='youtu.be')id=parts[0];
+       else if(['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','www.youtube-nocookie.com'].includes(url.hostname)){
+         if(url.pathname==='/watch')id=url.searchParams.get('v');
+         else if(['shorts','live','embed'].includes(parts[0]))id=parts[1];
+       }
+     }catch{}
+     if(!/^[\w-]{11}$/.test(id||'')){note.textContent='Paste a YouTube video link, or enter a title to search.';return;}
+     if(!holodeckFilms.some(film=>film.id===id)){note.textContent='This YouTube link is outside the approved catalogue. Search by title for filtered videos instead.';return;}
+     watchMedia(id);return;
+   }
    note.textContent='Searching filtered videos…';
    try{
      const url=new URL('https://sepiasearch.org/api/v1/search/videos');
