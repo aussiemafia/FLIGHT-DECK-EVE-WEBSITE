@@ -67,32 +67,34 @@ const housings=[
  {title:'Intelligence',x:0,z:-525,angle:0,w:337},
  {title:'Operations',x:362,z:-426,angle:-26,w:337}
 ];
-function openRecord(id,title) {
+function openRecord(id,title,plate) {
   if(panel.open) return;
   document.exitPointerLock?.(); keys.clear();
   $('label').textContent=title;
-  panel.querySelector('iframe').src='archive/index.html#'+id;
+  panel.querySelector('iframe').src='archive/index.html'+(plate?'?exhibit='+plate:'')+'#'+id;
   panel.showModal(); $('close').focus();
 }
 function wire(button,item) {
   button.dataset.station=item[1]; button.dataset.route=item[0]; button.setAttribute('aria-label',item[1]);
   button.onclick=event=>{event.stopPropagation(); if(!event.detail || !dragged)activateStation(button)};
 }
-const instrumentFeeds=[];
+const instrumentFeeds=[],roomScreens=[];
 function addInstrument(display,items,px,pz){
- const primary=items[0][0];
- const name=stationMedia(primary);
- const video=document.createElement('video');
- video.className='station-feed';video.muted=true;video.loop=true;video.playsInline=true;
- video.preload='none';video.poster='assets/instruments/'+name+'.webp';
- video.src='assets/instruments/'+name+'.mp4';video.setAttribute('aria-hidden','true');
- display.append(video);instrumentFeeds.push({video,px,pz});
+ const media=mountExhibit(display,routePlate(items[0][0]));
+ media.classList.add('station-feed');instrumentFeeds.push({display,px,pz});
 }
 let nextFeedUpdate=0;
 function updateFeeds(now){
  if(now<nextFeedUpdate)return;
  nextFeedUpdate=now+350;
- for(const {video,px,pz} of instrumentFeeds){
+ for(const {el,hx,hz} of [...roomScreens,{el:hologram,hx:0,hz:holoZ}]){
+   const clip=el.querySelector('video.exhibit-media');if(!clip)continue;
+   const dx=hx-x,dz=hz-z;
+   const active=!panel.open&&!document.hidden&&Math.hypot(dx,dz)<1450&&dx*Math.sin(yaw)-dz*Math.cos(yaw)>-120&&!el.classList.contains('away');
+   if(active&&clip.paused)clip.play().catch(()=>{});else if(!active&&!clip.paused)clip.pause();
+ }
+ for(const {display,px,pz} of instrumentFeeds){
+   const video=display.querySelector('video.station-feed');if(!video)continue;
    const dx=px-x,dz=pz-z,distance=Math.hypot(dx,dz);
    const facing=dx*Math.sin(yaw)-dz*Math.cos(yaw);
    const visible=!panel.open&&!document.hidden&&distance<1200&&facing>distance*.35&&!video.parentNode.classList.contains('away');
@@ -151,6 +153,7 @@ for(const side of [-1,1]){
   plane('strip',9,1950,side*585,415,200,0,90);
 }
 function terminal(title,list,x,z,angle){
+ let roomProjector;
  const s=plane('screen',460,300,x,32,z,angle);
  if(z>1200){
    // 1.28 m x 0.84 m: a shared wall display, with controls at standing reach.
@@ -168,15 +171,29 @@ function terminal(title,list,x,z,angle){
    plane('case-edge',width,depth,x-Math.sin(rad)*depth/2,32+sign*high/2,z-Math.cos(rad)*depth/2,angle,-sign*90);
  }
  if(z>1200){
-   const item=list[list.length>1?1:0];
-   const offset=width*.62+82;
-   const hx=x+Math.cos(rad)*offset+Math.sin(rad)*48,hz=z-Math.sin(rad)*offset+Math.cos(rad)*48;
-   const projection=plane('screen room-projection',158,106,hx,-66,hz,angle);
-   addInstrument(projection,[item],hx,hz);
-   const link=document.createElement('button');link.textContent=item[1];
-   wire(link,item);projection.append(link);wire(projection,item);
+   const hx=Math.sign(x)*932,hz=z+(title.toUpperCase()==='OBSERVATION LOUNGE'?545:-402);
+   const projection=plane('holo-display room-projection',345,218,hx,8,hz,angle);
+   const parts=projectorParts(projection,title+' PROJECTOR');
+   const slides=roomExhibits[title.toUpperCase()],next=document.createElement('button');
+   next.className='exhibit-next';next.textContent='›';next.setAttribute('aria-label','Next exhibit');
+   parts.actions.append(next);
+   for(const [size,height] of [[180,298],[222,264]])plane('holo-ring',size,size,hx,height,hz,0,90);
+   plane('holo-base',260,260,hx,403,hz,0,90);
+   let current=0;
+   function displaySlide(key,route=exhibitPlates[key][1],label=exhibitPlates[key][0]){
+     mountExhibit(parts.feed,key);parts.caption.textContent=label+'　›';
+     wire(projection,[route,label]);wire(parts.caption,[route,label]);
+     projection.dataset.plate=parts.caption.dataset.plate=key;
+   }
+   roomProjector=(item)=>displaySlide(routePlate(item[0]),item[0],item[1]);
+   s.projectTopic=roomProjector;
+   next.dataset.station='Next exhibit';next.dataset.route='cycle';
+   next.advance=()=>{current=(current+1)%slides.length;displaySlide(slides[current])};
+   next.onclick=e=>{e.stopPropagation();next.advance()};
+   displaySlide(slides[0]);roomScreens.push({el:projection,hx,hz});
  }
  const switches=plane('switches',480,108,x+Math.sin(rad)*31,209,z+Math.cos(rad)*31,angle,52);
+ switches.projectTopic=roomProjector;
  for(const item of list){const key=document.createElement('button');key.textContent=item[1];wire(key,item);switches.append(key);}
  plane('rail',484,142,x,312,z,angle);
 }
@@ -197,6 +214,38 @@ for(const z of [-700,-50,580,1080]){
  block('girder',0,-535,z,1565,75,44);
  for(const x of [-490,490]){
    plane('lamp',230,18,x,-495,z,0,-90);
+ }
+}
+// Loft rounded cross-sections into closed shells, cushions and plinths.
+function upholstery(finish,x,y,z,w,h,d,tilt=0,shape=.55){
+ const count=24,a=tilt*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a);
+ const profile=[[-.50,.70],[-.46,.87],[-.33,.98],[0,1],[.33,.98],[.46,.87],[.50,.70]];
+ function point(i,level,scale){
+   const t=i*2*Math.PI/count,c=Math.cos(t),s=Math.sin(t);
+   const u=Math.sign(c)*Math.pow(Math.abs(c),shape)*w*.5*scale;
+   const v=Math.sign(s)*Math.pow(Math.abs(s),shape)*d*.5*scale;
+   return [x+u,y+h*level*cs-v*sn,z+h*level*sn+v*cs];
+ }
+ let previous=Array(count).fill([x,y-h*.50*cs,z-h*.50*sn]);
+ for(const [level,scale] of profile){
+   const ring=Array.from({length:count},(_,i)=>point(i,level,scale));
+   for(let i=0;i<count;i++){const j=(i+1)%count;formedQuad([previous[j],previous[i],ring[i],ring[j]],finish)}
+   previous=ring;
+ }
+ const tip=[x,y+h*.50*cs,z+h*.50*sn];
+ for(let i=0;i<count;i++)formedQuad([previous[(i+1)%count],previous[i],tip,tip],finish);
+}
+function furnishing(type,x,y,z,w,h,d){
+ const cloth=type.includes('pad')||type.includes('pillow');
+ const finish=cloth?'upholstery':type==='tabletop'?'smoked':'bronze';
+ upholstery(finish,x,y,z,w,h,d,type==='lounge-pad'&&h>d?-10:0,cloth?.55:.72);
+ if(type.includes('base')){
+   upholstery('gasket',x,y+h*.35,z,w*.75,h*.3,d*.74);
+   upholstery('warmline',x,y+h*.23,z,w*.88,2,d*.88);
+ }
+ if(type==='lounge-pad'&&h>d)upholstery('sienna',x+55,y-12,z-20,63,60,26,-12);
+ if(type==='lounge-pad'){
+   const proxy=plane('seat-pick',w,h,x,y,z-d/2,180);proxy.style.visibility='hidden';
  }
 }
 const seats=[];
@@ -221,9 +270,11 @@ function addChair(cx,pz,style="pilot"){
   cockpitPart('chair-mount',0,136,[[-86,410],[-66,391],[45,388],[80,400],[78,414],[-85,414]]);
   cockpitPart('piston',0,42,[[-38,395],[-29,351],[25,298],[55,303],[27,366],[0,394]]);
   cockpitPart('chair-shell',0,143,[[-91,278],[-70,263],[10,268],[31,246],[57,135],[84,61],[105,52],[115,66],[94,167],[70,272],[39,304],[-60,307]]);
-  cockpitPart('flight-pad',0,119,[[-84,265],[-68,248],[-16,248],[11,253],[32,242],[32,258],[14,274],[-68,279]]);
-  cockpitPart('flight-pad',0,110,[[24,246],[19,226],[33,183],[48,160],[61,120],[84,91],[94,95],[77,164],[55,229],[39,249]]);
-  cockpitPart('head-pad',0,95,[[67,99],[70,62],[80,47],[100,44],[110,57],[99,91],[85,100]]);
+  upholstery('upholstery',cx,262,pz-27,132,39,124,-3);
+  upholstery('upholstery',cx,176,pz+56,124,169,40,-20);
+  upholstery('sienna',cx,177,pz+33,94,27,20,-20);
+  upholstery('upholstery',cx,70,pz+88,111,59,42,-17);
+  for(const sign of [-1,1])upholstery('bronze',cx+sign*65,187,pz+59,18,130,39,-20);
   for(const sign of [-1,1]){
     cockpitPart('shoulder-shell',sign*65,25,[[6,220],[17,174],[32,150],[47,94],[64,77],[85,78],[79,112],[66,147],[56,202],[40,231]]);
     cockpitPart('chair-shell',sign*75,19,[[-64,215],[-53,202],[40,193],[56,213],[25,273],[-1,274],[12,224],[-51,230]]);
@@ -497,9 +548,9 @@ for(const side of [-1,1]){
  if(lounge){
    for(const seatX of [610,840]){
      const first=world.children.length,sz=cabinZ+350;
-     block('lounge-base',seatX,379,sz,229,70,149);
-     block('lounge-pad',seatX,323,sz-12,223,49,143);
-     block('lounge-pad',seatX,263,sz+60,222,112,33);
+     furnishing('lounge-base',seatX,379,sz,229,70,149);
+     furnishing('lounge-pad',seatX,323,sz-12,223,49,143);
+     furnishing('lounge-pad',seatX,263,sz+60,222,112,33);
      for(const el of Array.from(world.children).slice(first)){
        el.dataset.seat=[seatX,sz].join(',');el.dataset.station='Sit in lounge';
        el.onclick=()=>{if(!dragged)activateStation(el)};
@@ -508,14 +559,14 @@ for(const side of [-1,1]){
    }
    addChair(660,cabinZ-460,'pod');
    addChair(941,cabinZ-460,'pod');
-   block('lounge-base',mid,387,cabinZ-126,225,53,116);
-   block('tabletop',mid,351,cabinZ-126,249,16,139);
+   furnishing('lounge-base',mid,387,cabinZ-126,225,53,116);
+   furnishing('tabletop',mid,351,cabinZ-126,249,16,139);
    furnishings.push([mid,cabinZ-126,133,82]);
  }else{
    const bz=cabinZ+414;
-   block('berth-base',mid,363,bz,436,96,184);
-   block('berth-pad',mid,300,bz,428,44,180);
-   block('berth-pillow',mid-148,266,bz,98,29,155);
+   furnishing('berth-base',mid,363,bz,436,96,184);
+   furnishing('berth-pad',mid,300,bz,428,44,180);
+   furnishing('berth-pillow',mid-148,266,bz,98,29,155);
    furnishings.push([mid,bz,231,110]);
    addChair(-712,cabinZ-350,'lab');
  }
@@ -547,8 +598,8 @@ for(let bay=0;bay<aftBays.length;bay++){
    plane('lab-wash',440,15,mid,-192,cz-depth/2+7,0);
    if(group===1||group===3)addChair(mid,cz+305,group===1?'lab':'pod');
    else{
-     block('lounge-base',mid,365,cz+330,246,90,117);
-     block('tabletop',mid,312,cz+330,266,17,132);
+     furnishing('lounge-base',mid,365,cz+330,246,90,117);
+     furnishing('tabletop',mid,312,cz+330,266,17,132);
      furnishings.push([mid,cz+330,133,66]);
    }
    plane('promenade-light',8,1754,side*194,410,cz,0,90);
@@ -592,10 +643,17 @@ const pedestal=plane('holo-base',285,285,0,397,holoZ,0,90);
 plane('holo-ring',195,195,0,270,holoZ,0,90);
 plane('holo-ring inner-ring',235,235,0,235,holoZ,0,90);
 const hologram=plane('holo-display',278,186,0,91,holoZ);
-hologram.innerHTML='<div class="holo-caption">BRIDGE PROJECTOR</div><div class="feed"><img alt="Fortizar projection" src="archive/assets/fortizar-cutout.webp"></div><button class="holo-open"></button>';
-const holoAction=hologram.querySelector('button');
-const feed=hologram.querySelector('.feed');
-let projected=['ships','Ship gallery'];
+function projectorParts(el,title){
+ const header=document.createElement('div');header.className='holo-caption';header.textContent=title;
+ const feed=document.createElement('div');feed.className='feed';
+ const actions=document.createElement('div');actions.className='projector-actions';
+ const caption=document.createElement('button');caption.className='holo-open';actions.append(caption);
+ el.append(header,feed,actions);return {feed,caption,actions};
+}
+const bridgeParts=projectorParts(hologram,'BRIDGE PROJECTOR');
+const holoAction=bridgeParts.caption,feed=bridgeParts.feed;
+let projected=['ships','Fortizar observation feed'];
+mountExhibit(feed,'fort');
 function labelProjection(){
  holoAction.dataset.station='Open '+projected[1];
  holoAction.textContent=holoAction.dataset.station+'  ›';
@@ -605,21 +663,25 @@ holoAction.onclick=()=>openRecord(...projected);
 hologram.dataset.station='Open projection';hologram.onclick=e=>{if(e.target!==holoAction)openRecord(...projected)};
 let messageTimer;
 function activateStation(control){
+ if(control.advance){control.advance();return;}
+ if(control.dataset.plate){openRecord(control.dataset.route,control.dataset.station,control.dataset.plate);return;}
  if(control.dataset.seat){
    const [sx,sz]=control.dataset.seat.split(',').map(Number);
    if(seated)standUp();
    seated={x:sx,z:sz};x=sx;z=sz-8;yaw=0;pitch=0;keys.clear();$('stand').hidden=false;view.focus();return;
  }
  if(control===hologram||control===holoAction){openRecord(...projected);return;}
+ const local=control.closest('.room-console,.switches');
+ if(local?.projectTopic){
+   const selected=[control.dataset.route,control.dataset.station];
+   local.projectTopic(selected);
+   if(local.classList.contains('room-console'))mountExhibit(local,routePlate(selected[0])).classList.add('station-feed');
+   const notice=$('projectionNotice');notice.textContent=selected[1]+' · Open on the corner projector';
+   notice.hidden=false;clearTimeout(messageTimer);messageTimer=setTimeout(()=>notice.hidden=true,3500);return;
+ }
  projected=[control.dataset.route,control.dataset.station];
  const consoleFace=control.closest('.screen,.helm-display');
- const instrument=consoleFace?.querySelector('.station-feed');
- if(instrument){
-   const media='assets/instruments/'+stationMedia(projected[0]);
-   if(instrument.getAttribute('src')!==media+'.mp4'){
-     instrument.poster=media+'.webp';instrument.src=media+'.mp4';
-   }
- }
+ if(consoleFace)mountExhibit(consoleFace,routePlate(projected[0])).classList.add('station-feed');
  labelProjection();
  const brief={
   ships:['naglfar-cutout','HULL IDENTIFICATION','Marauders · Capitals · Drifters'],
@@ -642,11 +704,13 @@ function activateStation(control){
   profile:['fortizar-cutout','PILOT RECORD','Character portrait · Callsign'],
   coverage:['expanse-deep-space','ARCHIVE COVERAGE','Systems · Fits · Encounters']
  }[projected[0]];
- const image=document.createElement('img');image.src='archive/assets/'+brief[0]+'.webp';image.alt=projected[1];
+ const topics={ships:'fort',drifters:'drifter',story:'drifter',fits:'fit',wormholes:'hole',rolling:'hole',systems:'chart',gas:'pros',estimate:'rock',reference:'crystals',split:'command',guides:'salvage',dscan:'hole'};
+ const plate=topics[projected[0]]||(brief[0]==='fortizar-cutout'?'fort':'chart');
+ feed.replaceChildren();mountExhibit(feed,plate);
  const legend=document.createElement('div');legend.className='holo-legend';
  const name=document.createElement('strong');name.textContent=brief[1];
  const detail=document.createElement('span');detail.textContent=brief[2];
- legend.append(name,detail);feed.replaceChildren(image,legend);
+ legend.append(name,detail);feed.append(legend);
  const notice=$('projectionNotice');
  notice.textContent=projected[1]+' projected · Centre of flight deck';
  notice.hidden=false;clearTimeout(messageTimer);
@@ -717,7 +781,7 @@ function pickStation(clientX,clientY){
    const along=(bx*dx+by*dy+bz*wz)/(dx*dx+dy*dy+wz*wz);
    if(along < -p.radius || along>nearest+p.radius || along>1900+p.radius)continue;
    if((bx-along*dx)**2+(by-along*dy)**2+(bz-along*wz)**2>p.radius*p.radius)continue;
-   const m=p.el===hologram?new DOMMatrix(hologram.style.transform).inverse():p.inv;
+   const m=(p.el===hologram||p.el.classList.contains('room-projection'))?new DOMMatrix(p.el.style.transform).inverse():p.inv;
    const oz=m.m13*x+m.m23*eyeY+m.m33*z+m.m43;
    const vz=m.m13*dx+m.m23*dy+m.m33*wz;
    if(Math.abs(vz)<1e-6 || (vz>=0&&!p.el.classList.contains('seat-band')))continue;
@@ -824,6 +888,10 @@ function frame(now){
   const nextZ=z+(-Math.cos(yaw)*f+Math.sin(yaw)*r)*step/steps;
   if(isClear(nextX,z))x=nextX;
   if(isClear(x,nextZ))z=nextZ;
+ }
+ for(const {el,hx,hz} of roomScreens){
+   if(Math.abs(z-hz)>1900)continue;
+   el.style.transform='translate3d('+hx+'px,8px,'+hz+'px) rotateY('+Math.atan2(x-hx,z-hz)+'rad)';
  }
  if(lastHoloX!==x||lastHoloZ!==z){hologram.style.transform='translate3d(0,91px,'+holoZ+'px) rotateY('+Math.atan2(x,z-holoZ)+'rad)';lastHoloX=x;lastHoloZ=z;}
  world.style.transform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(seated?-105:((r||f)?Math.sin(now*.012)*2:0))+'px,'+(-z)+'px)';

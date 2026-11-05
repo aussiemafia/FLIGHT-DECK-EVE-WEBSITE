@@ -61,7 +61,7 @@
    }
    const rect=[[0,0],[1,0],[1,1],[0,1]];
    for(const el of all){
-     if(el.classList.contains('sky-face'))continue;
+     if(el.matches('.sky-face,.seat-pick,.holo-display'))continue;
      const m=matrixFor(el),w=parseFloat(el.style.width),h=parseFloat(el.style.height);
      const isUI=native.has(el),kind=isUI?'screen':color(el);
      const a=el.matches('.armour-face')?'armour':el.matches('.crest-glass')?'crest':el.matches('.orbital')?'orbital':el.matches('.drifting')?'drifting':null;
@@ -81,7 +81,7 @@
    for(const panel of formedPanels){
      const pts=panel.points.map(([x,y,z])=>({x,y,z}));
      const cx=pts.reduce((v,p)=>v+p.x,0)/4,cy=pts.reduce((v,p)=>v+p.y,0)/4,cz=pts.reduce((v,p)=>v+p.z,0)/4;
-     const fill={pearl:'#a6b7bb',alloy:'#73858e',gasket:'#263642',glasslight:'#c8f4fb'}[panel.finish];
+     const fill={pearl:'#a6b7bb',alloy:'#73858e',gasket:'#263642',glasslight:'#c8f4fb',upholstery:'#c4b9a5',sienna:'#b47148',bronze:'#79766c',smoked:'#40525a',warmline:'#edc78a'}[panel.finish];
      items.push({pts,leaf:panel.leaf,kind:panel.finish,fill,cx,cy,cz,nx:0,ny:0,nz:0,size:Math.max(...pts.map(p=>Math.hypot(p.x-cx,p.y-cy,p.z-cz))),two:true,zone:room(cx,cz)});
    }
    const packed=[],doorVertices=[];
@@ -154,6 +154,7 @@
  }
  function material(el){
    const c=el.classList;
+   if(c.contains('seat-pick'))return null;
    if(c.contains('armour-face'))return 'armour';
    if(c.contains('sky-face'))return 'sky';
    if(c.contains('viewport'))return 'window';
@@ -289,7 +290,7 @@
    const m=matrixFor(el),w=parseFloat(el.style.width),h=parseFloat(el.style.height);
    const poly=el.classList.contains('seat-flank')?[...el.style.clipPath.matchAll(/([\d.]+)% ([\d.]+)%/g)].map(a=>[+a[1]/100,+a[2]/100]):[[0,0],[1,0],[1,1],[0,1]];
    const ui=uiTiles.get(el),cell=ui?256:tile;const [ax,ay]=ui||tileOrigin(name);
-   const k=ui?(el.matches('.course-display,.holo-display')?4.25:4):name==='floor'?1:name==='window'?2:name==='sky'?5:name==='drifting'?6:['cyan','lamp','orange','ring','screen','crest','orbital'].includes(name)?3:0;
+   const k=ui?(el.matches('.course-display,.holo-display,.room-projection')?4.25:4):name==='floor'?1:name==='window'?2:name==='sky'?5:name==='drifting'?6:['cyan','lamp','orange','ring','screen','crest','orbital'].includes(name)?3:0;
    const zone=['orbital','drifting','sky'].includes(name)?'exterior':room(m.m41,m.m43);
    const key=zone+(name==='window'?':glass':':solid');
    if(!groups.has(key))groups.set(key,[]);
@@ -302,7 +303,7 @@
  for(const panel of formedPanels){
    const [a,b,,d]=panel.points,e=b.map((v,i)=>v-a[i]),f=d.map((v,i)=>v-a[i]);
    const n=[e[1]*f[2]-e[2]*f[1],e[2]*f[0]-e[0]*f[2],e[0]*f[1]-e[1]*f[0]];
-   const len=Math.hypot(...n)||1;const name={pearl:'white',alloy:'shell',gasket:'dark',glasslight:'cyan'}[panel.finish];
+   const len=Math.hypot(...n)||1;const name={pearl:'white',alloy:'shell',gasket:'dark',glasslight:'cyan',upholstery:'linen',sienna:'copper',bronze:'warm',smoked:'dark',warmline:'lamp'}[panel.finish];
    const [tx,ty]=tileOrigin(name),key=panel.leaf===undefined?'formed:solid':'leaf'+panel.leaf+':solid';if(!groups.has(key))groups.set(key,[]);
    for(const i of [0,1,2,0,2,3]){
      const v=panel.points[i];groups.get(key).push(...v,n[0]/len,n[1]/len,n[2]/len,(tx+tile*.5)/atlas.width,(ty+tile*.5)/atlas.height,name==='cyan'?3:0);
