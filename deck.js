@@ -87,6 +87,7 @@ function windowCabinet(wx,wz,angle,w,top,upper,lower,bottom,withControls=true){
  }
  cabinetFootprints.push({wx,wz,ux,uz,nx,nz,half:w/2});
 }
+const exteriorWindowBounds=[];
 const bowPoints=Array.from({length:8},(_,i)=>{
  const a=(-80+i*160/7)*Math.PI/180;
  return [793*Math.sin(a)/Math.sin(80*Math.PI/180),-380-458*Math.cos(a)];
@@ -462,6 +463,8 @@ function windowWall(w,h,x,y,z,angle,centres,opening,height,glassY){
    const edge=u-opening/2;
    section(edge-cursor,height,(edge+cursor)/2,glassY);
    const wx=x+u*Math.cos(a), wz=z-u*Math.sin(a);
+   const half=opening/2-14,dx=half*Math.cos(a),dz=-half*Math.sin(a);
+   exteriorWindowBounds.push({wx,wz,corners:[[wx-dx,upper+12,wz-dz],[wx+dx,upper+12,wz+dz],[wx+dx,lower-14,wz+dz],[wx-dx,lower-14,wz-dz]]});
    windowCabinet(wx,wz,angle,opening-5,top,upper,lower,bottom);
    curvedPorthole(wx,glassY,wz,angle,opening,height);
    // Recess the glass at the far end of a stepped, machined window well.
