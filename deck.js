@@ -890,6 +890,28 @@ for(const side of [-1,1]){
 const cabinZ=4440, cabinDepth=1450;
 let cinemaWall;
 const furnishings=[];
+function addCryopods(mid,cz){
+ for(const offset of [-225,225]){
+   const cx=mid+offset;
+   upholstery('gasket',cx,378,cz,182,64,381,0,.72);
+   upholstery('pearl',cx,330,cz,224,106,395,-7,.74);
+   upholstery('smoked',cx,288,cz,192,40,366,-7,.74);
+   upholstery('upholstery',cx,267,cz,151,36,332,-7);
+   upholstery('upholstery',cx,237,cz+103,118,32,78,-12);
+   for(const side of [-1,1]){
+     upholstery('alloy',cx+side*92,231,cz+10,23,58,311,-16,.72);
+     upholstery('glasslight',cx+side*91,206,cz+12,8,5,264,-16,.72);
+   }
+   furnishings.push([cx,cz,112,200]);
+   const surface=plane('holo-display cryo-canopy',248,224,cx,6,cz+62,0,-75);
+   surface.dataset.station='Enter cryopod';
+   surface.innerHTML='<div class="cryo-shell"><i class="cryo-pane left" aria-hidden="true"></i><i class="cryo-pane right" aria-hidden="true"></i><div class="cryo-glass"><button type="button">Enter stasis</button></div></div>';
+   const station=plane('wall-pad cryo-status',125,55,cx,242,cz-192,180,-15);
+   station.innerHTML='<small>CRYOGENICS</small><strong>Ready · Enter pod</strong>';
+   station.dataset.station='Enter cryopod';
+   surface.pod=station.pod={cx,cz,surface,station,glass:surface.querySelector('.cryo-glass')};
+ }
+}
 for(const side of [-1,1]){
  const start=world.children.length, inner=side*245, outer=side*1265, mid=side*755;
  const facing=-side*90, lounge=side===1, title=lounge?'Observation lounge':'Crew quarters';
@@ -925,11 +947,7 @@ for(const side of [-1,1]){
    }
    upholstery('upholstery',mid,254,chairZ-84,135,35,58,-9);
  }else{
-   const bz=cabinZ+414;
-   furnishing('berth-base',mid,363,bz,436,96,184);
-   furnishing('berth-pad',mid,300,bz,428,44,180);
-   furnishing('berth-pillow',mid-148,266,bz,98,29,155);
-   furnishings.push([mid,bz,231,110]);
+   addCryopods(mid,cabinZ+360);
    addChair(-712,cabinZ-350,'lab');
  }
  for(const el of Array.from(world.children).slice(start))el.classList.add(lounge?'lounge-zone':'cabin-zone');
@@ -973,7 +991,8 @@ for(let bay=0;bay<aftBays.length;bay++){
      for(const edge of [-1,1])upholstery('sienna',mid+edge*222,270,benchZ,28,82,147);
      furnishings.push([mid,benchZ,240,80]);
    }
-   if(group===1||group===3)addChair(mid,cz+305,group===1?'lab':'pod');
+   if(title==='Science lab')addCryopods(mid,cz+285);
+   else if(group===1||group===3)addChair(mid,cz+305,group===1?'lab':'pod');
    else{
      furnishing('lounge-base',mid,365,cz+330,246,90,117);
      furnishing('tabletop',mid,312,cz+330,266,17,132);
@@ -1133,6 +1152,7 @@ holoAction.onclick=()=>openRecord(...projected);
 hologram.dataset.station='Open projection';hologram.onclick=e=>{if(e.target!==holoAction)openRecord(...projected)};
 let cinemaPlayer=null;
 function openMedia(){
+ if(seated?.pod && seated.phase!=="sealed")return;
  if(document.pointerLockElement)document.exitPointerLock();
  keys.clear();drag=false;
  const dialog=$('media-library');
@@ -1148,16 +1168,18 @@ const holodeckFilms=Object.freeze([
 function watchMedia(id){
  const film=holodeckFilms.find(entry=>entry.id===id);
  if(!film)return;
- if(cinemaPlayer)cinemaPlayer.remove();
+ clearMovie();
  cinemaPlayer=document.createElement('iframe');
  cinemaPlayer.id='cinema-player';cinemaPlayer.title=film.title;
- cinemaPlayer.tabIndex=-1;cinemaPlayer.style.pointerEvents='none';
- cinemaPlayer.allow='autoplay; encrypted-media';
+ cinemaPlayer.tabIndex=0;cinemaPlayer.style.pointerEvents='auto';cinemaPlayer.allowFullscreen=true;
+ cinemaPlayer.allow='autoplay; fullscreen; encrypted-media';
  cinemaPlayer.referrerPolicy='strict-origin-when-cross-origin';
- cinemaPlayer.src='https://www.youtube-nocookie.com/embed/'+film.id+'?autoplay=1&mute=1&playsinline=1&controls=0&disablekb=1&rel=0&loop=1&playlist='+film.id+'&enablejsapi=1&origin='+encodeURIComponent(location.origin);
- cinemaWall.append(cinemaPlayer);cinemaWall.classList.add('showing');
+ cinemaPlayer.src='https://www.youtube-nocookie.com/embed/'+film.id+'?autoplay=1&mute=1&playsinline=1&controls=1&rel=0&enablejsapi=1&origin='+encodeURIComponent(location.origin);
+ movieScreen().append(cinemaPlayer);movieScreen().classList.add('showing');
  $('media-library').close();view.focus();
 }
+function movieScreen(){return seated?.pod?.glass || cinemaWall;}
+function clearMovie(){cinemaPlayer?.parentElement?.classList.remove("showing");cinemaPlayer?.remove();cinemaPlayer=null;}
 function playCinema(){openMedia()}
 function setupHolodeck(){
  const dialog=$('media-library'),form=$('media-form'),query=$('media-query'),list=$('media-results');
@@ -1176,12 +1198,17 @@ function setupHolodeck(){
  $('change-media').onclick=openMedia;
  $('media-close').onclick=()=>dialog.close();
  dialog.addEventListener('close',()=>view.focus());
- $('media-stop').onclick=()=>{cinemaPlayer?.remove();cinemaPlayer=null;cinemaWall.classList.remove('showing');dialog.close()};
- query.oninput=filter;form.onsubmit=e=>{e.preventDefault();filter()};filter();
+ $('media-stop').onclick=()=>{clearMovie();dialog.close()};
+ installMovieSearch({dialog,form,query,list,filter});filter();
 }
 document.addEventListener('DOMContentLoaded',setupHolodeck);
 let messageTimer;
 function activateStation(control){
+ if(control.pod){
+   if(seated?.pod===control.pod){if(!podTravel)openMedia();}
+   else if(!seated)enterPod(control.pod);
+   return;
+ }
  if(control===cinemaWall||control.classList.contains('cinema-play')){playCinema();return}
  if(control.advance){control.advance();return;}
  if(control.dataset.plate){openRecord(control.dataset.route,control.dataset.station,control.dataset.plate,control.closest('.holo-display'));return;}
@@ -1216,13 +1243,64 @@ function activateStation(control){
 }
 const keys=new Set(), clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 let x=0,z=365,yaw=0,pitch=0,drag=false,dragged=false,totalDrag=0,target=null,previous=performance.now();
-let seated=null;
+let seated=null, podTravel=null, podEye=0;
+function moveCanopy(pod,close,done){
+ const surface=pod.surface;
+ clearTimeout(pod.latchTimer);
+ surface.classList.remove('screen-ready');
+ const moving=surface.classList.contains('occupied')!==close;
+ surface.classList.toggle('occupied',close);
+ surface.dataset.station=close?'Sealing canopy':'Opening canopy';
+ pod.station.querySelector('strong').textContent=surface.dataset.station;
+ if(moving)window.dispatchEvent(new CustomEvent('hatchmotion',{detail:{door:surface,direction:close?-1:1}}));
+ const duration=parseFloat(getComputedStyle(surface.querySelector('.cryo-pane')).transitionDuration)*1000;
+ pod.latchTimer=setTimeout(done,moving?duration:0);
+}
+function glidePod(to,onDone){
+ const from=[x,podEye,z,yaw,pitch];
+ to[3]=yaw+Math.atan2(Math.sin(to[3]-yaw),Math.cos(to[3]-yaw));
+ podTravel={from,to,onDone,start:performance.now(),duration:matchMedia('(prefers-reduced-motion:reduce)').matches?1:1150};
+}
+function advancePod(now){
+ if(!podTravel)return;
+ const {from,to,start,duration,onDone}=podTravel;
+ const t=clamp((now-start)/duration,0,1),f=t*t*(3-2*t);
+ [x,podEye,z,yaw,pitch]=from.map((v,i)=>v+(to[i]-v)*f);
+ if(t===1){podTravel=null;onDone?.();}
+}
+function enterPod(pod){
+ if(document.pointerLockElement)document.exitPointerLock();
+ drag=false;keys.clear();podEye=0;
+ seated={pod,x,z,phase:"entering"};
+ $('stand').hidden=false;$('stand').textContent='Exit cryopod · E';
+ glidePod([pod.cx,180,pod.cz+108,0,-1.31],()=>{
+   seated.phase='closing';
+   moveCanopy(pod,true,()=>{
+     seated.phase='sealed';pod.surface.classList.add('screen-ready');
+     pod.surface.dataset.station='Browse on canopy';
+     pod.surface.querySelector('button').textContent='Browse on canopy';
+     pod.station.querySelector('strong').textContent='Stasis active';
+   });
+ });view.focus();
+}
+function leavePod(immediate=false){
+ const {pod}=seated;
+ if(pod.glass.contains(cinemaPlayer))clearMovie();
+ if(seated.phase==='leaving'&&!immediate)return;
+ seated.phase='leaving';podTravel=null;keys.clear();
+ const finish=()=>{pod.station.querySelector('strong').textContent='Ready · Enter pod';pod.surface.dataset.station='Enter cryopod';podTravel=null;seated=null;podEye=0;$('stand').hidden=true;$('stand').textContent='Stand up · E';view.focus();};
+ if(immediate){
+   moveCanopy(pod,false,()=>{});clearTimeout(pod.latchTimer);finish();return;
+ }
+ moveCanopy(pod,false,()=>glidePod([pod.cx,0,pod.cz-274,Math.PI,0],finish));
+}
 function standUp(){
  if(!seated)return;
+ if(seated.pod){leavePod();return;}
  x=seated.x;z=seated.z+(seated.aft?160:-160);seated=null;$('stand').hidden=true;keys.clear();view.focus();
 }
 $('stand').onclick=standUp;
-function helm(){standUp();x=0;z=365;yaw=0;pitch=0;keys.clear();view.focus()}
+function helm(){if(seated?.pod)leavePod(true);else standUp();x=0;z=365;yaw=0;pitch=0;keys.clear();view.focus()}
 $('reset').onclick=helm;
 const recordFrame=panel.querySelector('iframe');
 window.addEventListener('message',event=>{
@@ -1244,7 +1322,7 @@ window.addEventListener('pointermove',e=>{
  if(panel.open||(!drag&&!document.pointerLockElement))return;
  totalDrag+=Math.abs(e.movementX)+Math.abs(e.movementY);
  if(totalDrag>4)dragged=true;
- yaw+=e.movementX*.0022;pitch=clamp(pitch+e.movementY*.0022,-1.22,1.22);
+ yaw+=e.movementX*.0022;pitch=clamp(pitch+e.movementY*.0022,-1.48,1.22);
 });
 // CSS 3D hit testing varies across browsers, especially for a display mounted
 // at ninety degrees. Intersect a camera ray with actual model-space surfaces.
@@ -1276,7 +1354,7 @@ function pickStation(clientX,clientY){
  const horizontal=(clientX-innerWidth/2)/lens,vertical=(clientY-innerHeight/2)/lens;
  const sy=Math.sin(yaw),cy=Math.cos(yaw),sp=Math.sin(pitch),cp=Math.cos(pitch);
  const dz=vertical*sp-cp,dx=horizontal*cy-dz*sy,dy=vertical*cp+sp,wz=horizontal*sy+dz*cy;
- const eyeY=seated?105:0;
+ const eyeY=seated?.pod?podEye:seated?105:0;
  let nearest=hatchHit(x,eyeY,z,dx,dy,wz),hit=null;
  const compartment=displayCompartment(x,z);
  for(const p of pickPlanes){
@@ -1316,7 +1394,7 @@ document.addEventListener('pointerdown',e=>{
  dragged=false;totalDrag=0;
 },true);
 document.addEventListener('click',e=>{
- if(panel.open||e.target.closest('header,footer,#jita-player,#use,dialog'))return;
+ if(panel.open||e.target.closest('header,footer,#jita-player,#use,dialog,#holodeck-movie'))return;
  if(!e.detail && e.target.closest('button'))return;
  const direct=e.target.closest('button[data-route],button[data-seat],.holo-open,[data-station]');
  const locked=!!document.pointerLockElement;
@@ -1399,7 +1477,7 @@ function frame(now){
  const speed=keys.has('ShiftLeft')?630:315;
  const step=dt*speed/Math.max(1,Math.hypot(f,r));
  yaw+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.6;
- pitch=clamp(pitch+(Number(keys.has('ArrowDown'))-Number(keys.has('ArrowUp')))*dt*1.3,-1.22,1.22);
+ pitch=clamp(pitch+(Number(keys.has('ArrowDown'))-Number(keys.has('ArrowUp')))*dt*1.3,-1.48,1.22);
  const steps=Math.max(1,Math.ceil(step/25));
  for(let i=0;i<steps && !seated && (f||r);i++){
   const nextX=x+(Math.sin(yaw)*f+Math.cos(yaw)*r)*step/steps;
@@ -1407,7 +1485,8 @@ function frame(now){
   if(isClear(nextX,z))x=nextX;
   if(isClear(x,nextZ))z=nextZ;
  }
- const cameraY=seated?105:0;
+ advancePod(now);
+ const cameraY=seated?.pod?podEye:seated?105:0;
  const cameraTransform='rotateX('+(-pitch)+'rad) rotateY('+yaw+'rad) translate3d('+(-x)+'px,'+(-cameraY)+'px,'+(-z)+'px)';
  if(lastCameraTransform!==cameraTransform){world.style.transform=cameraTransform;lastCameraTransform=cameraTransform;lastMotion=now;}
  if(lastMotion===now){
@@ -1420,7 +1499,7 @@ function frame(now){
  if(now-lastAim>55){target=panel.open?null:pickStation(innerWidth/2,innerHeight/2);lastAim=now;}
  $('use').hidden=!target;if(target && $('use').textContent!=='E　'+target.dataset.station)$('use').textContent='E　'+target.dataset.station;
  const sector=z>outerLockZ?'Exterior · Avatar viewing deck':z>=passageEnd?'Avatar · Observation airlock':z<1200?'Avatar · Flight deck':Math.abs(x)<245?'Aft passage':nearestRoom(z).names[x>0?1:0];
- const mediaControl=$('change-media');if(mediaControl)mediaControl.hidden=!sector.toLowerCase().includes('holodeck');
+ const mediaControl=$('change-media');if(mediaControl)mediaControl.hidden=seated?.pod?seated.phase!=='sealed':!sector.toLowerCase().includes('holodeck');
  if($('sector').textContent!==sector)$('sector').textContent=sector;
  const degrees=((Math.round(yaw*180/Math.PI)%360)+360)%360;
  const value=String(degrees).padStart(3,'0')+'°';
