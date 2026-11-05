@@ -213,11 +213,7 @@ const steps=16, paneLength=(canopyAft-canopyFront)/4;
 for(let i=0;i<steps;i++){
  const x0=canopyHalf*(2*i/steps-1),x1=canopyHalf*(2*(i+1)/steps-1);
  const at=(x,z,h=0)=>[x,vaultHeight(x)+h,z];
- for(let j=0;j<4;j++){
-   const z0=canopyFront+j*paneLength,z1=z0+paneLength;
-   formedQuad([at(x0,z0),at(x1,z0),at(x1,z1),at(x0,z1)],'glass');
-   formedPanels.at(-1).roofGlass=true;
- }
+ // Clear skylight openings reveal the exterior between the structural bars.
  for(let j=0;j<=4;j++){
    const z=canopyFront+j*paneLength;
    // Rounded glazing bar with a bronze crown seated into a dark gasket.
@@ -1363,6 +1359,7 @@ function frame(now){
  else window.drawExterior?.(x,z);
  requestAnimationFrame(frame);
 }
+if(location.hash==='#skylight'){x=0;z=365;yaw=0;pitch=-1.18;view.focus()}
 if(location.hash==='#briefing'){x=-340;z=900;yaw=0;pitch=.09;view.focus()}
 if(location.hash==='#viewing-deck'){x=0;z=padCenter;yaw=-1.23;pitch=-.09;view.focus()}
 if(location.hash==='#holodeck'){x=500;z=cabinZ+365;yaw=1.0;pitch=.14;view.focus()}
