@@ -4,7 +4,7 @@
   const systems=['Aurora Reach','Amarr dusk','Blue Meridian'];
   let mode=0,texture=null,sourceW=0,sourceH=0,last='',cursor=0;
   const image=new Image();image.src='assets/celestial-panorama.webp';
-  const selector=byId('outside');selector.onchange=()=>{mode=selector.selectedIndex;last='';sky.style.filter='hue-rotate('+[0,37,-39][mode]+'deg)';for(const el of windows())el.dataset.skyStamp='';paintCube()};
+  const selector=byId('outside');selector.onchange=()=>{mode=selector.selectedIndex;last='';skyBackdrop.style.setProperty('--sky-hue',[0,37,-39][mode]+'deg');for(const el of windows())el.dataset.skyStamp='';paintCube()};
   function windows(){return hall.querySelectorAll('.galaxy-window,.end-vista,.side-window')}
   function uv(x,y,z){
     const length=Math.hypot(x,y,z);

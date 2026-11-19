@@ -21,7 +21,7 @@ function face(kind,w,h,x,y,z,ry=0,rx=0,rz=0) {
   const node = document.createElement('div');
   node.className = 'face '+kind;
   // Render large architectural finishes at a lower texture density.
-  const scale = /^(floor|roof|roof skylight|wall|glass|gallery|stripe|reflection|exterior-pane)$/.test(kind) ? 4 : 1;
+  const scale = /^(floor|roof|roof skylight|wall|glass|gallery|stripe|reflection)$/.test(kind) ? 4 : 1;
   w /= scale; h /= scale;
   Object.assign(node.style,{width:w+'px',height:h+'px',left:(-w/2)+'px',top:(-h/2)+'px',
     transform:`translate3d(${x}px,${y}px,${z}px) rotateY(${ry}deg) rotateX(${rx}deg) rotateZ(${rz}deg) scale3d(${scale},${scale},${scale})`});
@@ -230,9 +230,12 @@ for(const sign of [-1,1]){
 }
 exhibit(flagship,1450,396,0,-495,-2950,0,true);
 for(const x of [-620,620])face('trim',24,85,x,-696,-2950);
-const sky=document.createElement('div');sky.className='exterior-sky';hall.prepend(sky);
-for(const [direction,x,y,z,ry,rx] of [['py',0,-6800,0,0,90],['ny',0,6800,0,0,-90],['pz',0,0,-6800,0,0],['nz',0,0,6800,180,0],['px',6800,0,0,-90,0],['nx',-6800,0,0,90,0]]){
-  const tile=face('exterior-pane',13604,13604,x,y,z,ry,rx);
+// Draw the distant sky behind the ship so a cube face can never cover a rib or wall.
+const skyBackdrop=document.createElement('div'),skyCamera=document.createElement('div'),sky=document.createElement('div');
+skyBackdrop.className='sky-backdrop';skyCamera.className='sky-camera';sky.className='exterior-sky';
+skyBackdrop.setAttribute('aria-hidden','true');skyCamera.append(sky);skyBackdrop.append(skyCamera);view.prepend(skyBackdrop);
+for(const [direction,x,y,z,ry,rx] of [['py',0,-512,0,0,90],['ny',0,512,0,0,-90],['pz',0,0,-512,0,0],['nz',0,0,512,180,0],['px',512,0,0,-90,0],['nx',-512,0,0,90,0]]){
+  const tile=face('exterior-pane',1025,1025,x,y,z,ry,rx);
   tile.style.backgroundImage='url('+(direction==='py'?'assets/concourse-galaxy.webp':'assets/forge/'+direction+'.webp')+')';
   sky.append(tile);
 }
@@ -480,10 +483,12 @@ function cullCompatibilityScene(){
 }
 function draw(){
   cullCompatibilityScene();
-  sky.style.transform='translate3d('+visitor.x+'px,0,'+visitor.z+'px)';refreshRoom();turnChairs();
+  refreshRoom();turnChairs();
 
   const focal=Math.min(innerWidth*.87,innerHeight*.82);
   view.style.perspective=focal+'px';
+  skyBackdrop.style.perspective=focal+'px';skyCamera.style.transform='translateZ('+focal+'px)';
+  sky.style.transform='rotateX('+visitor.pitch+'rad) rotateY('+visitor.yaw+'rad)';
   byId('camera').style.transform='translateZ('+focal+'px)';
   hall.style.transform=`rotateX(${visitor.pitch}rad) rotateY(${visitor.yaw}rad) translate3d(${-visitor.x}px,${standingEye()}px,${-visitor.z}px)`;
   target=pick(innerWidth/2,innerHeight/2)||window.stationPrompt?.()||null;
