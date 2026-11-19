@@ -1,12 +1,11 @@
 'use strict';
 // Heights run from the floor to the ceiling. Depth is the offset from the pressure hull in centimetres.
 const hullSection=[
-  [0,16,'bronze'],[.018,27,'brass'],[.028,28,'bronze'],[.052,11,'gasket'],
-  [.068,5,'gold'],[.074,5,'rail'],[.098,13,'bronze'],[.155,19,'bronze'],
-  [.205,13,'rail'],[.234,5,'gasket'],[.247,3,'brass'],[.253,4,'shell'],
-  [.29,9,'shell'],[.43,12,'shell'],[.61,9,'shell'],[.735,4,'rail'],
-  [.75,3,'gasket'],[.78,3,'gold'],[.787,5,'bronze'],[.809,19,'brass'],
-  [.827,22,'shell'],[.86,23,'shell'],[.906,29,'shell'],[.95,44,'shell'],[1,68,'shell']
+  [0,18,'gasket'],[.035,25,'rail'],[.055,26,'brass'],[.061,22,'gasket'],
+  [.10,12,'rail'],[.14,8,'shell'],[.23,5,'shell'],[.46,3,'shell'],
+  [.61,5,'shell'],[.69,12,'shell'],[.73,20,'shell'],[.755,26,'rail'],
+  [.77,27,'brass'],[.778,24,'gasket'],[.796,8,'gasket'],[.816,6,'gold'],
+  [.824,8,'rail'],[.85,21,'shell'],[.89,36,'shell'],[.94,55,'shell'],[1,68,'shell']
 ];
 function cladBulkhead(node,g,scale){
   node.classList.add('sculpted-hull');

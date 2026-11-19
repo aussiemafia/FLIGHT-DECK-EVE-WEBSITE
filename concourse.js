@@ -4,7 +4,7 @@ const byId = id => document.getElementById(id);
 const view = byId('viewport'), hall = byId('hall');
 const menu = byId('menu'), record = byId('record'), frame = record.querySelector('iframe');
 const width = 2720, length = 8000, height = 735, eye = 165;
-const visitor = {x: -530+Math.random()*170, z: 1570+Math.random()*135, yaw: .31, pitch: .055};
+const visitor = {x: -165, z: 3150, yaw: .10, pitch: .015};
 const keys = new Set(), interactive = new Map();
 const rooms = [
   {name:'Wormhole observatory', image:'wormhole', route:'wormholes', side:-1, z:2200},
@@ -18,6 +18,7 @@ const rooms = [
 ];
 const flagship = {name:'Windows to New Eden',route:'story',asset:'archive/assets/expanse-deep-space.webp',x:0,z:-3120};
 function face(kind,w,h,x,y,z,ry=0,rx=0,rz=0) {
+  if(kind==='chamber-lid')return shellBay(w,h,x,z,-y);
   const node = document.createElement('div');
   node.className = 'face '+kind;
   // Render large architectural finishes at a lower texture density.
@@ -34,28 +35,6 @@ function face(kind,w,h,x,y,z,ry=0,rx=0,rz=0) {
     }
   }
   if(['bay-shell','city-wall','wall'].includes(kind))cladBulkhead(node,node.geometry,scale);
-  if(kind==='chamber-lid'){
-    node.classList.add('vaulted');
-    const rise=Math.min(w*.12,144);
-    // Close the curved roof at both ends above the straight bulkheads.
-    const outline=Array.from({length:33},(_,i)=>(i*100/32)+'% '+(100-100*Math.sin(i*Math.PI/32))+'%').join(',');
-    for(const end of [-1,1]){
-      const cap=document.createElement('b');
-      cap.className='vault-end';
-      Object.assign(cap.style,{position:'absolute',width:w+'px',height:rise+'px',left:'0',top:(h/2+end*h/2-rise/2)+'px',
-        transform:'translateZ('+rise/2+'px) rotateX(-90deg)',clipPath:'polygon('+outline+',100% 100%,0 100%)',
-        background:'linear-gradient(#c9bfae,#716552 95%,#ab8d58)'});
-      node.append(cap);
-    }
-    for(let i=0;i<16;i++){
-      const a=i/16,b=(i+1)/16,za=rise*Math.sin(Math.PI*a),zb=rise*Math.sin(Math.PI*b),dx=w/16;
-      const panel=document.createElement('b');panel.className=i>=5&&i<=10?'vault-skin roof-glass':'vault-skin';
-      const len=Math.hypot(dx,zb-za)+.65;
-      Object.assign(panel.style,{width:len+'px',height:h+'px',left:((a+b)*w/2-len/2)+'px',top:'0',
-        transform:'translateZ('+((za+zb)/2)+'px) rotateY('+(-Math.atan2(zb-za,dx))+'rad)'});
-      node.append(panel)
-    }
-  }
   hall.append(node);
   return node;
 }
@@ -167,39 +146,12 @@ function passageOpen(d,x,z){
   return Math.abs(-dx*d.uz+dz*d.ux)>38||Math.abs(dx*d.ux+dz*d.uz)+24<(d.aperture*d.aperture*(3-2*d.aperture))*211;
 }
 face('floor',width,length,0,0,0,0,90);
-// Shared section for the pressure glass and its load-bearing frames.
-function vaultPoint(t,half,spring,rise){
-  const a=t*Math.PI;
-  return [half*Math.cos(a),-spring-rise*Math.sin(a)];
-}
+// One authored module continues from the entry lounge to the garden and outer districts.
 function glazedAtrium(width,depth,z,spring,crown,bays){
-  const half=width/2,rise=crown-spring,segments=24;
-  for(let i=0;i<segments;i++){
-    const [x1,y1]=vaultPoint(i/segments,half,spring,rise);
-    const [x2,y2]=vaultPoint((i+1)/segments,half,spring,rise);
-    const sill=i<2||i>=segments-2;
-    const pane=face(sill?'vault-shoulder':'vault-glazing',Math.hypot(x2-x1,y2-y1)+1,depth,
-      (x1+x2)/2,(y1+y2)/2,z,0,0,Math.atan2(y2-y1,x2-x1)*180/Math.PI);
-    pane.style.transform+=' rotateX(90deg)';
-    pane.style.setProperty('--bay-span',depth/bays+'px');
-    if(i%4===1)pane.classList.add('spine-glass');
-  }
-  for(let i=0;i<bays;i++){
-    const at=z-depth/2+(i+.5)*depth/bays,frame=face('vault-frame',width,crown,0,-crown/2,at);
-    frame.dataset.spring=spring;
-    const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');
-    svg.setAttribute('viewBox','0 0 '+width+' '+crown);svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('aria-hidden','true');
-    const gauge=Math.max(17,Math.min(34,width*.009));
-    const right=width-gauge,left=gauge,high=gauge,shoulder=crown-spring;
-    const path='M '+left+' '+crown+' L '+left+' '+shoulder+' A '+(half-gauge)+' '+(shoulder-high)+' 0 0 1 '+right+' '+shoulder+' L '+right+' '+crown;
-    for(const [color,weight,offset] of [['#7f735f',gauge*2.1,0],['#e9e2d4',gauge*1.82,0],['#fff5df',gauge*.36,-gauge*.47],['#b29460',gauge*.22,gauge*.46]]){
-      const line=document.createElementNS(ns,'path');line.setAttribute('d',path);line.setAttribute('fill','none');line.setAttribute('stroke',color);line.setAttribute('stroke-width',weight);line.setAttribute('transform','translate(0 '+offset+')');svg.append(line);
-    }
-    frame.append(svg);
-  }
+  const n=Math.max(1,Math.ceil(depth/1900)),span=depth/n;
+  for(let i=0;i<n;i++)shellBay(width,span,0,z-depth/2+(i+.5)*span,crown);
 }
-
-glazedAtrium(width,length,0,490,height,10);
+glazedAtrium(width,length,0,490,555,10);
 for(const side of [-1,1]){
   const angle=-90*side;
   let start=-4000;
@@ -229,8 +181,8 @@ for(const sign of [-1,1]){
   const label=sign===-1?'Flight bridge':'Celestial garden';
   gates.push({sign,door:makeDoor(0,z,angle,label,'#ffda92'),url:sign===-1?'bridge.html':'bridge.html#holodeck'});
 }
-exhibit(flagship,1450,396,0,-495,-2950,0,true);
-for(const x of [-620,620])face('trim',24,85,x,-696,-2950);
+exhibit(flagship,874,276,-570,-235,-3380,0,true);
+installAlcove(flagship.screen);
 // Draw the distant sky behind the ship so a cube face can never cover a rib or wall.
 const skyBackdrop=document.createElement('div'),skyCamera=document.createElement('div'),sky=document.createElement('div');
 skyBackdrop.className='sky-backdrop';skyCamera.className='sky-camera';sky.className='exterior-sky';
@@ -300,11 +252,16 @@ function suiteFinish(node,index){
 const trees=[];
 for(const side of [-1,1]){
   for(const z of [-3150,-120,1390,3160]){
-    starWindow(625,250,side*(boundary-8),-264,z,-side*90,side+1);
-    face('pool',265,595,side*975,-4,z,0,90);
-    tree(side*975,z+150);
-    addSeat(side*800,z+70,side*Math.PI/2);
-    addSeat(side*800,z-75,side*Math.PI/2);
+    const reach=z<0?865:945;
+    starWindow(reach,267,side*(boundary-8),-248,z,-side*90,side+1);
+    const poolX=side*(boundary-300);
+    face('pool',290,reach*.74,poolX,-4,z,0,90);
+    tree(poolX,z+reach*.20);
+    // Fan the lounge seats toward the same vista; keep the centreline open to traffic.
+    for(const spread of [-1,0,1]){
+      const seatX=side*(spread?805:738),seatZ=z+spread*205;
+      addSeat(seatX,seatZ,Math.atan2(side*boundary-seatX,seatZ-z));
+    }
   }
   const sideRooms=rooms.filter(r=>r.side===side).sort((a,b)=>a.z-b.z);
   for(let i=1;i<sideRooms.length;i++){
@@ -431,7 +388,7 @@ for(const [i,room] of rooms.entries()){
   for(const off of [-98,98])addSeat(side*(roomEnd-680),z+off,side*Math.PI/2,room);
   let n=nodesBefore.nextElementSibling;const nodes=[];
   while(n){
-    if(n.matches('.bay-shell,.continuous-return,.chamber-floor,.chamber-lid'))suiteFinish(n,i);
+    if(n.matches('.bay-shell,.continuous-return,.chamber-floor,.promenade-shell'))suiteFinish(n,i);
     nodes.push(n);n=n.nextElementSibling
   }
   chamberNodes.set(room,nodes);
@@ -669,7 +626,7 @@ function moveStep(dt){
 // Consume held time at input boundaries as well as render frames. A short tap
 // between two paints still moves, and each collision step remains small.
 function advanceMovement(now){
-  let elapsed=Math.min(.3,Math.max(0,(now-movementTime)/1000));
+  let elapsed=Math.min(.8,Math.max(0,(now-movementTime)/1000));
   movementTime=Math.max(movementTime,now);
   if(!keys.size||document.querySelector('dialog[open]'))return;
   while(elapsed>0){const dt=Math.min(elapsed,1/75);moveStep(dt);elapsed-=dt}

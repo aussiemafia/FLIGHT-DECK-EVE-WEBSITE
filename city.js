@@ -75,7 +75,7 @@
   function build(i){
     const preceding=hall.lastElementChild,chairStart=chairs.length,treeStart=trees.length,doorStart=doors.length;
     const z=mids(i),width=widthAt(i),[name,,tone,route,lesson]=district(i);
-    const tall=width>2200?1190:710, slab=z-bay/2;
+    const tall=width>2200?830:625, slab=z-bay/2;
     const room=classrooms.has(i)?{...roomSpecs(i),name,route}:null;
     face('city-floor',width*2,bay+2,0,0,z,0,90);
     for(const side of [-1,1]){

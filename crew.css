@@ -66,3 +66,10 @@ body.night-watch:not(.hardware-station) .finish-gold{background:#b5ae89;box-shad
 .atlas-ring[data-finish=shell]{border-color:#343c42;box-shadow:inset 0 0 0 3px #9aa5a6,0 0 0 3px #626e73}
 .atlas-ring[data-finish=light]{border-color:#a6e7ee;box-shadow:0 0 10px #73cddf,inset 0 0 8px #73cddf}
 .atlas-index{background:#bc9e66;border-radius:2px}
+
+.promenade-shell{transform-style:preserve-3d;pointer-events:none}
+.promenade-shell>b{position:absolute;left:50%;top:50%;transform-origin:0 0;pointer-events:none}
+.floor,.city-floor,.chamber-floor{background:#b8b9b6 url(assets/ivory-marble.webp) center/800px 800px repeat}
+.floor{background-size:200px 200px}
+.hull-band.finish-shell{background:linear-gradient(108deg,#47545d,#77858a 32%,#a6aeab 49%,#69777d 77%,#424c54)}
+.screen{border:4px solid #27323a;outline:2px solid #ae946a;box-shadow:0 4px 9px #101b24}

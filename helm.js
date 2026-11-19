@@ -11,7 +11,7 @@
     for(const z of [-4560,-5430])addSeat(side*718,z,side*.64);
     strip(7,back-top,side*500,(top+back)/2,'#d5ae70');
   }
-  glazedAtrium(2340,back-top,(top+back)/2,480,690,3);
+  glazedAtrium(2340,back-top,(top+back)/2,480,545,3);
   face('bay-shell',2340,695,0,-347,top);
   starWindow(2040,420,0,-350,top+8,0);
   // One curved console sill carries the three instruments below the forward glazing.

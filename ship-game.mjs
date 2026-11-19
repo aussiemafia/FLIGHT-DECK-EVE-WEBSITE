@@ -1,4 +1,4 @@
-import {loadAlcove} from './alcove.mjs';
+import {loadAlcove} from './alcove.mjs?v=hull27';
 import {loadStewardParts,stewardModel} from './robot-rig.mjs?v=22';
 import {hearthFire} from './hearth-shader.mjs';
 import * as T from './assets/engine/three.mjs';
@@ -92,7 +92,7 @@ async function launch(){
     const key=[mat.uuid,url,w,h,unit].join('|');if(finishes.has(key))return finishes.get(key);
     const m=mat.clone(),t=tex(url).clone();t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(Math.max(1,w/unit),Math.max(1,h/unit));t.needsUpdate=true;m.map=t;finishes.set(key,m);return m;
   }
-  const enamel=physical(0x999387,.62,.255,{clearcoat:.68,clearcoatRoughness:.18});
+  const enamel=physical(0x697883,.49,.26,{clearcoat:.68,clearcoatRoughness:.18});
   const suiteShell=suiteFinishes.map(([color])=>physical(color,.49,.28,{clearcoat:.55,clearcoatRoughness:.20}));
   const suiteFloor=suiteFinishes.map(([,color])=>{const m=materials.stone.clone();m.color.set(color);return m});
   function sculptedHull(w,h,shell=enamel){
@@ -174,7 +174,7 @@ async function launch(){
   const waterUniform={clock:{value:0},pano:{value:panorama},shift:globeUniform.shift};
   const water=new T.ShaderMaterial({uniforms:waterUniform,side:T.DoubleSide,vertexShader:'varying vec3 wp;varying vec2 vuv;void main(){vec4 p=modelMatrix*vec4(position,1.);wp=p.xyz;vuv=uv;gl_Position=projectionMatrix*viewMatrix*p;}',
     fragmentShader:'varying vec3 wp;varying vec2 vuv;uniform sampler2D pano;uniform float clock,shift;void main(){vec2 p=wp.xz;float a=sin(p.x*.039+clock)*.018+cos(p.y*.047-clock*.8)*.016;float b=cos((p.x+p.y)*.028+clock*1.2)*.024;vec3 v=normalize(wp-cameraPosition);vec3 n=normalize(vec3(a,1.,b));vec3 r=reflect(v,n);vec2 uv=vec2(fract(.5+atan(r.x,-r.z)/6.283185+shift),.5+asin(r.y)/3.141593);vec3 sky=texture2D(pano,uv).rgb;float fres=pow(1.-abs(dot(v,n)),2.);gl_FragColor=vec4(mix(vec3(.018,.094,.092),sky,.23+.72*fres)+pow(max(0.,dot(r,normalize(vec3(-.4,.27,-.8)))),44.)*vec3(1.,.69,.32),1.);\n#include <colorspace_fragment>\n}'});
-  const [stewardRig,alcove]=await Promise.all([loadStewardParts(),loadAlcove()]);
+  const [stewardRig,alcove,shell]=await Promise.all([loadStewardParts(),loadAlcove(),loadAlcove('assets/interior/promenade.glb')]);
   const stewardFinishes=[physical(0xf6f2e6,.47,.21,{clearcoat:.9,clearcoatRoughness:.13}),physical(0xd5aa58,.88,.20,{clearcoat:.55}),physical(0x262d30,.42,.37),physical(0x192b32,.71,.115,{clearcoat:.95})];
   function make(el){
     const g=el.geometry,k=el.classList,w=g.w,h=g.h;
@@ -190,7 +190,8 @@ async function launch(){
         const surface={shell:materials.gasket,light:materials.blue,brass:materials.brass}[el.dataset.finish];
         o=new T.Mesh(new T.ExtrudeGeometry(shape,{depth:Number(el.dataset.depth),bevelEnabled:false,curveSegments:64}),surface);
       }else if(k.contains('atlas-index'))o=flat(w,h,materials.brass,2);
-      else if(k.contains('blender-alcove')){o=alcove.clone();
+      else if(k.contains('promenade-shell')){o=shell.clone();
+      }else if(k.contains('blender-alcove')){o=alcove.clone();
       }else if(k.contains('academy-steward')){
         o=stewardModel(stewardRig,stewardFinishes);
       }else if(k.contains('continuous-return')){o=curvedHull(el,h);
@@ -298,7 +299,7 @@ async function launch(){
       }else if(k.contains('hearth-flame')){
         o=hearthFire(w,h,waterUniform.clock);
       }else o=flat(w,h,k.contains('gallery')?materials.ivory:materials.bronze);
-      pose(el,o);if(k.contains('blender-alcove'))o.scale.set(...el.alcoveScale);
+      pose(el,o);if(el.alcoveScale)o.scale.set(...el.alcoveScale);
       if(k.contains('galaxy-window')||k.contains('end-vista')||k.contains('side-window'))o.translateZ(12);
     }
     if(k.contains('screen')||k.contains('simulation')||k.contains('sim-wing')){
@@ -391,7 +392,7 @@ async function launch(){
     if(f!==lastFocal){lastFocal=f;cam.fov=2*Math.atan(innerHeight/(2*f))*180/Math.PI;cam.updateProjectionMatrix();lastSize=size}
     const {x,z,yaw,pitch}=visitor;cam.position.set(x,standingEye(),z);cam.rotation.order='YXZ';cam.rotation.set(pitch,-yaw,0,'YXZ');
     firmament.position.copy(cam.position);sun.position.set(x-1700,2700,z-1300);sun.target.position.set(x,0,z);cool.position.set(x+1100,800,z+850);cool.target.position.set(x,0,z);
-    const night=document.body.classList.contains('night-watch');ambient.intensity=night?.065:1.68;sun.intensity=night?.055:2.05;cool.intensity=night?.045:.85;scene.environmentIntensity=night?.075:.89;
+    const night=document.body.classList.contains('night-watch');ambient.intensity=night?.065:1.04;sun.intensity=night?.055:1.45;cool.intensity=night?.045:.98;scene.environmentIntensity=night?.075:.89;
     fill.intensity=night?3200:90000;fill.position.set(x,330,z-220);
     if(!reduced.matches)for(const [tree,o] of forest)if(o.userData.palm)o.rotation.z=.009*Math.sin(now*.00048+tree.z);
     waterUniform.clock.value=reduced.matches?0:now*.001;
