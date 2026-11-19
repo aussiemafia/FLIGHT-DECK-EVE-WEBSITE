@@ -178,7 +178,7 @@ function rise(){
   byId('rise').hidden=true;draw();
 }
 function addSeat(x,z,facing,room=null){
-  const chair=face('flight-seat',124,186,x,-86,z);
+  const chair=face('flight-seat',123,161,x,-67,z);
   const seat={node:chair,x,z,facing,room,id:'s'+Math.round(x)+'z'+Math.round(z)};
   chairs.push(seat);
   interactive.set(chair,{room,seatId:seat.id,name:'Sit in observation chair',action:()=>{
@@ -192,7 +192,7 @@ function turnChairs(){
     if(c.room&&!c.room.visible)continue;
     const a=Math.atan2(visitor.x-c.x,visitor.z-c.z);
     const idx=(Math.round((a+c.facing)*8/Math.PI)%16+16)%16;
-    c.node.style.transform='translate3d('+c.x+'px,-86px,'+c.z+'px) rotateY('+a+'rad)';
+    c.node.style.transform='translate3d('+c.x+'px,-67px,'+c.z+'px) rotateY('+a+'rad)';
     c.node.style.backgroundPosition=(idx%8)*100/7+'% '+Math.floor(idx/8)*100+'%';
     c.node.geometry.ry=a;c.node.style.visibility=c===seated?'hidden':'';
   }

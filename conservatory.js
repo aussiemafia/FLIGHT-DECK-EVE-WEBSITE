@@ -30,7 +30,7 @@ function mountLayeredGrove(){
   }
   let old='',last=0;
   function render(now){
-    requestAnimationFrame(render);if(document.hidden||!atlas.complete||!atlas.naturalWidth)return;
+    requestAnimationFrame(render);if(window.hdStation||document.hidden||!atlas.complete||!atlas.naturalWidth)return;
     const {x,z,yaw,pitch}=visitor,eye=standingEye(),stamp=[x,z,yaw,pitch,eye,innerWidth,innerHeight].join('/');
     if(stamp===old&&(reduced.matches||now-last<145))return;
     old=stamp;last=now;const res=Math.min(devicePixelRatio||1,1.4),w=innerWidth,h=innerHeight;
@@ -79,38 +79,6 @@ function mountLayeredGrove(){
   }
   requestAnimationFrame(render);
 }
-  if(!gl){mountLayeredGrove();return}
-  const vertex=`
-    attribute vec3 pos,norm;attribute vec2 uv;attribute float flex;
-    uniform vec3 base,cam;uniform vec2 turn,look,lens,spin;
-    uniform float time,phase,treeScale;varying vec2 tex;varying float light;
-    void main(){
-      vec3 p=pos;p.x+=flex*(2.0*sin(time*.74+phase+p.y*.009)+.9*sin(time*1.3+p.z*.032));
-      p.z+=flex*sin(time*.53+phase+p.x*.012)*1.8;
-      p.xz=mat2(spin.x,-spin.y,spin.y,spin.x)*p.xz;
-      vec3 d=p*treeScale+base-cam;
-      float x=turn.x*d.x+turn.y*d.z,z=-turn.y*d.x+turn.x*d.z;
-      float y=look.x*d.y-look.y*z,w=-(look.y*d.y+look.x*z);
-      gl_Position=vec4(x*lens.x,-y*lens.y,w*1.0001-2.0,w);
-      tex=uv;vec3 n=norm;n.xz=mat2(spin.x,-spin.y,spin.y,spin.x)*n.xz;
-      light=.70+.33*max(0.,dot(n,normalize(vec3(-.45,-.9,.33))))+.13*max(0.,dot(n,vec3(.7,-.3,-.55)));
-    }`;
-  const fragment=`precision mediump float;varying vec2 tex;varying float light;
-    uniform sampler2D image;uniform float leaves;
-    void main(){vec4 c=texture2D(image,tex);if(leaves>.5&&c.a<.44)discard;
-    gl_FragColor=vec4(c.rgb*light,1.);}`;
-  function shader(type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);return s}
-  const program=gl.createProgram();
-  gl.attachShader(program,shader(gl.VERTEX_SHADER,vertex));gl.attachShader(program,shader(gl.FRAGMENT_SHADER,fragment));
-  gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS)){mountLayeredGrove();return;}gl.useProgram(program);
-  const u=Object.fromEntries(['base','cam','turn','look','lens','spin','time','phase','leaves','treeScale'].map(k=>[k,gl.getUniformLocation(program,k)]));
-  const attributes=['pos','norm','uv','flex'].map(k=>gl.getAttribLocation(program,k));
-  function buffer(data){
-    const id=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,id);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);
-    return {id,count:data.length/9};
-  }
-  function bind(b){gl.bindBuffer(gl.ARRAY_BUFFER,b.id);let offset=0;
-    [3,3,2,1].forEach((size,i)=>{gl.enableVertexAttribArray(attributes[i]);gl.vertexAttribPointer(attributes[i],size,gl.FLOAT,false,36,offset*4);offset+=size})}
   const normalize=v=>{const l=Math.hypot(...v)||1;return v.map(x=>x/l)};
   const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
   const add=(a,b,s=1)=>a.map((v,i)=>v+b[i]*s);
@@ -156,6 +124,39 @@ function mountLayeredGrove(){
     limb(base,neck,8-i*.5,6);limb(neck,fork,6,5);
     branch(fork,az,.69+rand()*.52,67+rand()*19,5.7,5);
   }
+  window.groveGeometry={wood,leaves};
+  if(!gl){mountLayeredGrove();return}
+  const vertex=`
+    attribute vec3 pos,norm;attribute vec2 uv;attribute float flex;
+    uniform vec3 base,cam;uniform vec2 turn,look,lens,spin;
+    uniform float time,phase,treeScale;varying vec2 tex;varying float light;
+    void main(){
+      vec3 p=pos;p.x+=flex*(2.0*sin(time*.74+phase+p.y*.009)+.9*sin(time*1.3+p.z*.032));
+      p.z+=flex*sin(time*.53+phase+p.x*.012)*1.8;
+      p.xz=mat2(spin.x,-spin.y,spin.y,spin.x)*p.xz;
+      vec3 d=p*treeScale+base-cam;
+      float x=turn.x*d.x+turn.y*d.z,z=-turn.y*d.x+turn.x*d.z;
+      float y=look.x*d.y-look.y*z,w=-(look.y*d.y+look.x*z);
+      gl_Position=vec4(x*lens.x,-y*lens.y,w*1.0001-2.0,w);
+      tex=uv;vec3 n=norm;n.xz=mat2(spin.x,-spin.y,spin.y,spin.x)*n.xz;
+      light=.70+.33*max(0.,dot(n,normalize(vec3(-.45,-.9,.33))))+.13*max(0.,dot(n,vec3(.7,-.3,-.55)));
+    }`;
+  const fragment=`precision mediump float;varying vec2 tex;varying float light;
+    uniform sampler2D image;uniform float leaves;
+    void main(){vec4 c=texture2D(image,tex);if(leaves>.5&&c.a<.44)discard;
+    gl_FragColor=vec4(c.rgb*light,1.);}`;
+  function shader(type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);return s}
+  const program=gl.createProgram();
+  gl.attachShader(program,shader(gl.VERTEX_SHADER,vertex));gl.attachShader(program,shader(gl.FRAGMENT_SHADER,fragment));
+  gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS)){mountLayeredGrove();return;}gl.useProgram(program);
+  const u=Object.fromEntries(['base','cam','turn','look','lens','spin','time','phase','leaves','treeScale'].map(k=>[k,gl.getUniformLocation(program,k)]));
+  const attributes=['pos','norm','uv','flex'].map(k=>gl.getAttribLocation(program,k));
+  function buffer(data){
+    const id=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,id);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);
+    return {id,count:data.length/9};
+  }
+  function bind(b){gl.bindBuffer(gl.ARRAY_BUFFER,b.id);let offset=0;
+    [3,3,2,1].forEach((size,i)=>{gl.enableVertexAttribArray(attributes[i]);gl.vertexAttribPointer(attributes[i],size,gl.FLOAT,false,36,offset*4);offset+=size})}
   const trunkMesh=buffer(wood),leafMesh=buffer(leaves);
   const depth=[];
   for(const el of hall.querySelectorAll('.bay-shell,.door-leaf,.chamber-lid,.chamber-floor,.floor,.galaxy-window,.end-vista,.screen,.simulation,.learning-panel,.console')){
@@ -181,7 +182,7 @@ function mountLayeredGrove(){
     let previous=-1000,saved='';
     function render(now){
       requestAnimationFrame(render);
-      if(document.hidden||gl.isContextLost())return;
+      if(document.hidden||window.hdStation||gl.isContextLost())return;
       const {x,z,yaw,pitch}=visitor,eye=standingEye(),stamp=[x,z,yaw,pitch,eye,innerWidth,innerHeight].join('/');
       if(stamp===saved&&(reduced.matches||now-previous<90))return;
       saved=stamp;previous=now;

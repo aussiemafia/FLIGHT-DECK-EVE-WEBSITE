@@ -160,6 +160,13 @@
       Object.assign(visitor,{x:170,z:mids(5*n+(n===5?1:2))-470,yaw:Math.PI+.23,pitch:.055});
       stream();draw();update(performance.now())};
   });
+  const liftLink=document.createElement('button');
+  liftLink.textContent='Observation lift';destinations.append(liftLink);
+  liftLink.onclick=()=>{
+    menu.close();rise();ride=null;elevation=0;
+    Object.assign(visitor,{x:widthAt(3)-460,z:mids(3),yaw:Math.PI/2,pitch:0});
+    stream();draw();update(performance.now());
+  };
   byId('elevator').onclick=()=>{const lift=liftHere();if(lift)board(lift)};
   window.stationCity={start,end,clear,update,stream,get height(){return elevation},get riding(){return !!ride},
     reset(){ride=null;elevation=0},classroomAt(x,z){const r=chunks.get(idx(z))?.room;return r&&Math.abs(x)>r.width?r:null}};

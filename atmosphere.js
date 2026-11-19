@@ -42,7 +42,7 @@
     }
   }
   function refresh(){
-    if(!document.hidden&&texture){
+    if(!window.hdStation&&!document.hidden&&texture){
       const panes=windows(),stamp=[Math.round(visitor.x/85),Math.round(visitor.z/85),Math.round(standingEye()/55),mode].join('.');
       let done=0;
       for(let j=0;j<panes.length&&done<2;j++){

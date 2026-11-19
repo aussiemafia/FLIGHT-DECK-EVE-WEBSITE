@@ -12,11 +12,12 @@ window.renderPilot=(()=>{
       const uv=new Uint16Array(buf,off,count*2),mesh=new Int16Array(buf,off+count*4);
       const c=document.createElement('canvas');c.width=image.width;c.height=image.height;
       const ctx=c.getContext('2d');ctx.drawImage(image,0,0);
-      data={indices,uv,mesh,count,frames,tex:ctx.getImageData(0,0,c.width,c.height).data,tw:c.width,th:c.height};
+      data=window.pilotGeometry={indices,uv,mesh,count,frames,tex:ctx.getImageData(0,0,c.width,c.height).data,tw:c.width,th:c.height};
     }catch{setTimeout(()=>{loading=false},3000)}
   }
   return function(actor,angle,dist,now){
     if(!data){if(!loading)load();return}
+    if(window.hdStation)return;
     if(now-(actor.lastRender||0)<(dist>1500?150:65))return;
     actor.lastRender=now;
     const c=actor.canvas,mode=actor.p.state;

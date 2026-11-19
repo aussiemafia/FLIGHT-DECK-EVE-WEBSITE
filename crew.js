@@ -65,7 +65,7 @@
     }
     if(active)requestAnimationFrame(drawCrew);
   }
-  window.flightCrew={
+  window.flightCrew={peers,
     occupied:id=>[...peers.values()].some(a=>a.p.seat===id),
     nearDoor:d=>[...peers.values()].some(({x,z})=>Math.abs((x-d.x)*d.ux+(z-d.z)*d.uz)<315&&Math.abs(-(x-d.x)*d.uz+(z-d.z)*d.ux)<440)
   };
