@@ -7,15 +7,15 @@
   let active=true,timer=0,ownId='',lastSnapshot=0,failures=0;
   function pose(){
     if(bridge)return {x,z,yaw,deck:'bridge',seat:seated?'helm-'+Math.abs(seated.x)+'-'+Math.abs(seated.z):'',state:seated?'seated':panel.open?'reading':keys.size?'walking':'standing'};
-    return {...visitor,deck:'concourse',seat:seated?.id||'',state:seated?'seated':record.open?'reading':activityUntil>Date.now()?'projecting':keys.size?'walking':'standing'};
+    return {...visitor,height:window.stationCity?.height||0,deck:'concourse',seat:seated?.id||'',state:seated?'seated':record.open?'reading':activityUntil>Date.now()?'projecting':keys.size?'walking':'standing'};
   }
   function makeAvatar(p){
     const node=document.createElement('div');
     node.className='crew-avatar';
     node.style.setProperty('--suit','hsl('+parseInt(p.id.slice(0,3),16)%360+' 32% 47%)');
-    node.innerHTML='<div class="crew-shadow"></div><div class="crew-body"><i class="boot left"></i><i class="boot right"></i><i class="sleeve left"></i><i class="sleeve right"></i><i class="torso"></i><i class="helmet"></i></div><span class="crew-tag"></span>';
+    node.innerHTML='<div class="crew-shadow"></div><canvas class="pilot-mesh" aria-hidden="true"></canvas><span class="crew-tag"></span>';
     root.append(node);const tag=node.querySelector('.crew-tag');
-    return {node,tag,x:p.x,z:p.z,fromX:p.x,fromZ:p.z,updated:performance.now(),p};
+    return {node,tag,canvas:node.querySelector('canvas'),x:p.x,z:p.z,fromX:p.x,fromZ:p.z,updated:performance.now(),p};
   }
   function update(list){
     const seen=new Set();
@@ -59,8 +59,8 @@
         const obscured=bridge?displayCompartment(me.x,me.z)!==displayCompartment(actor.x,actor.z):!sightLine(me.x,me.z,actor.x,actor.z);
         actor.node.hidden=obscured||Math.hypot(dx,dz)<38;if(actor.node.hidden)continue;
         const scale=bridge?2.36:1;
-        actor.node.style.transform='translate3d('+actor.x+'px,'+(bridge?414:0)+'px,'+actor.z+'px) rotateY('+facing+'rad) scale('+scale+')';
-        actor.node.dataset.back=Math.cos(p.yaw-facing)>.25?'yes':'no';
+        actor.node.style.transform='translate3d('+actor.x+'px,'+(bridge?414:-(p.height||0))+'px,'+actor.z+'px) rotateY('+facing+'rad) scale('+scale+')';
+        window.renderPilot?.(actor,facing+p.yaw,Math.hypot(dx,dz)/scale,now);
       }
     }
     if(active)requestAnimationFrame(drawCrew);

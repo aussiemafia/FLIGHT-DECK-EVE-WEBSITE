@@ -4,70 +4,81 @@
   const canvas=document.createElement('canvas');
   canvas.id='conservatory';canvas.setAttribute('aria-hidden','true');
   const gl=canvas.getContext('webgl',{alpha:true,antialias:true,premultipliedAlpha:true});
-// A CSS 3D renderer keeps the grove volumetric on devices without WebGL.
 function mountLayeredGrove(){
-  let seed=9217;
-  function rng(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
-  function div(cls){const n=document.createElement('div');n.className=cls;return n}
-  function at(n,x,y,z){n.style.transform='translate3d('+x+'px,'+y+'px,'+z+'px)';return n}
-  const prototype=div('maple-mesh');
-  function limb(parent,a,b,r){
-    const dx=b[0]-a[0],dy=b[1]-a[1],dz=b[2]-a[2],l=Math.hypot(dx,dy,dz);
-    const group=at(div('branch-axis'),...a);
-    const yaw=Math.atan2(dx,dz),pitch=Math.atan2(Math.hypot(dx,dz),-dy);
-    group.style.transform+=' rotateY('+yaw+'rad) rotateX('+(-pitch)+'rad)';
-    for(let i=0;i<4;i++){
-      const panel=div('bark-facet'),w=2*r*Math.tan(Math.PI/4);
-      Object.assign(panel.style,{width:(w+.5)+'px',height:(l+1)+'px',left:-w/2+'px',top:-l+'px',
-        clipPath:'polygon(14% 0,86% 0,100% 100%,0 100%)',
-        transform:'rotateY('+i*90+'deg) translateZ('+r*.81+'px)',
-        filter:'brightness('+(.80+.28*Math.cos(i*1.26+.7))+')'});
-      group.append(panel);
-    }
-    parent.append(group);
-  }
-  function crown(parent,p,s){
-    const wave=at(div('leaf-joint'),...p),moving=div('leaf-spray');
-    moving.style.animationDelay=(-rng()*9)+'s';
-    for(let j=0;j<3;j++){
-      const card=div('leaf-cluster'),w=(68+rng()*27)*s,h=w*.70,idx=Math.floor(rng()*8);
-      Object.assign(card.style,{width:w+'px',height:h+'px',left:-w/2+'px',top:-h/2+'px',
-        backgroundPosition:(idx%4)*100/3+'% '+Math.floor(idx/4)*100+'%',
-        transform:'translate3d('+((rng()-.5)*18)+'px,'+((rng()-.5)*12)+'px,'+((rng()-.5)*18)+'px) rotateY('+j*60+'deg) rotateX('+((rng()-.5)*74)+'deg)'});
-      moving.append(card);
-    }
-    wave.append(moving);parent.append(wave);
+  const layer=document.createElement('canvas');layer.id='conservatory';byId('viewport').append(layer);
+  const ctx=layer.getContext('2d');if(!ctx)return;
+  const atlas=new Image();atlas.src='assets/maple-foliage.webp';
+  let seed=7219;
+  function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
+  const parts=[];
+  function limb(a,b,r){
+    parts.push({a,b,r});
   }
   function fork(a,az,up,len,r,d){
     const b=[a[0]+Math.cos(az)*Math.cos(up)*len,a[1]-Math.sin(up)*len,a[2]+Math.sin(az)*Math.cos(up)*len];
-    limb(prototype,a,b,r);
-    if(d<2)crown(prototype,b,d?1.12:.96);
+    limb(a,b,r);
+    if(d<2)for(let j=0;j<5;j++){
+      const t=random()*6.283,p=[b[0]+(random()-.5)*19,b[1]+(random()-.5)*13,b[2]+(random()-.5)*19],w=23+random()*16;
+      parts.push({p,t,w,tile:Math.floor(random()*8),tilt:random()*.8-.4});
+    }
     if(!d)return;
-    for(const sign of [-1,1])fork(b,az+sign*(.47+rng()*.7),up*.52+.20+rng()*.28,len*(.63+rng()*.12),r*.61,d-1);
+    for(const sign of [-1,1])fork(b,az+sign*(.39+random()*.8),up*.56+.17+random()*.25,len*(.63+random()*.12),r*.61,d-1);
   }
   for(let i=0;i<4;i++){
-    const a=i*1.58+.19,neck=[Math.cos(a)*12,-61-i*4,Math.sin(a)*12],forkPt=[Math.cos(a+.36)*25,-102-i*5,Math.sin(a+.36)*25];
-    limb(prototype,[Math.cos(a)*4,0,Math.sin(a)*4],neck,8.6);limb(prototype,neck,forkPt,6);
-    fork(forkPt,a,.70+i*.14,94+i*2,5,2);
+    const az=i*1.58+.19,n=[Math.cos(az)*13,-68-i*4,Math.sin(az)*13],p=[Math.cos(az+.3)*27,-106-i*5,Math.sin(az+.3)*27];
+    limb([Math.cos(az)*4,0,Math.sin(az)*4],n,8.6);limb(n,p,6);fork(p,az,.66+i*.13,86,5,3);
   }
-  const loaded=new Map();
-  function update(){
-    if(!document.hidden){
-      const ranked=trees.map((t,i)=>({t,i,d:Math.hypot(visitor.x-t.x,visitor.z-t.z)})).filter(c=>c.d<6200&&((c.t.x-visitor.x)*Math.sin(visitor.yaw)-(c.t.z-visitor.z)*Math.cos(visitor.yaw)>-450)).sort((a,b)=>a.d-b.d);
-      const nearest=new Set(ranked.slice(0,4).map(c=>c.i));
-      for(const [i,node] of loaded)if(!nearest.has(i)){node.remove();loaded.delete(i)}
-      for(const {t,i} of ranked){
-        if(!nearest.has(i)||loaded.has(i))continue;
-        const n=prototype.cloneNode(true);
-        n.style.transform='translate3d('+t.x+'px,0,'+t.z+'px) rotateY('+i*67+'deg) scale3d('+t.scale+','+t.scale+','+t.scale+')';
-        hall.append(n);loaded.set(i,n);
+  let old='',last=0;
+  function render(now){
+    requestAnimationFrame(render);if(document.hidden||!atlas.complete||!atlas.naturalWidth)return;
+    const {x,z,yaw,pitch}=visitor,eye=standingEye(),stamp=[x,z,yaw,pitch,eye,innerWidth,innerHeight].join('/');
+    if(stamp===old&&(reduced.matches||now-last<145))return;
+    old=stamp;last=now;const res=Math.min(devicePixelRatio||1,1.4),w=innerWidth,h=innerHeight;
+    if(layer.width!==Math.round(w*res)||layer.height!==Math.round(h*res)){layer.width=Math.round(w*res);layer.height=Math.round(h*res)}
+    ctx.setTransform(res,0,0,res,0,0);ctx.clearRect(0,0,w,h);
+    const cs=Math.cos(yaw),sn=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch),f=parseFloat(view.style.perspective);
+    function project(X,Y,Z){
+      const dx=X-x,dy=Y+eye,dz=Z-z,q=-sn*dx+cs*dz,depth=-(sp*dy+cp*q);
+      if(depth<4)return null;
+      return {x:w/2+f*(cs*dx+sn*dz)/depth,y:h/2+f*(cp*dy-sp*q)/depth,d:depth,k:f/depth};
+    }
+    const draws=[];
+    for(const [i,tr] of trees.entries()){
+      const dx=tr.x-x,dz=tr.z-z,dist=Math.hypot(dx,dz);
+      if(dist>6100||dx*sn-dz*cs<-530||!sightLine(x,z,tr.x,tr.z))continue;
+      const rot=i*1.671,c=Math.cos(rot),s=Math.sin(rot),sz=tr.scale;
+      function point(p){return project(tr.x+sz*(p[0]*c-p[2]*s),sz*p[1],tr.z+sz*(p[0]*s+p[2]*c))}
+      for(const part of parts){
+        if(part.a){
+          const a=point(part.a),b=point(part.b);
+          if(a&&b)draws.push({a,b,r:Math.max(.45,part.r*sz*(a.k+b.k)),d:(a.d+b.d)/2});
+        }else{
+          const {p,w:radius,t,tile,tilt}=part;
+          const sway=reduced.matches?0:Math.sin(now*.00064+i+p[1]*.009)*1.8;
+          const v=[p[0]+sway,p[1],p[2]],centre=point(v);if(!centre)continue;
+          const spread=radius*sz*centre.k*1.6;
+          if(centre.x+spread<0||centre.x-spread>w||centre.y+spread<0||centre.y-spread>h)continue;
+          const side=point([v[0]+radius*Math.cos(t),v[1]+tilt*radius*.24,v[2]+radius*Math.sin(t)]);
+          const up=point([v[0]+tilt*radius*.28,v[1]-radius*.68,v[2]+tilt*radius*.32]);
+          if(side&&up)draws.push({centre,side,up,tile,d:centre.d});
+        }
       }
     }
-    setTimeout(update,500);
+    draws.sort((a,b)=>b.d-a.d);
+    for(const item of draws){
+      if(item.a){
+        const {a,b,r}=item;ctx.setTransform(res,0,0,res,0,0);ctx.lineCap='round';ctx.lineWidth=r;ctx.strokeStyle='#534539';
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+        if(r>2){ctx.lineWidth=r*.43;ctx.strokeStyle='#8c7760';ctx.beginPath();ctx.moveTo(a.x-r*.13,a.y);ctx.lineTo(b.x-r*.07,b.y);ctx.stroke()}
+      }else{
+        const {centre:c,side:s,up:u,tile}=item;
+        ctx.setTransform((s.x-c.x)*res,(s.y-c.y)*res,(c.x-u.x)*res,(c.y-u.y)*res,c.x*res,c.y*res);
+        ctx.drawImage(atlas,(tile%4)*128,Math.floor(tile/4)*128,128,128,-1,-1,2,2);
+      }
+    }
   }
-  update();
+  requestAnimationFrame(render);
 }
-
   if(!gl){mountLayeredGrove();return}
   const vertex=`
     attribute vec3 pos,norm;attribute vec2 uv;attribute float flex;

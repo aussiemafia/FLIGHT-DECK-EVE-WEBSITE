@@ -1,0 +1,4 @@
+Pilot character adapted from Cesium Man, © 2017 Cesium, CC BY 4.0.
+https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CesiumMan
+https://creativecommons.org/licenses/by/4.0/
+The Cesium logo belongs to Cesium. Mesh converted to sampled animation poses for local browser rendering. Additional sitting and exhibit poses created for The Expanse.

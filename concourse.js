@@ -40,6 +40,9 @@ function exhibit(station,w,h,x,y,z,angle,hero=false) {
   label.textContent = hero?'THE EXPANSE  /  PUBLIC GALLERY':'EVE ARCHIVE';
   caption.append(label,station.name);
   screen.append(img,caption);
+  const films={story:'transit',wormholes:'transit',ships:'fortizar',systems:'transit',estimate:'ore',drifters:'crystal',fits:'fortizar',sites:'fortizar','blue-loot':'crystal',dscan:'fortizar'};
+  const video=document.createElement('video');video.loop=true;video.muted=true;video.playsInline=true;video.preload='none';
+  video.dataset.src='assets/exhibits/'+(films[station.route]||'transit')+'.mp4';screen.insertBefore(video,caption);
   interactive.set(screen,station);
 }
 const boundary=1360, roomEnd=3260, roomHalf=615;
@@ -89,7 +92,7 @@ function makeDoor(x,z,angle,label,tone){
   for(const offset of [-12,12]){
     local('portal-frame',473,355,0,-177,offset).style.setProperty('--tone',tone);
     const sign=local('portal-name',500,46,0,-387,offset);
-    sign.textContent=label;
+    sign.textContent=label;sign.style.backfaceVisibility='hidden';
     if(offset<0)sign.style.transform+=' rotateY(180deg)';
   }
   const leaves=[-1,1].map(sign=>{
@@ -97,7 +100,7 @@ function makeDoor(x,z,angle,label,tone){
     if(sign===1)leaf.classList.add('mirror');
     return {leaf,origin:leaf.style.transform,sign};
   });
-  const door={x,z,ux,uz,aperture:0,leaves};doors.push(door);
+  const door={x,z,ux,uz,aperture:0,leaves,label};doors.push(door);
   return door;
 }
 function updateDoors(dt){
@@ -108,6 +111,7 @@ function updateDoors(dt){
     const next=d.aperture+Math.sign(goal-d.aperture)*Math.min(Math.abs(goal-d.aperture),dt*2);
     if(next===d.aperture)continue;
     d.aperture=next;
+    for(const {leaf} of d.leaves)leaf.classList.toggle('unsealed',next>.04);
     for(const {leaf,origin,sign} of d.leaves)leaf.style.transform=origin+' translateX('+sign*next*216+'px)';
   }
 }
@@ -167,7 +171,7 @@ const glow=face('reflection',1300,900,0,-2,-2420,0,90);
 glow.style.backgroundImage='url('+flagship.asset+')';
 const chairs=[], corridorX=2430, corridorHalf=245;
 let seated=null, activityUntil=0;
-function standingEye(){return seated?105:eye}
+function standingEye(){return (seated?105:eye)+(window.stationCity?.height||0)}
 function rise(){
   if(!seated)return;
   visitor.x=seated.entry.x;visitor.z=seated.entry.z;seated=null;
@@ -175,7 +179,7 @@ function rise(){
 }
 function addSeat(x,z,facing,room=null){
   const chair=face('flight-seat',124,186,x,-86,z);
-  const seat={node:chair,x,z,facing,room,id:'seat-'+chairs.length};
+  const seat={node:chair,x,z,facing,room,id:'s'+Math.round(x)+'z'+Math.round(z)};
   chairs.push(seat);
   interactive.set(chair,{room,seatId:seat.id,name:'Sit in observation chair',action:()=>{
     if(seated||Math.hypot(visitor.x-x,visitor.z-z)>640||window.flightCrew?.occupied(seat.id))return;
@@ -242,7 +246,7 @@ for(const side of [-1,1]){
 }
 for(let z=3990;z<gardenEnd;z+=315)face('rib',gardenWidth*2,875,0,-437.5,z);
 face('bay-shell',425,280,0,-460,gardenEnd,180);
-const gardenExit=makeDoor(0,gardenEnd,180,'Private holodeck','#90dfdb');
+const gardenExit=makeDoor(0,gardenEnd,180,'Stellar promenade','#90dfdb');
 gates.push({sign:2,door:gardenExit,url:'bridge.html#holodeck'});
 const gardenDestination={name:'Celestial garden',garden:true};
 const teaching=[
@@ -318,8 +322,8 @@ function refreshRoom(){
     if(old?.projection)renderSimulation(old);
     if(next?.projection)renderSimulation(next);
   }
-  const area=next?.name||(visitor.z>gardenStart?'Celestial garden':Math.abs(visitor.x)>boundary?'Gallery passage':'Grand Concourse');
-  const readout=document.querySelector('.location strong');if(readout.textContent!==area)readout.textContent=area;
+  const area=visitor.z>gardenEnd?null:visitor.z<-3900?(window.liveHelm?.inCinema()?'Screening theatre':'Flight bridge'):next?.name||(visitor.z>gardenStart?'Celestial garden':Math.abs(visitor.x)>boundary?'Gallery passage':'Grand Concourse');
+  const readout=document.querySelector('.location strong');if(area&&readout.textContent!==area)readout.textContent=area;
   for(const [room,nodes] of chamberNodes){
     const onWing=visitor.x*room.side>boundary-100;
     const visible=room===next||(Math.abs(visitor.z-room.z)<(onWing?2250:1150)&&Math.abs(visitor.x-room.side*boundary)<(onWing?2100:1200));
@@ -329,10 +333,10 @@ function refreshRoom(){
   }
 }
 function resetAt(station){
-  rise();
+  rise();window.stationCity?.reset();
   if(station.garden){Object.assign(visitor,{x:0,z:3550,yaw:Math.PI,pitch:.04})}
   else if(station.side){
-    Object.assign(visitor,{x:station.side*(boundary-355),z:station.z,yaw:station.side*Math.PI/2,pitch:0});
+    Object.assign(visitor,{x:station.side*(boundary+380),z:station.z,yaw:station.side*Math.PI/2,pitch:0});
   } else {
     Object.assign(visitor,{x:0,z:-1200,yaw:0,pitch:.25});
   }
@@ -391,7 +395,7 @@ function draw(){
   view.style.perspective=focal+'px';
   byId('camera').style.transform='translateZ('+focal+'px)';
   hall.style.transform=`rotateX(${visitor.pitch}rad) rotateY(${visitor.yaw}rad) translate3d(${-visitor.x}px,${standingEye()}px,${-visitor.z}px)`;
-  target=pick(innerWidth/2,innerHeight/2);
+  target=pick(innerWidth/2,innerHeight/2)||window.stationPrompt?.()||null;
   const use=byId('interact');
   use.hidden=!target||record.open||menu.open;
   if(target)use.textContent=(target.action?'':'Open ')+target.name+' · E';
@@ -431,6 +435,8 @@ for(const button of document.querySelectorAll('[data-key]')){
   button.onlostpointercapture=()=>keys.delete(button.dataset.key);
 }
 function clear(x,z){
+  if(z<-3900&&window.liveHelm)return window.liveHelm.clear(x,z);
+  if(z>gardenEnd&&window.stationCity)return window.stationCity.clear(x,z);
   if(chairs.some(c=>Math.hypot(x-c.x,z-c.z)<39)||trees.some(t=>Math.hypot(x-t.x,z-t.z)<49))return false;
   if(Math.abs(x)<boundary-28){
     if(z>3940){
@@ -452,6 +458,7 @@ function clear(x,z){
 let previous=performance.now();
 function tick(now){
   const dt=Math.min(.04,(now-previous)/1000);previous=now;
+  window.stationCity?.update(now);
   updateDoors(dt);
   if(keys.size&&!record.open&&!menu.open){
     const forward=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
@@ -461,9 +468,9 @@ function tick(now){
     const {x,z,yaw}=visitor;
     const nx=x+step*(Math.sin(yaw)*forward+Math.cos(yaw)*side);
     const nz=z+step*(-Math.cos(yaw)*forward+Math.sin(yaw)*side);
-    if(!seated&&clear(nx,z))visitor.x=nx;
-    if(!seated&&clear(visitor.x,nz))visitor.z=nz;
-    if(visitor.z<-3950||visitor.z>gardenEnd+48){
+    if(!seated&&!window.stationCity?.riding&&clear(nx,z))visitor.x=nx;
+    if(!seated&&!window.stationCity?.riding&&clear(visitor.x,nz))visitor.z=nz;
+    if(visitor.z<-3950&&!window.liveHelm){
       keys.clear();location.assign(gates.find(g=>g.sign===(visitor.z<0?-1:2)).url);return;
     }
     draw();
@@ -476,6 +483,11 @@ draw();requestAnimationFrame(tick);
 byId('rise').onclick=rise;
 // Sample public walkways so a visitor on the other side of a bulkhead stays out of view.
 function sightLine(ax,az,bx,bz){
+  if(Math.hypot(bx-ax,bz-az)>7200)return false;
+  if(az>gardenEnd&&bz>gardenEnd&&window.stationCity){
+    const a=window.stationCity.classroomAt(ax,az),b=window.stationCity.classroomAt(bx,bz);
+    return a===b||Math.abs(az-bz)<180;
+  }
   const steps=Math.ceil(Math.hypot(bx-ax,bz-az)/65);
   for(let i=1;i<steps;i++){
     const t=i/steps,x=ax+(bx-ax)*t,z=az+(bz-az)*t,abs=Math.abs(x);
@@ -489,3 +501,16 @@ function sightLine(ax,az,bx,bz){
   return true;
 }
 
+
+function activeDisplays(){
+  for(const video of hall.querySelectorAll('.screen video')){
+    const screen=video.parentElement,g=screen.geometry;
+    const dx=g.x-visitor.x,dz=g.z-visitor.z;
+    const showing=!document.hidden&&!screen.hidden&&Math.hypot(dx,dz)<(screen.classList.contains('flagship')?6500:2600)&&dx*Math.sin(visitor.yaw)-dz*Math.cos(visitor.yaw)>0;
+    if(showing){
+      if(!video.src)video.src=video.dataset.src;
+      if(video.paused)video.play().catch(()=>{});
+    }else if(!video.paused)video.pause();
+  }
+}
+setInterval(activeDisplays,850);activeDisplays();

@@ -2,9 +2,9 @@
 (function(){
   const button=document.getElementById('intercom'),caption=document.getElementById('announcement'),mute=document.getElementById('quiet');
   const lines=[
-    'Welcome aboard the Expanse. It’s good to have you here.',
-    'Through the glass above you are the stars of New Eden. Follow the light along the floor to explore the galleries.',
-    'Or take a seat beside the water. The ship is yours to discover.'
+    'Hello there. Welcome aboard the Expanse. Come in, and make yourself at home.',
+    'If you look up, you can see the stars through the glass. Just beyond the garden, the promenade will take you all the way to the observatory.',
+    'There’s no hurry. Find something that catches your eye, or settle into a chair by the water. I’m glad you’re here.'
   ];
   let muted=false,welcomed=false,playing=false,serial=0,audio=null;
   try{muted=localStorage.getItem('expanse-intercom-muted')==='yes'}catch{}
@@ -35,7 +35,7 @@
         voice.rate=.93;voice.pitch=1.02;voice.onend=next;voice.onerror=()=>setTimeout(next,3300);speechSynthesis.speak(voice);
       }
       if(!room&&!muted){
-        audio=new Audio('assets/intercom/welcome-'+(i+1)+'.mp3');
+        audio=new Audio('assets/intercom/arrival-'+(i+1)+'.mp3');
         audio.onended=next;audio.play().catch(fallback);
       }else fallback();
     }
