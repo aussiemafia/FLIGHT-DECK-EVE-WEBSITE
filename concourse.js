@@ -48,7 +48,7 @@ function face(kind,w,h,x,y,z,ry=0,rx=0,rz=0) {
     }
     for(let i=0;i<16;i++){
       const a=i/16,b=(i+1)/16,za=rise*Math.sin(Math.PI*a),zb=rise*Math.sin(Math.PI*b),dx=w/16;
-      const panel=document.createElement('b');panel.className='vault-skin';
+      const panel=document.createElement('b');panel.className=i>=5&&i<=10?'vault-skin roof-glass':'vault-skin';
       const len=Math.hypot(dx,zb-za)+.65;
       Object.assign(panel.style,{width:len+'px',height:h+'px',left:((a+b)*w/2-len/2)+'px',top:'0',
         transform:'translateZ('+((za+zb)/2)+'px) rotateY('+(-Math.atan2(zb-za,dx))+'rad)'});
@@ -166,16 +166,39 @@ function passageOpen(d,x,z){
   return Math.abs(-dx*d.uz+dz*d.ux)>38||Math.abs(dx*d.ux+dz*d.uz)+24<(d.aperture*d.aperture*(3-2*d.aperture))*211;
 }
 face('floor',width,length,0,0,0,0,90);
-for(let i=0;i<18;i++){
-  const a=i*Math.PI/18,b=(i+1)*Math.PI/18;
-  const x1=boundary*Math.cos(a),x2=boundary*Math.cos(b);
-  const y1=-490-245*Math.sin(a),y2=-490-245*Math.sin(b);
-  const skylight=i>=6&&i<=11;
-  const panel=face(skylight?'roof skylight':'roof',Math.hypot(x2-x1,y2-y1)+2,length,(x1+x2)/2,(y1+y2)/2,0,0,0,Math.atan2(y2-y1,x2-x1)*180/Math.PI);
-  panel.style.transform+=' rotateX(90deg)';
-  
+// Shared section for the pressure glass and its load-bearing frames.
+function vaultPoint(t,half,spring,rise){
+  const a=t*Math.PI;
+  return [half*Math.cos(a),-spring-rise*Math.sin(a)];
 }
-for(let z=-3600;z<4000;z+=810)face('rib',width,height,0,-height/2,z);
+function glazedAtrium(width,depth,z,spring,crown,bays){
+  const half=width/2,rise=crown-spring,segments=24;
+  for(let i=0;i<segments;i++){
+    const [x1,y1]=vaultPoint(i/segments,half,spring,rise);
+    const [x2,y2]=vaultPoint((i+1)/segments,half,spring,rise);
+    const sill=i<2||i>=segments-2;
+    const pane=face(sill?'vault-shoulder':'vault-glazing',Math.hypot(x2-x1,y2-y1)+1,depth,
+      (x1+x2)/2,(y1+y2)/2,z,0,0,Math.atan2(y2-y1,x2-x1)*180/Math.PI);
+    pane.style.transform+=' rotateX(90deg)';
+    pane.style.setProperty('--bay-span',depth/bays+'px');
+    if(i%4===1)pane.classList.add('spine-glass');
+  }
+  for(let i=0;i<bays;i++){
+    const at=z-depth/2+(i+.5)*depth/bays,frame=face('vault-frame',width,crown,0,-crown/2,at);
+    frame.dataset.spring=spring;
+    const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');
+    svg.setAttribute('viewBox','0 0 '+width+' '+crown);svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('aria-hidden','true');
+    const gauge=Math.max(17,Math.min(34,width*.009));
+    const right=width-gauge,left=gauge,high=gauge,shoulder=crown-spring;
+    const path='M '+left+' '+crown+' L '+left+' '+shoulder+' A '+(half-gauge)+' '+(shoulder-high)+' 0 0 1 '+right+' '+shoulder+' L '+right+' '+crown;
+    for(const [color,weight,offset] of [['#7f735f',gauge*2.1,0],['#e9e2d4',gauge*1.82,0],['#fff5df',gauge*.36,-gauge*.47],['#b29460',gauge*.22,gauge*.46]]){
+      const line=document.createElementNS(ns,'path');line.setAttribute('d',path);line.setAttribute('fill','none');line.setAttribute('stroke',color);line.setAttribute('stroke-width',weight);line.setAttribute('transform','translate(0 '+offset+')');svg.append(line);
+    }
+    frame.append(svg);
+  }
+}
+
+glazedAtrium(width,length,0,490,height,10);
 for(const side of [-1,1]){
   const angle=-90*side;
   let start=-4000;
@@ -256,7 +279,7 @@ function starWindow(w,h,x,y,z,angle,variant=0){
 }
 function tree(x,z){
   face('planter-rim',205,205,x,-6,z,0,90);
-  const scale=z>3900?2.80:2.45;
+  const scale=z>3900?2.13:2.02;
   trees.push({x,z,scale});
 }
 const trees=[];
@@ -292,7 +315,7 @@ for(const side of [-1,1]){
   strip(6,1540,side*208,4710,'#ffd292');
   face('bay-shell',gardenWidth-210,600,side*(gardenWidth+210)/2,-300,gardenEnd,180);
 }
-for(let z=3990;z<gardenEnd;z+=315)face('rib',gardenWidth*2,875,0,-437.5,z);
+glazedAtrium(gardenWidth*2,gardenEnd-gardenStart,(gardenEnd+gardenStart)/2,410,840,4);
 face('bay-shell',425,280,0,-460,gardenEnd,180);
 const gardenExit=makeDoor(0,gardenEnd,180,'Stellar promenade','#90dfdb');
 gates.push({sign:2,door:gardenExit,url:'bridge.html#holodeck'});

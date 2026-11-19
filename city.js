@@ -77,11 +77,11 @@
       const balcony=face('city-eave',width*.44,bay,side*width*.83,-tall+70,z,0,90);balcony.style.setProperty('--tone',tone);
       if(i%3===1){
         face('pool',330,1100,side*width*.57,-4,z,0,90);tree(side*width*.57,z-155);
-        trees.at(-1).scale=width>2200?3.8:2.65;
+        trees.at(-1).scale=width>2200?3.05:2.03;
         addSeat(side*(width*.57-220),z-125,side*Math.PI/2);addSeat(side*(width*.57-220),z+20,side*Math.PI/2);
       }
     }
-    for(const dz of [-bay*.4,0,bay*.4])face('rib',width*2,tall,0,-tall/2,z+dz);
+    glazedAtrium(width*2,bay,z,595,tall,3);
     if(i%5===0||i===count-1){
       const sign=label('city-direction',1100,120,0,-tall*.52,z,180,name);
       sign.style.setProperty('--tone',tone);

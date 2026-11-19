@@ -33,6 +33,7 @@ async function launch(){
     gold:new T.MeshStandardMaterial({color:0xffdf9d,emissive:0xffbb60,emissiveIntensity:1.5}),
     blue:new T.MeshStandardMaterial({color:0xb8f6ed,emissive:0x8de9d9,emissiveIntensity:1.4})
   };
+  const canopyGlass=physical(0x9dcace,.035,.16,{transparent:true,opacity:.105,depthWrite:false,clearcoat:.7});
   const ambient=new T.HemisphereLight(0xfff0d8,0x776c61,1.68);scene.add(ambient);
   const sun=new T.DirectionalLight(0xffe1ad,2.05);sun.position.set(-2300,3100,-1400);scene.add(sun,sun.target);
   const cool=new T.DirectionalLight(0xc1e0ee,.85);cool.position.set(1450,850,2250);scene.add(cool,cool.target);
@@ -155,6 +156,24 @@ async function launch(){
         for(const side of [-1,1]){const lamp=new T.Mesh(new T.SphereGeometry(3.6,14,8),materials.blue);lamp.position.set(side*9,36,-19);o.add(lamp);
           const leg=shell([[6,-39],[9,-37],[7,-24],[4,-16],[7,-10],[7,-2]],materials.rail);leg.position.set(side*12,-24,0);leg.name='leg'+side;o.add(leg);
           const arm=shell([[3,-18],[6,-15],[7,2],[6,14],[2,17]],materials.ivory);arm.position.set(side*33,-2,0);arm.rotation.z=side*.14;o.add(arm)}
+      }else if(k.contains('vault-frame')){
+        const spring=Number(el.dataset.spring),r=Math.max(17,Math.min(34,w*.009)),half=w/2-r,rise=h-spring-r;
+        const pts=[new T.Vector3(-half,-h/2,0),new T.Vector3(-half,spring-h/2,0)];
+        for(let j=1;j<=40;j++){
+          const a=Math.PI*(1-j/40);pts.push(new T.Vector3(half*Math.cos(a),spring+rise*Math.sin(a)-h/2,0));
+        }
+        pts.push(new T.Vector3(half,-h/2,0));o=new T.Group();
+        const curve=new T.CatmullRomCurve3(pts,false,'centripetal');
+        o.add(new T.Mesh(new T.TubeGeometry(curve,100,r,14,false),materials.ivory));
+        for(const side of [-1,1]){
+          const trim=new T.Mesh(new T.TubeGeometry(curve,96,r*.17,8,false),materials.brass);
+          trim.position.z=side*r*.94;o.add(trim);
+        }
+      }else if(k.contains('vault-glazing')||k.contains('vault-shoulder')){
+        o=flat(w,h,k.contains('vault-shoulder')?materials.ivory:canopyGlass);
+        if(k.contains('spine-glass')){
+          const trim=flat(5,h,materials.brass);trim.position.z=1;o.add(trim);
+        }
       }else if(k.contains('rib'))o=rib(w,h);
       else if(k.contains('pool')||k.contains('planter-rim')||k.contains('lift-platform')||k.contains('emitter')||k.contains('hearth-base')){
         const group=new T.Group(),r=Math.min(w,h)*.44;
@@ -195,14 +214,16 @@ async function launch(){
           }
         }
       }else if(k.contains('bay-shell')||k.contains('city-wall')||k.contains('chamber-lid')||k.contains('roof')||k.contains('wall')||k.contains('city-eave')){
-        const finish=mapRepeat(materials.hull,'assets/bronze-cladding.webp',w,h,k.contains('roof')?760:650);
+        const finish=mapRepeat(materials.hull,'assets/bulkhead-2k.webp',w,h,860);
         if(k.contains('bay-shell')||k.contains('city-wall')||k.contains('wall')){
           o=new T.Mesh(new T.BoxGeometry(w,h,27),[materials.brass,materials.brass,materials.brass,materials.brass,finish,finish]);
           for(const sy of [-1,1]){const rail=new T.Mesh(new T.BoxGeometry(w,4,29),materials.brass);rail.position.y=sy*(h/2-4);o.add(rail)}
         }else if(k.contains('chamber-lid')){
           const geo=new T.PlaneGeometry(w,h,36,1),vertices=geo.attributes.position;
           for(let j=0;j<vertices.count;j++)vertices.setZ(j,Math.min(w*.12,144)*Math.cos(Math.PI*vertices.getX(j)/w));
-          geo.computeVertexNormals();o=new T.Mesh(geo,finish);
+          geo.computeVertexNormals();
+          geo.addGroup(0,66,0);geo.addGroup(66,84,1);geo.addGroup(150,66,0);
+          o=new T.Mesh(geo,[finish,canopyGlass]);
           const shape=new T.Shape();shape.moveTo(-w/2,0);
           for(let j=1;j<=36;j++){const t=j/36;shape.lineTo((t-.5)*w,Math.min(w*.12,144)*Math.sin(t*Math.PI))}
           shape.closePath();
@@ -238,7 +259,7 @@ async function launch(){
     g.fillStyle=grad;g.beginPath();g.moveTo(64,248);g.bezierCurveTo(2,219,16,133,68,9);g.bezierCurveTo(57,74,132,171,92,224);g.closePath();g.fill();fireMap=new T.CanvasTexture(c);fireMap.colorSpace=T.SRGBColorSpace;return fireMap}
   function dispose(o){scene.remove(o);o.traverse(n=>{
     if(!n.isMesh||n.geometry===chairGeometry)return;n.geometry.dispose();
-    const mat=n.material;if(!Array.isArray(mat)&&!Object.values(materials).includes(mat)&&mat!==skyMat&&mat!==apertureMaterial&&mat!==water&&![...finishes.values()].includes(mat)){if(mat.map&&!Array.from(textures.values()).includes(mat.map)&&mat.map!==fireMap)mat.map.dispose();mat.dispose()}
+    const mat=n.material;if(!Array.isArray(mat)&&!Object.values(materials).includes(mat)&&mat!==skyMat&&mat!==canopyGlass&&mat!==apertureMaterial&&mat!==water&&![...finishes.values()].includes(mat)){if(mat.map&&!Array.from(textures.values()).includes(mat.map)&&mat.map!==fireMap)mat.map.dispose();mat.dispose()}
   })}
   function syncFaces(){
     for(const [el,o] of models)if(!el.isConnected){dispose(o);models.delete(el)}

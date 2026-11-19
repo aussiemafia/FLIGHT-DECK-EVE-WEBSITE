@@ -11,7 +11,7 @@
     for(const z of [-4560,-5430])addSeat(side*718,z,side*.64);
     strip(7,back-top,side*500,(top+back)/2,'#d5ae70');
   }
-  for(const z of [-4200,-5010,-5900])face('rib',2330,650,0,-325,z);
+  glazedAtrium(2340,back-top,(top+back)/2,480,690,3);
   face('bay-shell',2340,695,0,-347,top);
   starWindow(2040,420,0,-350,top+8,0);
   for(const [x,name,route,img] of [[-575,'Navigation','systems','wormhole'],[0,'Flight operations','ships','porpoise'],[575,'Fleet intelligence','dscan','fortizar']]){
