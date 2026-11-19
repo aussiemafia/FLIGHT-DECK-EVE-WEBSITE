@@ -84,8 +84,10 @@ async function launch(){
     const m=new T.Matrix4().fromArray(dom.toFloat64Array());m.premultiply(mirrorY).multiply(mirrorY);
     m.decompose(obj.position,obj.quaternion,obj.scale);obj.scale.set(1,1,1);obj.updateMatrix();
   }
+  const finishes=new Map();
   function mapRepeat(mat,url,w,h,unit){
-    const m=mat.clone(),t=tex(url).clone();t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(Math.max(1,w/unit),Math.max(1,h/unit));t.needsUpdate=true;m.map=t;return m;
+    const key=[mat.uuid,url,w,h,unit].join('|');if(finishes.has(key))return finishes.get(key);
+    const m=mat.clone(),t=tex(url).clone();t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(Math.max(1,w/unit),Math.max(1,h/unit));t.needsUpdate=true;m.map=t;finishes.set(key,m);return m;
   }
   function rib(w,h){
     const group=new T.Group();const points=[[-.50,-.5],[-.468,-.40],[-.425,-.05],[-.34,.31],[-.22,.455],[0,.486],[.22,.455],[.34,.31],[.425,-.05],[.468,-.40],[.50,-.5]].map(([x,y])=>new T.Vector3(x*w,y*h,0));
@@ -100,7 +102,8 @@ async function launch(){
   const videoObjects=[];
   function display(el,w,h){
     const group=new T.Group();const video=el.querySelector('video'),img=el.querySelector('img');
-    const mat=new T.MeshBasicMaterial({map:img?.src?tex(img.src):null,color:0xffffff,side:T.DoubleSide,toneMapped:false});
+    const poster=img?.src||el.style.backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];
+    const mat=new T.MeshBasicMaterial({map:poster?tex(poster):null,color:0xffffff,side:T.DoubleSide,toneMapped:false});
     group.add(flat(w-13,h-13,mat,14),edged(w,h,19,7,materials.rail));
     if(video)videoObjects.push({el,video,mat});
     if(el.classList.contains('screen')){
@@ -123,7 +126,23 @@ async function launch(){
     }else{
       if(k.contains('academy-steward')){
         o=new T.Group();
-        const shell=(pts,mat)=>new T.Mesh(new T.LatheGeometry(pts.map(([x,y])=>new T.Vector2(x,y)),40),mat);
+        const shell=(profile,material)=>{
+          const positions=[],indices=[],segments=40;
+          for(const [radius,y] of profile){
+            for(let j=0;j<segments;j++){
+              const a=j*2*Math.PI/segments;
+              positions.push(radius*Math.sin(a),y,radius*Math.cos(a));
+            }
+          }
+          for(let row=1;row<profile.length;row++)for(let j=0;j<segments;j++){
+            const a=(row-1)*segments+j,b=(row-1)*segments+(j+1)%segments;
+            indices.push(a,b,a+segments,b,b+segments,a+segments);
+          }
+          const geometry=new T.BufferGeometry();
+          geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));
+          geometry.setIndex(indices);geometry.computeVertexNormals();
+          return new T.Mesh(geometry,material);
+        };
         o.add(shell([[8,-32],[20,-25],[27,-10],[29,4],[24,15],[13,19]],materials.ivory));
         o.add(shell([[26,4],[29,5],[28,8],[25,9]],materials.brass));
         const head=shell([[10,22],[19,26],[22,35],[21,43],[17,50],[8,54],[0,55]],materials.ivory);
@@ -179,6 +198,13 @@ async function launch(){
           const geo=new T.PlaneGeometry(w,h,36,1),vertices=geo.attributes.position;
           for(let j=0;j<vertices.count;j++)vertices.setZ(j,Math.min(w*.12,144)*Math.cos(Math.PI*vertices.getX(j)/w));
           geo.computeVertexNormals();o=new T.Mesh(geo,finish);
+          const shape=new T.Shape();shape.moveTo(-w/2,0);
+          for(let j=1;j<=36;j++){const t=j/36;shape.lineTo((t-.5)*w,Math.min(w*.12,144)*Math.sin(t*Math.PI))}
+          shape.closePath();
+          for(const end of [-1,1]){
+            const cap=new T.Mesh(new T.ShapeGeometry(shape),materials.ivory);
+            cap.rotation.x=Math.PI/2;cap.position.y=end*h/2;o.add(cap);
+          }
         }else o=flat(w,h,finish);
       }else if(k.contains('console')||k.contains('portal-name')||k.contains('city-direction')||k.contains('learning-panel')){
         o=new T.Group();const area=flat(w,h,new T.MeshBasicMaterial({map:textMap(el,w,h),toneMapped:false,side:k.contains('city-direction')?T.FrontSide:T.DoubleSide}),7);
@@ -192,6 +218,7 @@ async function launch(){
         o=hearthFire(w,h,waterUniform.clock);
       }else o=flat(w,h,k.contains('gallery')?materials.ivory:materials.bronze);
       pose(el,o);
+      if(k.contains('galaxy-window')||k.contains('end-vista')||k.contains('side-window'))o.translateZ(12);
     }
     o.userData.el=el;models.set(el,o);scene.add(o);
   }
@@ -201,7 +228,7 @@ async function launch(){
     g.fillStyle=grad;g.beginPath();g.moveTo(64,248);g.bezierCurveTo(2,219,16,133,68,9);g.bezierCurveTo(57,74,132,171,92,224);g.closePath();g.fill();fireMap=new T.CanvasTexture(c);fireMap.colorSpace=T.SRGBColorSpace;return fireMap}
   function dispose(o){scene.remove(o);o.traverse(n=>{
     if(!n.isMesh||n.geometry===chairGeometry)return;n.geometry.dispose();
-    const mat=n.material;if(!Array.isArray(mat)&&!Object.values(materials).includes(mat)&&mat!==skyMat&&mat!==water){if(mat.map&&!Array.from(textures.values()).includes(mat.map)&&mat.map!==fireMap)mat.map.dispose();mat.dispose()}
+    const mat=n.material;if(!Array.isArray(mat)&&!Object.values(materials).includes(mat)&&mat!==skyMat&&mat!==water&&![...finishes.values()].includes(mat)){if(mat.map&&!Array.from(textures.values()).includes(mat.map)&&mat.map!==fireMap)mat.map.dispose();mat.dispose()}
   })}
   function syncFaces(){
     for(const [el,o] of models)if(!el.isConnected){dispose(o);models.delete(el)}
@@ -258,6 +285,8 @@ async function launch(){
       let o=pilots.get(id);
       if(o&&o.userData.uniform!==uniform){o.geometry.dispose();o.material.dispose();scene.remove(o);pilots.delete(id);o=null}
       if(!o){const g=new T.BufferGeometry();g.setIndex(new T.Uint16BufferAttribute(data.indices,1));g.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(data.count*3),3));g.setAttribute('uv',new T.Float32BufferAttribute(Float32Array.from(data.uv,(v,i)=>i%2?1-v/65535:v/65535),2));if(!data.gpuMap){data.gpuMap=new T.CanvasTexture(data.canvas);data.gpuMap.colorSpace=T.SRGBColorSpace}o=new T.Mesh(g,physical(0xffffff,.06,.62,{map:data.gpuMap,alphaTest:.34}));o.userData.uniform=uniform;o.frustumCulled=false;scene.add(o);pilots.set(id,o)}
+      o.visible=Math.hypot(visitor.x-a.x,visitor.z-a.z)>60;
+      if(!o.visible)continue;
       const p=o.geometry.attributes.position,points=animateOfficer(a,data,performance.now());
       for(let j=0;j<points.length;j++)p.array[j]=points[j]*.0119;
       p.needsUpdate=true;o.geometry.computeVertexNormals();o.position.set(a.x,a.alt??a.p.height??0,a.z);o.rotation.y=-(a.yaw??a.p.yaw);

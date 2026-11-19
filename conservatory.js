@@ -74,9 +74,12 @@ function mountLayeredGrove(){
       if(item.verts){const v=item.verts;ctx.setTransform(res,0,0,res,0,0);ctx.fillStyle=['#506542','#66805a','#394d38','#79855b'][item.shade];
         ctx.beginPath();ctx.moveTo(v[0].x,v[0].y);for(const p of v.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();ctx.fill();
       }else if(item.a){
-        const {a,b,r}=item;ctx.setTransform(res,0,0,res,0,0);ctx.lineCap='round';ctx.lineWidth=r;ctx.strokeStyle='#534539';
-        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-        if(r>2){ctx.lineWidth=r*.43;ctx.strokeStyle='#8c7760';ctx.beginPath();ctx.moveTo(a.x-r*.13,a.y);ctx.lineTo(b.x-r*.07,b.y);ctx.stroke()}
+        const {a,b,r}=item;ctx.setTransform(res,0,0,res,0,0);const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1;
+        const nx=-dy/len,ny=dx/len,r0=r*.54,r1=r*.44;
+        const shade=ctx.createLinearGradient(a.x-nx*r0,a.y-ny*r0,a.x+nx*r0,a.y+ny*r0);
+        shade.addColorStop(0,'#423932');shade.addColorStop(.35,'#87745e');shade.addColorStop(.65,'#a58c70');shade.addColorStop(1,'#534739');
+        ctx.fillStyle=shade;ctx.beginPath();ctx.moveTo(a.x-nx*r0,a.y-ny*r0);
+        ctx.lineTo(b.x-nx*r1,b.y-ny*r1);ctx.lineTo(b.x+nx*r1,b.y+ny*r1);ctx.lineTo(a.x+nx*r0,a.y+ny*r0);ctx.closePath();ctx.fill();
       }else{
         const {centre:c,side:s,up:u,tile}=item;
         ctx.setTransform((s.x-c.x)*res,(s.y-c.y)*res,(c.x-u.x)*res,(c.y-u.y)*res,c.x*res,c.y*res);

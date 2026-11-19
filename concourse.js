@@ -21,7 +21,7 @@ function face(kind,w,h,x,y,z,ry=0,rx=0,rz=0) {
   const node = document.createElement('div');
   node.className = 'face '+kind;
   // Render large architectural finishes at a lower texture density.
-  const scale = /^(floor|roof|roof skylight|wall|rib|glass|gallery|stripe|reflection|exterior-pane)$/.test(kind) ? 4 : 1;
+  const scale = /^(floor|roof|roof skylight|wall|glass|gallery|stripe|reflection|exterior-pane)$/.test(kind) ? 4 : 1;
   w /= scale; h /= scale;
   Object.assign(node.style,{width:w+'px',height:h+'px',left:(-w/2)+'px',top:(-h/2)+'px',
     transform:`translate3d(${x}px,${y}px,${z}px) rotateY(${ry}deg) rotateX(${rx}deg) rotateZ(${rz}deg) scale3d(${scale},${scale},${scale})`});
@@ -36,6 +36,16 @@ function face(kind,w,h,x,y,z,ry=0,rx=0,rz=0) {
   if(kind==='chamber-lid'){
     node.classList.add('vaulted');
     const rise=Math.min(w*.12,144);
+    // Close the curved roof at both ends above the straight bulkheads.
+    const outline=Array.from({length:33},(_,i)=>(i*100/32)+'% '+(100-100*Math.sin(i*Math.PI/32))+'%').join(',');
+    for(const end of [-1,1]){
+      const cap=document.createElement('b');
+      cap.className='vault-end';
+      Object.assign(cap.style,{position:'absolute',width:w+'px',height:rise+'px',left:'0',top:(h/2+end*h/2-rise/2)+'px',
+        transform:'translateZ('+rise/2+'px) rotateX(-90deg)',clipPath:'polygon('+outline+',100% 100%,0 100%)',
+        background:'linear-gradient(#c9bfae,#716552 95%,#ab8d58)'});
+      node.append(cap);
+    }
     for(let i=0;i<16;i++){
       const a=i/16,b=(i+1)/16,za=rise*Math.sin(Math.PI*a),zb=rise*Math.sin(Math.PI*b),dx=w/16;
       const panel=document.createElement('b');panel.className='vault-skin';
@@ -445,11 +455,19 @@ window.addEventListener('keydown',e=>{
   if(e.code==='Space'&&seated&&!e.repeat){e.preventDefault();rise();return}
   if(menu.open||record.open||document.querySelector('#lesson-panel')?.open||byId('media-browser')?.open)return;
   if(e.code==='Space'&&!e.repeat&&!(e.target.matches?.('input,select,textarea,button'))){e.preventDefault();window.deckTraversal?.jump();return}
-  if(movement.includes(e.code)){e.preventDefault();keys.add(e.code)}
+  const code=movementCode(e);
+  if(movement.includes(code)&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!e.target.closest?.('input,select,textarea,[contenteditable=true]')){
+    e.preventDefault();
+    if(!keys.has(code)){advanceMovement(performance.now());keys.add(code)}
+  }
   if(e.code==='KeyE'&&!seated&&!e.repeat&&window.seatLearning?.chair()){e.preventDefault();window.seatLearning.take();return}
   if(e.code==='KeyE'&&target&&!e.repeat){e.preventDefault();openStation(target)}
 });
-window.addEventListener('keyup',e=>keys.delete(e.code));
+window.addEventListener('keyup',e=>{
+  const code=movementCode(e);
+  if(keys.has(code)){advanceMovement(performance.now());keys.delete(code)}
+});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)keys.clear()});
 window.addEventListener('blur',()=>{keys.clear();drag=null});
 let drag=null;
 view.addEventListener('pointerdown',e=>{
@@ -479,8 +497,8 @@ view.addEventListener('pointerup',e=>{
 });
 view.addEventListener('pointercancel',()=>{drag=null});
 for(const button of document.querySelectorAll('[data-key]')){
-  button.onpointerdown=e=>{e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key)};
-  button.onlostpointercapture=()=>keys.delete(button.dataset.key);
+  button.onpointerdown=e=>{e.preventDefault();button.setPointerCapture(e.pointerId);advanceMovement(performance.now());keys.add(button.dataset.key)};
+  button.onlostpointercapture=()=>{advanceMovement(performance.now());keys.delete(button.dataset.key)};
 }
 function clear(x,z){
   if(window.deckTraversal&&!window.deckTraversal.allows(x,z))return false;
@@ -504,13 +522,12 @@ function clear(x,z){
   if(Math.abs(x)<boundary+40)return Math.abs(z-room.z)<180&&passageOpen(room.door,x,z);
   return true;
 }
-let previous=performance.now();
-function tick(now){
-  const dt=Math.min(.04,(now-previous)/1000);previous=now;
-  window.stationCity?.update(now);
-  updateDoors(dt);
-  if(window.deckTraversal?.tick(dt)&&!keys.size)draw();
-  if(keys.size&&!record.open&&!menu.open){
+let movementTime=performance.now();
+function movementCode(e){
+  if(movement.includes(e.code))return e.code;
+  return ({w:'KeyW',a:'KeyA',s:'KeyS',d:'KeyD',shift:'ShiftLeft'})[e.key?.toLowerCase()]||e.key;
+}
+function moveStep(dt){
     const forward=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
     const side=0;
     visitor.yaw+=(Number(keys.has('ArrowRight')||keys.has('KeyD'))-Number(keys.has('ArrowLeft')||keys.has('KeyA')))*dt*1.45;
@@ -520,11 +537,23 @@ function tick(now){
     const nz=z+step*(-Math.cos(yaw)*forward+Math.sin(yaw)*side);
     if(!seated&&!window.stationCity?.riding&&clear(nx,z))visitor.x=nx;
     if(!seated&&!window.stationCity?.riding&&clear(visitor.x,nz))visitor.z=nz;
-    if(visitor.z<-3950&&!window.liveHelm){
-      keys.clear();location.assign(gates.find(g=>g.sign===(visitor.z<0?-1:2)).url);return;
-    }
-    draw();
-  }
+}
+// Consume held time at input boundaries as well as render frames. A short tap
+// between two paints still moves, and each collision step remains small.
+function advanceMovement(now){
+  let elapsed=Math.min(.3,Math.max(0,(now-movementTime)/1000));
+  movementTime=Math.max(movementTime,now);
+  if(!keys.size||document.querySelector('dialog[open]'))return;
+  while(elapsed>0){const dt=Math.min(elapsed,1/75);moveStep(dt);elapsed-=dt}
+  draw();
+}
+let previous=performance.now();
+function tick(now){
+  const dt=Math.min(.04,(now-previous)/1000);previous=now;
+  window.stationCity?.update(now);
+  updateDoors(dt);
+  if(window.deckTraversal?.tick(dt)&&!keys.size)draw();
+  advanceMovement(now);
   requestAnimationFrame(tick);
 }
 window.addEventListener('resize',draw);
