@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ece5d8"><title>Grand Concourse · The Expanse</title><link rel="stylesheet" href="concourse.css"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ece5d8"><title>Grand Concourse · The Expanse</title><link rel="stylesheet" href="concourse.css?v=station2"></head>
 <body>
 <main id="viewport" tabindex="0" aria-label="Walkable grand concourse"><div id="camera"><div id="hall"></div></div></main>
-<header><div class="brand"><i aria-hidden="true">✦</i><span>THE EXPANSE<small>AMARR AVATAR TITAN</small></span></div><nav><button id="directory">Deck directory</button><a href="bridge.html">Flight bridge</a></nav></header>
-<div id="aim" aria-hidden="true"></div><button id="interact" hidden></button>
+<header><div class="brand"><i aria-hidden="true">✦</i><span>THE EXPANSE<small>AMARR AVATAR TITAN</small></span></div><nav><span id="crew-status">Connecting crew</span><button id="directory">Deck directory</button><a href="bridge.html">Flight bridge</a></nav></header>
+<div class="intercom-controls"><button id="intercom">Ship intercom</button><button id="quiet">Mute voice</button></div><p id="announcement" role="status" hidden></p><button id="rise" hidden>Stand up · E</button><div id="aim" aria-hidden="true"></div><button id="interact" hidden></button>
 <footer><div class="location"><small>PUBLIC DECK</small><strong>Grand Concourse</strong></div><div class="controls"><span><kbd>WASD</kbd> Walk</span><span><kbd>Shift</kbd> Run</span><span>Drag to look</span><span><kbd>E</kbd> Interact</span></div></footer>
 <div id="pad" aria-label="Movement controls"><button data-key="KeyW" aria-label="Walk forward">▲</button><div><button data-key="KeyA" aria-label="Move left">◀</button><button data-key="KeyS" aria-label="Walk backward">▼</button><button data-key="KeyD" aria-label="Move right">▶</button></div></div>
 <dialog id="menu"><div class="bar"><h1>Deck directory</h1><button data-close aria-label="Close directory">✕</button></div><div id="destinations"></div></dialog>
 <dialog id="record"><div class="bar"><h2 id="record-title"></h2><button data-close>Back to concourse</button></div><iframe title="EVE station archive"></iframe></dialog>
-<script src="concourse.js"></script></body></html>
+<script src="concourse.js?v=station2"></script><link rel="stylesheet" href="crew.css"><script src="crew.js"></script><script src="conservatory.js"></script><script src="intercom.js"></script></body></html>
