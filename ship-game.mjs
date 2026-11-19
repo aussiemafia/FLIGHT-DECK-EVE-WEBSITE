@@ -90,6 +90,32 @@ async function launch(){
     const key=[mat.uuid,url,w,h,unit].join('|');if(finishes.has(key))return finishes.get(key);
     const m=mat.clone(),t=tex(url).clone();t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(Math.max(1,w/unit),Math.max(1,h/unit));t.needsUpdate=true;m.map=t;finishes.set(key,m);return m;
   }
+  const enamel=physical(0x999387,.62,.255,{clearcoat:.68,clearcoatRoughness:.18});
+  function sculptedHull(w,h){
+    const profiles=[enamel,materials.bronze,materials.brass,materials.gasket,materials.gold,materials.rail];
+    const finishes=['shell','bronze','brass','gasket','gold','rail'];
+    const vertices=[],groups=profiles.map(()=>[]),scale=Math.min(1,h/350),bays=Math.max(1,Math.round(w/350));
+    const seam=w<80?[0,1]:[0,.012,.026,.060,.18,.5,.82,.94,.974,.988,1];
+    for(let bay=0;bay<bays;bay++){
+      const offset=vertices.length/3;
+      for(const [y,z] of hullSection){
+        for(const u of seam){
+          const lip=w<80?0:Math.min(1,Math.min(u,1-u)*30);
+          vertices.push(((bay+u)/bays-.5)*w,(y-.5)*h,z*scale+lip*(w<80?0:5));
+        }
+      }
+      for(let k=0;k<hullSection.length-1;k++)for(let j=0;j<seam.length-1;j++){
+        const a=offset+k*seam.length+j,b=a+seam.length;
+        const material=seam.length>2&&(j===0||j===seam.length-2)?3:finishes.indexOf(hullSection[k][2]);
+        groups[material].push(a,a+1,b,a+1,b+1,b);
+      }
+    }
+    const geom=new T.BufferGeometry(),indices=[];geom.setAttribute('position',new T.Float32BufferAttribute(vertices,3));
+    groups.forEach((g,i)=>{if(g.length){geom.addGroup(indices.length,g.length,i);indices.push(...g)}});
+    geom.setIndex(indices);geom.computeVertexNormals();
+    const mesh=new T.Mesh(geom,profiles),back=new T.Mesh(new T.BoxGeometry(w,h,17),materials.gasket);
+    back.position.z=-8.5;mesh.add(back);return mesh;
+  }
   function rib(w,h){
     const group=new T.Group();const points=[[-.50,-.5],[-.468,-.40],[-.425,-.05],[-.34,.31],[-.22,.455],[0,.486],[.22,.455],[.34,.31],[.425,-.05],[.468,-.40],[.50,-.5]].map(([x,y])=>new T.Vector3(x*w,y*h,0));
     const path=new T.CatmullRomCurve3(points),r=Math.min(33,w*.009);
@@ -229,8 +255,7 @@ async function launch(){
       }else if(k.contains('bay-shell')||k.contains('city-wall')||k.contains('chamber-lid')||k.contains('roof')||k.contains('wall')||k.contains('city-eave')){
         const finish=mapRepeat(materials.hull,'assets/bulkhead-2k.webp',w,h,860);
         if(k.contains('bay-shell')||k.contains('city-wall')||k.contains('wall')){
-          o=new T.Mesh(new T.BoxGeometry(w,h,27),[materials.brass,materials.brass,materials.brass,materials.brass,finish,finish]);
-          for(const sy of [-1,1]){const rail=new T.Mesh(new T.BoxGeometry(w,4,29),materials.brass);rail.position.y=sy*(h/2-4);o.add(rail)}
+          o=sculptedHull(w,h);
         }else if(k.contains('chamber-lid')){
           const geo=new T.PlaneGeometry(w,h,36,1),vertices=geo.attributes.position;
           for(let j=0;j<vertices.count;j++)vertices.setZ(j,Math.min(w*.12,144)*Math.cos(Math.PI*vertices.getX(j)/w));
@@ -341,13 +366,14 @@ async function launch(){
     }
   }
   syncFaces();scene.background=new T.Color(0x08121b);
-  let lastSync=-9999,lastCrew=0,active=true,frame=0,lastSize='';
+  let lastSync=-9999,lastCrew=0,active=true,frame=0,lastSize='',lastFocal=0;
   function step(now){
     if(!active||document.hidden)return;
     if(now-lastSync>350){syncFaces();updateForest();videoFrame();lastSync=now}
     if(now-lastCrew>32){crew();lastCrew=now}
     const f=parseFloat(view.style.perspective),size=innerWidth+'x'+innerHeight;
-    if(size!==lastSize){render.setPixelRatio(Math.min(1.65,devicePixelRatio||1));render.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.fov=2*Math.atan(innerHeight/(2*f))*180/Math.PI;cam.updateProjectionMatrix();lastSize=size}
+    if(size!==lastSize){render.setPixelRatio(Math.min(1.65,devicePixelRatio||1));render.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;lastSize=size;lastFocal=0}
+    if(f!==lastFocal){lastFocal=f;cam.fov=2*Math.atan(innerHeight/(2*f))*180/Math.PI;cam.updateProjectionMatrix();lastSize=size}
     const {x,z,yaw,pitch}=visitor;cam.position.set(x,standingEye(),z);cam.rotation.order='YXZ';cam.rotation.set(pitch,-yaw,0,'YXZ');
     firmament.position.copy(cam.position);sun.position.set(x-1700,2700,z-1300);sun.target.position.set(x,0,z);cool.position.set(x+1100,800,z+850);cool.target.position.set(x,0,z);
     const night=document.body.classList.contains('night-watch');ambient.intensity=night?.30:1.68;sun.intensity=night?.28:2.05;cool.intensity=night?.26:.85;scene.environmentIntensity=night?.29:.89;

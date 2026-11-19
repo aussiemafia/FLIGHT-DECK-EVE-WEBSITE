@@ -33,6 +33,7 @@ function face(kind,w,h,x,y,z,ry=0,rx=0,rz=0) {
       const side=document.createElement('i');side.className='panel-'+name;node.append(side);
     }
   }
+  if(['bay-shell','city-wall','wall'].includes(kind))cladBulkhead(node,node.geometry,scale);
   if(kind==='chamber-lid'){
     node.classList.add('vaulted');
     const rise=Math.min(w*.12,144);
@@ -408,16 +409,8 @@ for(const [i,room] of rooms.entries()){
   }
   const holo=textFace('course-holo',345,122,side*(boundary+645),-155,z-175,angle,room.name+' · '+(room.route==='estimate'?'Identify an ore':teaching[i][0]));
   interactive.set(holo,{name:'Explore '+room.name,action:()=>window.startStationLesson(room)});
-  // Quarter-circle returns blend the back wall into each side of the classroom.
-  for(const end of [-1,1]){
-    const radius=205;
-    for(let j=0;j<8;j++){
-      const a=(j+.5)*Math.PI/16,px=side*(roomEnd-radius+radius*Math.cos(a)),pz=z+end*(roomHalf-radius+radius*Math.sin(a));
-      const heading=Math.atan2(-side*Math.cos(a),-end*Math.sin(a))*180/Math.PI;
-      face('bay-shell',2*radius*Math.tan(Math.PI/32)+1,450,px,-225,pz,heading);
-    }
-  }
-  for(const off of [-126,126])addSeat(side*(roomEnd-580),z+off,side*Math.PI/2,room);
+  curvedRoomEnds(side,roomEnd,z,roomHalf,450,235);
+  for(const off of [-98,98])addSeat(side*(roomEnd-680),z+off,side*Math.PI/2,room);
   let n=nodesBefore.nextElementSibling;const nodes=[];
   while(n){nodes.push(n);n=n.nextElementSibling}
   chamberNodes.set(room,nodes);
@@ -500,6 +493,12 @@ function pick(clientX,clientY){
   }
   return selected;
 }
+let deckZoom=1;
+view.addEventListener('wheel',e=>{
+  if(menu.open||record.open||byId('media-browser')?.open||e.ctrlKey)return;
+  e.preventDefault();const delta=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?innerHeight:1);
+  deckZoom=Math.max(.62,Math.min(2.8,deckZoom*Math.exp(-delta*.00165)));draw();
+},{passive:false,capture:true});
 let lastCull='';
 function cullCompatibilityScene(){
   if(window.hdStation)return;
@@ -523,7 +522,7 @@ function draw(){
     g.ry=Math.atan2(visitor.x-g.x,visitor.z-g.z);el.style.transform='translate3d('+g.x+'px,'+g.y+'px,'+g.z+'px) rotateY('+g.ry+'rad)';
   }
 
-  const focal=Math.min(innerWidth*.87,innerHeight*.82);
+  const focal=Math.min(innerWidth*.87,innerHeight*.82)*deckZoom;
   view.style.perspective=focal+'px';
   skyBackdrop.style.perspective=focal+'px';skyCamera.style.transform='translateZ('+focal+'px)';
   sky.style.transform='rotateX('+visitor.pitch+'rad) rotateY('+visitor.yaw+'rad)';
@@ -531,7 +530,7 @@ function draw(){
   hall.style.transform=`rotateX(${visitor.pitch}rad) rotateY(${visitor.yaw}rad) translate3d(${-visitor.x}px,${standingEye()}px,${-visitor.z}px)`;
   target=pick(innerWidth/2,innerHeight/2)||window.stationPrompt?.()||null;
   const use=byId('interact');
-  use.hidden=!target||record.open||menu.open;
+  use.hidden=!target||record.open||menu.open||!!window.classroomActive;
   if(target)use.textContent=(target.action?'':'Open ')+target.name+' · E';
 }
 byId('interact').onclick=()=>{if(target)openStation(target)};
@@ -546,7 +545,7 @@ window.addEventListener('keydown',e=>{
     if(!keys.has(code)){advanceMovement(performance.now());keys.add(code)}
   }
   if(e.code==='KeyE'&&!seated&&!e.repeat&&window.seatLearning?.chair()){e.preventDefault();window.seatLearning.take();return}
-  if(e.code==='KeyE'&&target&&!e.repeat){e.preventDefault();openStation(target)}
+  if(e.code==='KeyE'&&target&&!window.classroomActive&&!e.repeat){e.preventDefault();openStation(target)}
 });
 window.addEventListener('keyup',e=>{
   const code=movementCode(e);

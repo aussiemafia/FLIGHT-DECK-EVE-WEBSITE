@@ -9,7 +9,7 @@
   const clips={wormholes:'aldoiHE6O04',systems:'Ieo3WAvH4yU',estimate:'I_dD4I-zHlw',ships:'ArCI4bi9Eyg',fits:'ArCI4bi9Eyg',sites:'yiWy2ehcc1o',drifters:'yiWy2ehcc1o','blue-loot':'yiWy2ehcc1o',story:'e2X1MIR1KMs'};
   const local={story:'transit',wormholes:'transit',systems:'transit',ships:'fortizar',fits:'fortizar',sites:'fortizar',drifters:'crystal','blue-loot':'crystal'};
   const guides=fetch('assets/lessons/guide-cues.json').then(r=>r.json()).catch(()=>null);
-  const specimens=fetch('assets/lessons/ore-specimens.json').then(r=>r.json()).catch(()=>[]);
+  const specimens=fetch('assets/lessons/ore-specimens.json?v=specimen17').then(r=>r.json()).catch(()=>[]);
   const voice=new Audio('assets/lessons/academy-guide.mp3');voice.preload='metadata';
   let room=null,anchor=null,index=0,page=0,oreIndex=0,ores=[],cueEnd=0,epoch=0,iframe=null, lastRoom=null,filmBegin=0;
   const answered=new Set();
@@ -25,10 +25,10 @@
   document.addEventListener('guidemute',()=>{if(window.guideMuted?.())audioStop()});
   document.addEventListener('stationvolume',()=>{voice.volume=window.shipAudio.volume});
   function closeFilm(){iframe?.remove();iframe=null;film.hidden=false}
-  function stop(){audioStop();closeFilm();film.pause();film.removeAttribute('src');film.load();anchor?.classList.remove('lesson-glass','playing-in-glass');board.remove();anchor=null;room=null}
+  function stop(){audioStop();closeFilm();film.pause();film.removeAttribute('src');film.load();anchor?.classList.remove('lesson-glass','playing-in-glass');board.remove();anchor=null;room=null;document.dispatchEvent(new Event('lessonchange'))}
   function showFilm(){
     closeFilm();filmBegin=room.route==='estimate'?oreIndex*8:0;
-    const src=room.route==='estimate'?'assets/lessons/ore-assays.mp4':'assets/exhibits/'+local[room.route]+'.mp4';
+    const src=room.route==='estimate'?'assets/lessons/ore-assays.mp4?v=specimen17':'assets/exhibits/'+local[room.route]+'.mp4';
     if(film.getAttribute('src')!==src)film.src=src;
     film.currentTime=filmBegin;film.loop=room.route!=='estimate';film.play().catch(()=>{});
   }
@@ -62,10 +62,31 @@
   }
   function drawCourse(){
     const lines=roomCourses[room.route];find('h2').textContent=lines[0];body.replaceChildren();nav.replaceChildren();
-    if(index<lines.length){para(body,lines[index]);button(nav,'Hear this step',()=>speak(room.route,index));button(nav,index===lines.length-1?'Check understanding':'Next step',()=>{index++;drawCourse();if(index<lines.length)speak(room.route,index)});}
+    if(index<lines.length){const progress=para(body,'Step '+index+' of '+(lines.length-1));progress.className='step-number';para(body,lines[index]);button(nav,'Hear this step',()=>speak(room.route,index));button(nav,index===lines.length-1?'Check understanding':'Next step',()=>{index++;drawCourse();if(index<lines.length)speak(room.route,index)});}
     else{const [q,options,answer]=window.classroomChecks[room.route];para(body,q);const feedback=para(body,'');
       options.forEach((label,i)=>button(nav,label,()=>{feedback.textContent=i===answer?'Correct. '+lines[1]:'Try again. '+lines[1]}));button(nav,'Restart',()=>{index=1;drawCourse();speak(room.route,index)})}
   }
+  // Some browsers paint a perspective-transformed button correctly but hit its viewport.
+  // Resolve the painted bounds before the deck interprets the tap as a station interaction.
+  let heldControl=null;
+  function paintedControl(e){
+    if(!room||!board.isConnected||document.pointerLockElement)return null;
+    return [...board.querySelectorAll('button')].find(b=>{
+      const r=b.getBoundingClientRect();
+      return e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
+    });
+  }
+  view.addEventListener('pointerdown',e=>{
+    if(e.button!==0||board.contains(e.target))return;
+    heldControl=paintedControl(e);
+    if(heldControl){e.preventDefault();e.stopImmediatePropagation()}
+  },true);
+  view.addEventListener('pointerup',e=>{
+    if(!heldControl)return;
+    const b=heldControl;heldControl=null;e.preventDefault();e.stopImmediatePropagation();
+    if(b===paintedControl(e))b.click();
+  },true);
+  view.addEventListener('pointercancel',()=>heldControl=null);
   function actualRoom(){return currentRoom||window.stationCity?.classroomAt(visitor.x,visitor.z)}
   function begin(s){
     const source=s;
@@ -77,12 +98,12 @@
     keys.clear();if(document.pointerLockElement)document.exitPointerLock();index=1;page=oreIndex=0;
     const g=anchor.geometry,dist=Math.hypot(g.x-visitor.x,g.z-visitor.z);
     visitor.yaw=Math.atan2(g.x-visitor.x,visitor.z-g.z);visitor.pitch=Math.atan2(-g.y-standingEye(),dist);
-    filmButtons.replaceChildren();button(filmButtons,'Room film',showFilm);button(filmButtons,'YouTube lesson',academy);
+    filmButtons.replaceChildren();button(filmButtons,s.route==='estimate'?'Specimen film':'Room film',showFilm);button(filmButtons,'Watch tutorial',academy);
     button(filmButtons,'Guide',()=>speak(s.route,s.route==='estimate'?1:Math.min(index,roomCourses[s.route].length-1)));
     if(s.route==='estimate'){find('h2').textContent='Ore specimens';body.replaceChildren();nav.replaceChildren();
       specimens.then(data=>{if(room!==s)return;ores=data;if(!ores.length){para(body,'Specimens could not load. The Academy film is available.');return}drawOre()});}
     else drawCourse();
-    showFilm();speak(s.route,s.route==='estimate'?0:1);draw();return true;
+    document.dispatchEvent(new Event('lessonchange'));showFilm();speak(s.route,s.route==='estimate'?0:1);draw();return true;
   }
   for(const event of ['pointerdown','pointerup','click','wheel'])board.addEventListener(event,e=>e.stopPropagation());
   function chair(){
@@ -92,15 +113,24 @@
       const d=Math.hypot(visitor.x-c.x,visitor.z-c.z);if(d<distance&&!window.flightCrew?.occupied(c.id)){best=c;distance=d}}
     return best;
   }
+  function enterLesson(r){
+    menu.close();resetAt(r);const candidates=chairs.filter(c=>c.room===r&&!window.flightCrew?.occupied(c.id)).sort((a,b)=>Math.abs(b.x)-Math.abs(a.x));
+    const c=candidates[0];if(!c)return;
+    visitor.x=c.x-r.side*72;visitor.z=c.z;draw();openStation(interactive.get(c.node));
+  }
+  const catalogue=byId('lesson-catalogue');
+  for(const r of rooms)button(catalogue,r.route==='estimate'?'Identify an ore':roomCourses[r.route][0],()=>enterLesson(r));
   function take(){const c=chair();if(c)openStation(interactive.get(c.node))}
   seatButton.onclick=take;startButton.onclick=()=>{if(seated)begin(actualRoom());else if(chair())take();else begin(actualRoom())};
   window.seatLearning={chair,take,start(c){begin(c.room||actualRoom()||(visitor.z>gardenEnd?flagship:null))},stop};
   window.startStationLesson=begin;
+  window.playClassroomGuide=()=>{const r=actualRoom();if(!r)return false;window.stopShipIntercom?.();speak(room?r.route:'entry',room&&r.route!=='estimate'?Math.min(index,roomCourses[r.route].length-1):0);return true};
+  Object.defineProperty(window,'classroomActive',{get:()=>!!room});
   setInterval(()=>{const r=actualRoom();
     if(room&&!seated&&r!==room&&room!==flagship)stop();
     if(r!==lastRoom){if(r&&!room&&!window.guideMuted?.()){window.stopShipIntercom?.();speak('entry',0)}lastRoom=r}
     const blocked=menu.open||record.open||byId('media-browser').open;
-    seatButton.hidden=blocked||!!room||!chair();startButton.hidden=blocked||!!room||!r;
+    seatButton.hidden=blocked||!!room||!chair();startButton.hidden=blocked||!!room||!r||!!chair();
     if(r)startButton.textContent=chair()?'Start seated lesson':'Use classroom screen';
   },220);
 })();

@@ -1,14 +1,24 @@
 'use strict';
 (()=>{
   const slider=byId('master-gain'),music=byId('music');
-  let context,bus,playing=false,clock,timer,chord=0,musicBus;
+  let context,bus,playing=false;
+  const soundtrack=new Audio('assets/orbital-nocturne.ogg');soundtrack.loop=true;soundtrack.preload='none';
+  function mix(){soundtrack.volume=Number(slider.value)/100*(window.classroomActive? .10:.46)}
+  function musicState(){music.textContent=playing?'Pause station score':'Play station score';music.setAttribute('aria-pressed',String(playing))}
+  function listen(){mix();soundtrack.play().then(()=>{playing=true;musicState()}).catch(()=>{playing=false;musicState()})}
+  function pause(){playing=false;soundtrack.pause();musicState()}
+  let preference;
+  try{preference=localStorage.getItem('deck-score')}catch{}
+  function commence(){if(preference!=='off'&&!document.hidden)listen()}
+  document.addEventListener('stationvolume',mix);document.addEventListener('lessonchange',mix);
+  
   const lights=byId('deck-light');let night=false;
   try{night=localStorage.getItem('station-night')==='on'}catch{}
   function lightMode(){document.body.classList.toggle('night-watch',night);lights.setAttribute('aria-pressed',String(night));lights.textContent=night?'Raise lights':'Dim lights'}
   lights.onclick=()=>{night=!night;lightMode();try{localStorage.setItem('station-night',night?'on':'off')}catch{}};lightMode();
   function init(){
     if(!context){context=new AudioContext();bus=context.createGain();bus.connect(context.destination);
-      musicBus=context.createGain();musicBus.connect(bus);bus.gain.value=Number(slider.value)/100}
+      bus.gain.value=Number(slider.value)/100}
     context.resume().catch(()=>{});return context;
   }
   function change(){const gain=Number(slider.value)/100;if(bus)bus.gain.setTargetAtTime(gain,context.currentTime,.06);
@@ -20,16 +30,11 @@
     amp.gain.exponentialRampToValueAtTime(.00001,start+duration);osc.connect(amp);amp.connect(output);
     osc.start(start);osc.stop(start+duration+.02);osc.onended=()=>{osc.disconnect();amp.disconnect()};
   }
-  const chords=[[38,45,53,57,64],[34,41,50,53,60],[41,48,55,57,64],[36,43,52,55,62],[31,43,50,58,65],[33,45,52,57,61]];
-  function score(){if(!playing)return;const notes=chords[chord++%chords.length],t=context.currentTime+.05;
-    notes.forEach((m,i)=>{const f=440*2**((m-69)/12);note(musicBus,f,t+i*.19,8,.025,i===0?'sine':'triangle',i%2?4:-3);
-      if(i>1)note(musicBus,f*2,t+1.6+i*.38,3.5,.009)});
-    timer=setTimeout(score,6100);
-  }
-  music.onclick=()=>{init();playing=!playing;music.textContent=playing?'Pause lounge music':'Play lounge music';
-    musicBus.gain.setTargetAtTime(playing?1:0,context.currentTime,.15);clearTimeout(timer);if(playing)score()};
-  window.addEventListener('pointerdown',()=>{init()},{once:true});window.addEventListener('keydown',()=>{init()},{once:true});
-  document.addEventListener('visibilitychange',()=>{if(context){if(document.hidden)context.suspend();else context.resume().catch(()=>{})}});
+  music.onclick=()=>{if(playing){pause();preference='off'}else{listen();preference='on'}try{localStorage.setItem('deck-score',preference)}catch{}};
+  musicState();
+  function activate(e){if(e.target!==music)commence();window.removeEventListener('pointerdown',activate,true);window.removeEventListener('keydown',activate,true);init()}
+  window.addEventListener('pointerdown',activate,true);window.addEventListener('keydown',activate,true);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){soundtrack.pause();context?.suspend()}else{context?.resume().catch(()=>{});if(playing)listen()}});
   window.shipAudio={get volume(){return Number(slider.value)/100},door(open,d){
     if(!context||context.state!=='running')return;
     const distance=Math.hypot(visitor.x-d.x,visitor.z-d.z);if(distance>1200)return;
