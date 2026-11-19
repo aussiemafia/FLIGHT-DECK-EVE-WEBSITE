@@ -135,7 +135,7 @@ async function launch(){
       }else if(k.contains('bay-shell')||k.contains('city-wall')||k.contains('chamber-lid')||k.contains('roof')||k.contains('wall')||k.contains('city-eave')){
         o=flat(w,h,mapRepeat(materials.hull,'assets/bronze-cladding.webp',w,h,k.contains('roof')?760:650));
       }else if(k.contains('console')||k.contains('portal-name')||k.contains('city-direction')||k.contains('learning-panel')){
-        o=new T.Group();const area=flat(w,h,new T.MeshBasicMaterial({map:textMap(el,w,h),toneMapped:false,side:T.DoubleSide}),7);
+        o=new T.Group();const area=flat(w,h,new T.MeshBasicMaterial({map:textMap(el,w,h),toneMapped:false,side:k.contains('city-direction')?T.FrontSide:T.DoubleSide}),7);
         o.add(area,edged(w,h,8,3,materials.bronze));o.userData.words=el.textContent;
       }else if(k.contains('path-light')||k.contains('ceiling-bar')||k.contains('stripe'))o=lightStrip(w,h,'warm');
       else if(k.contains('balustrade')||k.contains('hearth-glass'))o=flat(w,h,materials.glass,4);

@@ -15,7 +15,10 @@
   const mids=i=>start+(i+.5)*bay;
   const chunks=new Map();let elevation=0,ride=null,inCity=false,here='',lastIndex=-9;
   const lifts=new Set([3,8,13,18,23,27]), classrooms=new Set([2,7,12,17,22,26]);
-  function label(style,w,h,x,y,z,angle,words){return textFace(style,w,h,x,y,z,angle,words)}
+  function label(style,w,h,x,y,z,angle,words){
+    if(style==='city-direction')textFace(style,w,h,x,y,z-(angle===0?2:-2),angle+180,words);
+    return textFace(style,w,h,x,y,z,angle,words);
+  }
   function drawHearth(cx,z){
     face('hearth-base',330,170,cx,-6,z,0,90);
     for(let j=0;j<5;j++){
@@ -164,7 +167,7 @@
   liftLink.textContent='Observation lift';destinations.append(liftLink);
   liftLink.onclick=()=>{
     menu.close();rise();ride=null;elevation=0;
-    Object.assign(visitor,{x:widthAt(3)-460,z:mids(3),yaw:Math.PI/2,pitch:0});
+    Object.assign(visitor,{x:widthAt(3)-460,z:mids(3),yaw:-Math.PI/2,pitch:0});
     stream();draw();update(performance.now());
   };
   byId('elevator').onclick=()=>{const lift=liftHere();if(lift)board(lift)};

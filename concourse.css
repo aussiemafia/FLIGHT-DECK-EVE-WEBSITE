@@ -49,3 +49,5 @@ header,footer{position:fixed;left:0;right:0;display:flex;justify-content:space-b
   background-size:100% 100%,var(--stone-span) var(--stone-span);
 }
 .floor{--stone-span:230px;--inlay:1.25px;--gap:3.25px}
+
+.city-direction{backface-visibility:hidden}
