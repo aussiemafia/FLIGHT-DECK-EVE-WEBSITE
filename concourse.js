@@ -437,7 +437,23 @@ function pick(clientX,clientY){
   }
   return selected;
 }
+let lastCull='';
+function cullCompatibilityScene(){
+  if(window.hdStation)return;
+  const {x,z,yaw}=visitor;
+  const stamp=[Math.round(x/90),Math.round(z/90),Math.round(yaw*10),hall.childElementCount].join('/');
+  if(stamp===lastCull)return;
+  lastCull=stamp;
+  const sn=Math.sin(yaw),cs=Math.cos(yaw);
+  for(const el of hall.children){
+    const g=el.geometry;if(!g)continue;
+    const dx=g.x-x,dz=g.z-z,r=Math.hypot(g.w,g.h)*.5+320;
+    const off=Math.hypot(dx,dz)>6800+r||dx*sn-dz*cs < -r;
+    if(el.deckCulled!==off){el.deckCulled=off;el.classList.toggle('outside-view',off)}
+  }
+}
 function draw(){
+  cullCompatibilityScene();
   sky.style.transform='translate3d('+visitor.x+'px,0,'+visitor.z+'px)';refreshRoom();turnChairs();
 
   const focal=Math.min(innerWidth*.87,innerHeight*.82);
@@ -472,28 +488,42 @@ window.addEventListener('blur',()=>{keys.clear();drag=null});
 let drag=null;
 view.addEventListener('pointerdown',e=>{
   if(e.button!==0||drag)return;
-  drag={id:e.pointerId,x:e.clientX,y:e.clientY,distance:0,station:pick(e.clientX,e.clientY)};
+  drag={id:e.pointerId,x:e.clientX,y:e.clientY,distance:0,station:document.pointerLockElement===view?target:pick(e.clientX,e.clientY)};
   view.setPointerCapture(e.pointerId);view.focus();
 });
-byId('mouse-look').onclick=async()=>{menu.close();try{await view.requestPointerLock()}catch{view.focus()}};
-document.addEventListener('mousemove',e=>{if(document.pointerLockElement!==view)return;
-  const old=visitor.look||0;visitor.look=Math.max(-Math.PI/2,Math.min(Math.PI/2,old+e.movementX*.0023));
-  visitor.yaw+=visitor.look-old;visitor.pitch=Math.max(-.95,Math.min(.95,visitor.pitch-e.movementY*.0023));draw()});
+async function enterMouseLook(){
+  view.focus({preventScroll:true});
+  try{await view.requestPointerLock()}catch{/* Drag remains available in embedded browsers. */}
+}
+byId('mouse-look').onclick=()=>{menu.close();enterMouseLook()};
+function aim(dx,dy){
+  const old=visitor.look||0;
+  visitor.look=Math.max(-Math.PI/2,Math.min(Math.PI/2,old+dx));
+  visitor.yaw+=seated?visitor.look-old:dx;
+  visitor.pitch=Math.max(-1.1,Math.min(1.1,visitor.pitch-dy));
+  draw();
+}
+document.addEventListener('mousemove',e=>{
+  if(document.pointerLockElement===view)aim(e.movementX*.0023,e.movementY*.0023);
+});
+document.addEventListener('pointerlockchange',()=>{
+  drag=null;keys.clear();
+  if(document.pointerLockElement===view)view.focus({preventScroll:true});
+});
 view.addEventListener('pointermove',e=>{
   if(document.pointerLockElement===view)return;
   if(drag?.id!==e.pointerId)return;
   const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
   drag.distance+=Math.abs(dx)+Math.abs(dy);
   drag.x=e.clientX;drag.y=e.clientY;
-  const previousLook=visitor.look||0;
-  visitor.look=Math.max(-Math.PI/2,Math.min(Math.PI/2,previousLook+dx*.003));
-  visitor.yaw+=visitor.look-previousLook;
-  visitor.pitch=Math.max(-1.1,Math.min(1.1,visitor.pitch-dy*.003));draw();
+  aim(dx*.003,dy*.003);
 });
 view.addEventListener('pointerup',e=>{
   if(drag?.id!==e.pointerId)return;
   const {station,distance}=drag;drag=null;
-  if(station&&distance<6)openStation(station);
+  if(distance>=6)return;
+  if(station)openStation(station);
+  else if(e.pointerType==='mouse'&&document.pointerLockElement!==view)enterMouseLook();
 });
 view.addEventListener('pointercancel',()=>{drag=null});
 for(const button of document.querySelectorAll('[data-key]')){
@@ -529,10 +559,11 @@ function movementCode(e){
 }
 function moveStep(dt){
     const forward=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
-    const side=0;
-    visitor.yaw+=(Number(keys.has('ArrowRight')||keys.has('KeyD'))-Number(keys.has('ArrowLeft')||keys.has('KeyA')))*dt*1.45;
+    const side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
+    visitor.yaw+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.45;
     const step=dt*(keys.has('ShiftLeft')||keys.has('ShiftRight')?1140:520)/Math.max(1,Math.hypot(forward,side));
-    const {x,z}=visitor,yaw=visitor.yaw-(visitor.look||0);
+    const {x,z,yaw}=visitor;
+    if(!seated&&(forward||side))visitor.look*=Math.exp(-9*dt);
     const nx=x+step*(Math.sin(yaw)*forward+Math.cos(yaw)*side);
     const nz=z+step*(-Math.cos(yaw)*forward+Math.sin(yaw)*side);
     if(!seated&&!window.stationCity?.riding&&clear(nx,z))visitor.x=nx;
@@ -556,6 +587,9 @@ function tick(now){
   advanceMovement(now);
   requestAnimationFrame(tick);
 }
+new MutationObserver(changes=>{
+  if(document.pointerLockElement===view&&changes.some(change=>change.target.open))document.exitPointerLock();
+}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
 window.addEventListener('resize',draw);
 draw();requestAnimationFrame(tick);
 
