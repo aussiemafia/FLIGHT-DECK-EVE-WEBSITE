@@ -33,7 +33,7 @@ function mountLayeredGrove(){
   let old='',last=0;
   function render(now){
     requestAnimationFrame(render);if(window.hdStation||document.hidden||!atlas.complete||!atlas.naturalWidth)return;
-    const {x,z,yaw,pitch}=visitor,eye=standingEye(),stamp=[x,z,yaw,pitch,eye,innerWidth,innerHeight].join('/');
+    const {x,z,yaw,pitch}=visitor,eye=standingEye(),stamp=[x,z,yaw,pitch,eye,view.style.perspective,innerWidth,innerHeight].join('/');
     if(stamp===old&&(reduced.matches||now-last<145))return;
     old=stamp;last=now;const res=Math.min(devicePixelRatio||1,1.4),w=innerWidth,h=innerHeight;
     if(layer.width!==Math.round(w*res)||layer.height!==Math.round(h*res)){layer.width=Math.round(w*res);layer.height=Math.round(h*res)}
@@ -41,7 +41,7 @@ function mountLayeredGrove(){
     const cs=Math.cos(yaw),sn=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch),f=parseFloat(view.style.perspective);
     function project(X,Y,Z){
       const dx=X-x,dy=Y+eye,dz=Z-z,q=-sn*dx+cs*dz,depth=-(sp*dy+cp*q);
-      if(depth<4)return null;
+      if(depth<25)return null;
       return {x:w/2+f*(cs*dx+sn*dz)/depth,y:h/2+f*(cp*dy-sp*q)/depth,d:depth,k:f/depth};
     }
     const draws=[];
@@ -202,7 +202,7 @@ function mountLayeredGrove(){
     function render(now){
       requestAnimationFrame(render);
       if(document.hidden||window.hdStation||gl.isContextLost())return;
-      const {x,z,yaw,pitch}=visitor,eye=standingEye(),stamp=[x,z,yaw,pitch,eye,innerWidth,innerHeight].join('/');
+      const {x,z,yaw,pitch}=visitor,eye=standingEye(),stamp=[x,z,yaw,pitch,eye,view.style.perspective,innerWidth,innerHeight].join('/');
       if(stamp===saved&&(reduced.matches||now-previous<90))return;
       saved=stamp;previous=now;
       const res=Math.min(1.25,devicePixelRatio||1);

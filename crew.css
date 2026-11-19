@@ -39,3 +39,8 @@
 .hull-band{display:block;position:absolute;inset-inline:0;pointer-events:none;background-color:#908b80;backface-visibility:hidden;background-image:repeating-linear-gradient(90deg,transparent 0 317px,#353938 318px,#c8b798 319px,transparent 321px),linear-gradient(108deg,#524e48 0%,#8e8d86 21%,#bdb8a9 38%,#787972 63%,#656761 87%,#98978c)}
 .hull-band.finish-bronze{background:linear-gradient(99deg,#393631,#7c6852 28%,#a99273 53%,#665d4c 78%,#52473a)}.hull-band.finish-gasket{background:#282e2e}.hull-band.finish-brass{background:linear-gradient(99deg,#7f6949,#d8c598,#897755 65%,#bead88)}.hull-band.finish-gold{background:#f4dfad;box-shadow:0 0 5px #e7cc9b}.hull-band.finish-rail{background:linear-gradient(#3b4142,#797e78)}
 #course-list{margin:10px 22px;color:#253932}#course-list summary{font-weight:700;cursor:pointer}#lesson-catalogue{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin:8px 0}#lesson-catalogue button{font:500 14px system-ui;text-align:left;background:#243b3c;color:#f8f4e8;border:1px solid #61736a;border-radius:6px;padding:8px}.step-number{font-size:.8em;color:#e6ce94}
+
+.hull-return .hull-band.finish-shell{background:var(--enamel-tone)}
+.hull-return .hull-band.finish-bronze{background:#726450}
+.hull-return .hull-band.finish-rail{background:#54564e}
+.hull-return .hull-band.finish-brass{background:#b39b70}

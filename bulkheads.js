@@ -10,6 +10,10 @@ const hullSection=[
 ];
 function cladBulkhead(node,g,scale){
   node.classList.add('sculpted-hull');
+  if(g.w<100){
+    node.classList.add('hull-return');
+    const light=Math.round(127+11*Math.sin(g.ry-.55));node.style.setProperty('--enamel-tone','rgb('+(light+9)+','+(light+6)+','+(light-2)+')');
+  }
   const depth=Math.min(1,g.h/350);
   for(let i=0;i<hullSection.length-1;i++){
     const [a,za,finish]=hullSection[i],[b,zb]=hullSection[i+1];

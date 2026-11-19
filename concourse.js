@@ -274,7 +274,8 @@ function turnChairs(){
 }
 let vistaNumber=0;
 function starWindow(w,h,x,y,z,angle,variant=0){
-  const glass=face('galaxy-window',w,h,x,y,z,angle);
+  const rad=angle*Math.PI/180;
+  const glass=face('galaxy-window',w,h,x+48*Math.sin(rad),y,z+48*Math.cos(rad),angle);
   const views=['assets/concourse-galaxy.webp','assets/forge/pz.webp','new-eden-nebula.webp','assets/forge/nx.webp','assets/forge/px.webp'];
   const file=views[vistaNumber++%views.length];
   glass.style.backgroundImage='linear-gradient(125deg,#b8eced22,transparent 30% 80%,#eabf9129),url('+file+')';
@@ -380,7 +381,7 @@ for(const [i,room] of rooms.entries()){
     addSeat(side*1980,z+end*365,end===1?Math.PI:0,room);
     if(end===-1){
       for(let n=0;n<3;n++)face('ceiling-bar',17,roomHalf*2-50,side*(boundary+310+n*605),-444,z,0,90).style.setProperty('--tone',tone);
-      const board=face('learning-panel',450,215,side*2950,-228,wallZ+12);
+      const board=face('learning-panel',450,215,side*2950,-228,wallZ+66);
       const name=document.createElement('strong'),copy=document.createElement('p');
       name.textContent=teaching[i][0];copy.textContent=teaching[i][1];board.append(name,copy);
       interactive.set(board,room);
@@ -390,8 +391,8 @@ for(const [i,room] of rooms.entries()){
   const isHolo=i===0||i===4;
   if(isHolo){
     room.program=i===0?0:1;
-    room.projection=face('simulation',roomHalf*2-70,380,side*(roomEnd-20),-220,z,angle);
-    room.wings=[-1,1].map(sign=>face('sim-wing',415,380,side*(roomEnd-157),-220,z+sign*489,angle+side*sign*44));
+    room.projection=face('simulation',roomHalf*2-270,345,side*(roomEnd-90),-220,z,angle);
+    room.wings=[-1,1].map(sign=>face('sim-wing',415,380,side*(roomEnd-236),-220,z+sign*471,angle+side*sign*44));
     const selector=room.selector=textFace('console',312,68,side*(roomEnd-455),-125,z,angle,'');
     interactive.set(selector,{name:'Cycle simulation',room,action:()=>{room.program=(room.program+1)%simulations.length;renderSimulation(room)}});
     for(const surface of [room.projection,...room.wings]){
@@ -400,7 +401,7 @@ for(const [i,room] of rooms.entries()){
     renderSimulation(room);
     exhibit(room,278,145,side*(roomEnd-300),-184,z+420,angle);
   }else{
-    exhibit(room,885,297,side*(roomEnd-25),-247,z,angle);
+    exhibit(room,885,297,side*(roomEnd-79),-247,z,angle);
     const model=face('holo-model',330,230,side*(roomEnd-590),-190,z-182,angle);
     model.style.backgroundImage='url(archive/assets/'+models[i]+'-cutout.webp)';
     face('emitter',300,300,side*(roomEnd-590),-5,z-182,0,90).style.setProperty('--tone',tone);
@@ -678,6 +679,11 @@ function sightLine(ax,az,bx,bz){
   const steps=Math.ceil(Math.hypot(bx-ax,bz-az)/65);
   for(let i=1;i<steps;i++){
     const t=i/steps,x=ax+(bx-ax)*t,z=az+(bz-az)*t,abs=Math.abs(x);
+    if(z>gardenStart&&z<gardenEnd){
+      if(x>=gardenWidth-32&&x<gardenWidth+32&&!(Math.abs(z-4730)<184&&passageOpen(terraceDoor,x,z)))return false;
+      if(x>gardenWidth+32&&(x>2450||Math.abs(z-4730)>620))return false;
+      continue;
+    }
     if(abs<boundary-35)continue;
     const room=roomAt(x,z);
     if(abs<boundary+35){
