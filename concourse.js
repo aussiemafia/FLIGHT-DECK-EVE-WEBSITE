@@ -287,6 +287,16 @@ function tree(x,z){
   const scale=z>3900?2.13:2.02;
   trees.push({x,z,scale});
 }
+// Each suite carries its finish from the entrance through to the curved end wall.
+const suiteFinishes=[
+  ['#526974','#23343d'],['#b6ada0','#827c70'],['#8caaaf','#596977'],['#c09a70','#9e8874'],
+  ['#605b70','#393444'],['#839ba1','#53636a'],['#847b70','#514b49'],['#a7a085','#757463']
+];
+function suiteFinish(node,index){
+  node.dataset.suite=index;
+  node.style.setProperty('--suite-shell',suiteFinishes[index][0]);
+  node.style.setProperty('--suite-floor',suiteFinishes[index][1]);
+}
 const trees=[];
 for(const side of [-1,1]){
   for(const z of [-3150,-120,1390,3160]){
@@ -300,7 +310,13 @@ for(const side of [-1,1]){
   for(let i=1;i<sideRooms.length;i++){
     const z1=sideRooms[i-1].z+roomHalf,z2=sideRooms[i].z-roomHalf;
     const span=z2-z1,z=(z1+z2)/2;
-    face('chamber-floor',corridorHalf*2,span,side*corridorX,0,z,0,90);
+    const passage=face('chamber-floor',corridorHalf*2,span,side*corridorX,0,z,0,90);
+    suiteFinish(passage,0);
+    // Nested milled portals reveal the next room while leaving a continuous walkable deck.
+    for(const end of [-1,1]){
+      const section=face('blender-alcove passage-casting',corridorHalf*2,350,side*corridorX,-192,z+end*(span/2-40),end<0?180:0);
+      section.alcoveScale=[corridorHalf/5.66,80,65];
+    }
     face('chamber-lid',corridorHalf*2,span,side*corridorX,-350,z,0,90);
     for(const edge of [-1,1]){
       face('bay-shell',span,350,side*corridorX+edge*corridorHalf,-175,z,edge*-90);
@@ -414,7 +430,10 @@ for(const [i,room] of rooms.entries()){
   curvedRoomEnds(side,roomEnd,z,roomHalf,450,235);
   for(const off of [-98,98])addSeat(side*(roomEnd-680),z+off,side*Math.PI/2,room);
   let n=nodesBefore.nextElementSibling;const nodes=[];
-  while(n){nodes.push(n);n=n.nextElementSibling}
+  while(n){
+    if(n.matches('.bay-shell,.continuous-return,.chamber-floor,.chamber-lid'))suiteFinish(n,i);
+    nodes.push(n);n=n.nextElementSibling
+  }
   chamberNodes.set(room,nodes);
 }
 function roomAt(x,z){

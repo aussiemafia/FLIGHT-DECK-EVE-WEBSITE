@@ -93,8 +93,10 @@ async function launch(){
     const m=mat.clone(),t=tex(url).clone();t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(Math.max(1,w/unit),Math.max(1,h/unit));t.needsUpdate=true;m.map=t;finishes.set(key,m);return m;
   }
   const enamel=physical(0x999387,.62,.255,{clearcoat:.68,clearcoatRoughness:.18});
-  function sculptedHull(w,h){
-    const profiles=[enamel,materials.bronze,materials.brass,materials.gasket,materials.gold,materials.rail];
+  const suiteShell=suiteFinishes.map(([color])=>physical(color,.49,.28,{clearcoat:.55,clearcoatRoughness:.20}));
+  const suiteFloor=suiteFinishes.map(([,color])=>{const m=materials.stone.clone();m.color.set(color);return m});
+  function sculptedHull(w,h,shell=enamel){
+    const profiles=[shell,materials.bronze,materials.brass,materials.gasket,materials.gold,materials.rail];
     const finishes=['shell','bronze','brass','gasket','gold','rail'];
     const vertices=[],groups=profiles.map(()=>[]),scale=Math.min(1,h/350),bays=Math.max(1,Math.round(w/350));
     const seam=w<80?[0,1]:[0,.012,.026,.060,.18,.5,.82,.94,.974,.988,1];
@@ -120,7 +122,7 @@ async function launch(){
   }
   function curvedHull(el,h){
     const {side,end,radius}=el.arc,divisions=48,row=divisions+1,vertices=[],indices=[];
-    const finishes={shell:enamel,bronze:materials.bronze,brass:materials.brass,gasket:materials.gasket,gold:materials.gold,rail:materials.rail};
+    const finishes={shell:suiteShell[el.dataset.suite]||enamel,bronze:materials.bronze,brass:materials.brass,gasket:materials.gasket,gold:materials.gold,rail:materials.rail};
     const layers=Object.keys(finishes),groups=layers.map(()=>[]),ds=Math.min(1,h/350);
     for(const [y,depth] of hullSection){
       const r=radius-depth*ds;
@@ -251,7 +253,7 @@ async function launch(){
         }
 
       }else if(k.contains('floor')||k.contains('chamber-floor')||k.contains('city-floor')||k.contains('upper-deck')){
-        o=flat(w,h,mapRepeat(materials.stone,'assets/ivory-marble.webp',w,h,920));
+        o=flat(w,h,mapRepeat(suiteFloor[el.dataset.suite]||materials.stone,'assets/ivory-marble.webp',w,h,920));
         for(const side of [-1,1]){
           for(const [offset,thickness] of [[0,5],[13,2]]){
             const inlay=flat(thickness,h,materials.brass);
@@ -262,13 +264,13 @@ async function launch(){
       }else if(k.contains('bay-shell')||k.contains('city-wall')||k.contains('chamber-lid')||k.contains('roof')||k.contains('wall')||k.contains('city-eave')){
         const finish=mapRepeat(materials.hull,'assets/bulkhead-2k.webp',w,h,860);
         if(k.contains('bay-shell')||k.contains('city-wall')||k.contains('wall')){
-          o=sculptedHull(w,h);
+          o=sculptedHull(w,h,suiteShell[el.dataset.suite]);
         }else if(k.contains('chamber-lid')){
           const geo=new T.PlaneGeometry(w,h,36,1),vertices=geo.attributes.position;
           for(let j=0;j<vertices.count;j++)vertices.setZ(j,Math.min(w*.12,144)*Math.cos(Math.PI*vertices.getX(j)/w));
           geo.computeVertexNormals();
           geo.addGroup(0,66,0);geo.addGroup(66,84,1);geo.addGroup(150,66,0);
-          o=new T.Mesh(geo,[finish,canopyGlass]);
+          o=new T.Mesh(geo,[suiteShell[el.dataset.suite]||finish,canopyGlass]);
           const shape=new T.Shape();shape.moveTo(-w/2,0);
           for(let j=1;j<=36;j++){const t=j/36;shape.lineTo((t-.5)*w,Math.min(w*.12,144)*Math.sin(t*Math.PI))}
           shape.closePath();
