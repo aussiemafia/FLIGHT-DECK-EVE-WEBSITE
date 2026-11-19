@@ -21,7 +21,7 @@ async function loadUniform(key){
   uniformModels.set(key,null);
   try{
     const base='assets/crew/',[body,suit,tone]=key.split('-'),image=new Image(),mask=new Image(),surface=new Image();
-    image.src=base+body+'-'+suit+'.webp?v=academy7';mask.src=base+body+'-skin.webp';surface.src=base+body+'-surface.webp';
+    image.src=base+body+'-'+suit+'.webp?v=tailoring15';mask.src=base+body+'-skin.webp';surface.src=base+body+'-surface.webp';
     const [buf,,motions]=await Promise.all([fetch(base+key.split('-')[0]+'.mesh').then(r=>{if(!r.ok)throw Error();return r.arrayBuffer()}),image.decode(),motionFor(body),mask.decode(),surface.decode()]);
     const [count,ic,frames]=new Uint32Array(buf,0,3),indices=new Uint16Array(buf,12,ic),off=12+ic*2;
     const uv=new Uint16Array(buf,off,count*2),mesh=new Int16Array(buf,off+count*4);
