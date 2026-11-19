@@ -437,7 +437,7 @@ for(const [i,room] of rooms.entries()){
   chamberNodes.set(room,nodes);
 }
 function roomAt(x,z){
-  return Math.abs(x)>boundary&&rooms.find(r=>Math.sign(x)===r.side&&Math.abs(z-r.z)<roomHalf);
+  return Math.abs(x)>boundary&&Math.abs(x)<roomEnd&&rooms.find(r=>Math.sign(x)===r.side&&Math.abs(z-r.z)<roomHalf);
 }
 function refreshRoom(){
   const next=roomAt(visitor.x,visitor.z)||null;
@@ -458,7 +458,7 @@ function refreshRoom(){
   }
 }
 function resetAt(station){
-  rise();window.stationCity?.reset();
+  rise();visitor.look=0;window.stationCity?.reset();
   if(station.garden){Object.assign(visitor,{x:0,z:3550,yaw:Math.PI,pitch:.04})}
   else if(station.side){
     Object.assign(visitor,{x:station.side*(boundary+380),z:station.z,yaw:station.side*Math.PI/2,pitch:0});
@@ -588,7 +588,7 @@ byId('mouse-look').onclick=()=>{menu.close();enterMouseLook()};
 function aim(dx,dy){
   const old=visitor.look||0;
   visitor.look=Math.max(-Math.PI/2,Math.min(Math.PI/2,old+dx));
-  visitor.yaw+=seated?visitor.look-old:dx;
+  visitor.yaw+=visitor.look-old;
   visitor.pitch=Math.max(-1.1,Math.min(1.1,visitor.pitch-dy));
   draw();
 }
@@ -656,9 +656,9 @@ function moveStep(dt){
     const forward=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
     const side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
     visitor.yaw+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.45;
-    const step=dt*(keys.has('ShiftLeft')||keys.has('ShiftRight')?1140:520)/Math.max(1,Math.hypot(forward,side));
-    const {x,z,yaw}=visitor;
-    if(!seated&&(forward||side))visitor.look*=Math.exp(-9*dt);
+    const step=dt*(keys.has('ShiftLeft')||keys.has('ShiftRight')?485:185)/Math.max(1,Math.hypot(forward,side));
+    const {x,z}=visitor;
+    const yaw=visitor.yaw-(visitor.look||0);
     const nx=x+step*(Math.sin(yaw)*forward+Math.cos(yaw)*side);
     const nz=z+step*(-Math.cos(yaw)*forward+Math.sin(yaw)*side);
     if(!seated&&!window.stationCity?.riding&&clear(nx,z))visitor.x=nx;

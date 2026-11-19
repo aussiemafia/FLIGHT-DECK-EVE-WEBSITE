@@ -48,6 +48,30 @@
     const width=widthAt(i),side=i%2?1:-1,depth=760+(i%4)*290,half=415+(i%3)*160;
     return {side,depth,half,width,z:mids(i)};
   }
+  function atlasRotunda(z){
+    const station={name:'Navigation atlas',route:'systems',image:'poch-hd',visible:true};
+    // The floor compass, suspended instrument and ceiling oculus share a centre.
+    function ring(radius,width,level,depth,finish){
+      const node=face('atlas-ring',radius*2,radius*2,0,-level,z,0,90);
+      Object.assign(node.dataset,{band:width,depth,finish});
+      node.style.setProperty('--atlas-band',width+'px');
+    }
+    ring(820,14,2,1,'brass');ring(795,3,3,1,'light');
+    ring(700,44,432,22,'shell');ring(662,7,426,7,'light');
+    ring(540,92,453,38,'shell');ring(455,9,439,9,'brass');
+    for(let i=0;i<12;i++){
+      const a=i*Math.PI/6;
+      face('atlas-index',i%3?5:9,i%3?26:48,758*Math.sin(a),-3,z+758*Math.cos(a),0,90,-a*180/Math.PI);
+    }
+    exhibit(station,510,188,0,-162,z+143,180);
+    installAlcove(station.screen);
+    interactive.set(station.screen,{name:'Study the system atlas',action:()=>window.startStationLesson(station)});
+    for(const x of [-232,0,232]){
+      const seatZ=z-350+(x?65:0);
+      addSeat(x,seatZ,Math.atan2(-x,seatZ-z-143),station);
+    }
+    return station;
+  }
   function build(i){
     const preceding=hall.lastElementChild,chairStart=chairs.length,treeStart=trees.length,doorStart=doors.length;
     const z=mids(i),width=widthAt(i),[name,,tone,route,lesson]=district(i);
@@ -69,10 +93,10 @@
         face('bay-shell',(room.half-curve)*2,430,far,-215,z,angle);
         curvedRoomEnds(side,width+room.depth,z,room.half,430,Math.min(225,room.half*.4));
         exhibit({name,route},room.half*1.45,250,far-side*74,-235,z,angle);
-        const screen=hall.lastElementChild;room.screen=screen;screen.querySelector('img').src='assets/exhibits/'+['wormhole','ore','porpoise','ice','class5','flare'][Math.min(5,Math.floor(i/5))]+'.webp';
+        const screen=hall.lastElementChild;room.screen=screen;room.visible=true;installAlcove(screen);screen.querySelector('img').src='assets/exhibits/'+['wormhole','ore','porpoise','ice','class5','flare'][Math.min(5,Math.floor(i/5))]+'.webp';
         const desk=label('learning-panel',395,211,cx,-180,z-room.half+69,0,lesson);
         interactive.set(desk,{name,route});
-        for(const offset of [-160,160])addSeat(cx,z+offset,side*Math.PI/2);
+        for(const offset of [-160,160])addSeat(cx,z+offset,side*Math.PI/2,room);
       }else wall(bay,z);
       starWindow(1020,320,side*(width-12),-310,z+(room?.side===side?765:0),angle,i%3);
       strip(8,bay,side*width*.63,z,tone);
@@ -110,8 +134,9 @@
       const hatch=label('console',375,120,0,-125,end-110,180,'Private holodeck');
       interactive.set(hatch,{name:'Enter private holodeck',action:()=>resetAt(rooms[0])});
     }
+    const atlas=i===2?atlasRotunda(z):null;
     const nodes=[];let n=preceding.nextElementSibling;while(n){nodes.push(n);n=n.nextElementSibling}
-    return {nodes,chairs:chairs.slice(chairStart),trees:trees.slice(treeStart),doors:doors.slice(doorStart),room,pair};
+    return {nodes,chairs:chairs.slice(chairStart),trees:trees.slice(treeStart),doors:doors.slice(doorStart),room,pair,atlas};
   }
   function removeItems(arr,items){for(const item of items){const j=arr.indexOf(item);if(j>=0)arr.splice(j,1)}}
   function unload(i,c){
@@ -160,7 +185,7 @@
   districts.forEach((d,n)=>{
     const button=document.createElement('button');button.textContent=d[0];destinations.append(button);
     button.onclick=()=>{menu.close();rise();ride=null;elevation=0;
-      Object.assign(visitor,{x:170,z:mids(5*n+(n===5?1:2))-470,yaw:Math.PI+.23,pitch:.055});
+      Object.assign(visitor,{look:0,x:n===0?0:170,z:mids(5*n+(n===5?1:2))-(n===0?680:470),yaw:n===0?Math.PI:Math.PI+.23,pitch:.055});
       stream();draw();update(performance.now())};
   });
   const liftLink=document.createElement('button');
@@ -170,7 +195,16 @@
     Object.assign(visitor,{x:widthAt(3)-460,z:mids(3),yaw:-Math.PI/2,pitch:0});
     stream();draw();update(performance.now());
   };
+  if(location.hash==='#navigation-rotunda'){
+    const entry=[...destinations.querySelectorAll('button')].find(b=>b.textContent===districts[0][0]);
+    requestAnimationFrame(()=>entry.click());
+  }
   byId('elevator').onclick=()=>{const lift=liftHere();if(lift)board(lift)};
   window.stationCity={start,end,clear,update,stream,get height(){return elevation},get riding(){return !!ride},
-    reset(){ride=null;elevation=0},classroomAt(x,z){const r=chunks.get(idx(z))?.room;return r&&Math.abs(x)>r.width?r:null}};
+    reset(){ride=null;elevation=0},classroomAt(x,z){
+      if(z<start||z>end)return null;
+      const i=idx(z),chunk=chunks.get(i),r=chunk?.room;
+      if(chunk?.atlas&&Math.hypot(x,z-mids(i))<810)return chunk.atlas;
+      return r&&x*r.side>r.width&&x*r.side<r.width+r.depth&&Math.abs(z-r.z)<r.half?r:null
+    }};
 })();

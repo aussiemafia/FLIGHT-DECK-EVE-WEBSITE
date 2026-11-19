@@ -184,7 +184,13 @@ async function launch(){
       const seat=chairs.find(c=>c.node===el);if(!seat)return;
       o=new T.Mesh(chairGeometry,chairFinishes[rooms.indexOf(seat.room)]||chairMaterials);o.position.set(seat.x,0,seat.z);o.rotation.y=-seat.facing;o.userData.seat=seat;
     }else{
-      if(k.contains('blender-alcove')){o=alcove.clone();
+      if(k.contains('atlas-ring')){
+        const radius=w/2,inner=radius-Number(el.dataset.band),shape=new T.Shape(),hole=new T.Path();
+        shape.absarc(0,0,radius,0,Math.PI*2,false);hole.absarc(0,0,inner,0,Math.PI*2,true);shape.holes.push(hole);
+        const surface={shell:materials.gasket,light:materials.blue,brass:materials.brass}[el.dataset.finish];
+        o=new T.Mesh(new T.ExtrudeGeometry(shape,{depth:Number(el.dataset.depth),bevelEnabled:false,curveSegments:64}),surface);
+      }else if(k.contains('atlas-index'))o=flat(w,h,materials.brass,2);
+      else if(k.contains('blender-alcove')){o=alcove.clone();
       }else if(k.contains('academy-steward')){
         o=stewardModel(stewardRig,stewardFinishes);
       }else if(k.contains('continuous-return')){o=curvedHull(el,h);

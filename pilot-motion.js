@@ -8,10 +8,10 @@ function animateOfficer(actor,data,now){
   const dt=Math.min(.2,Math.max(.001,(now-a.time)/1000)),ease=1-Math.exp(-dt*7);
   a.last=now;a.time=now;
   const speed=(now-actor.updated<1650?actor.speed:0)||0,turn=(now-actor.updated<1100?actor.turnRate:0)||0;
-  const moving=Math.min(1,Math.max(speed/160,Math.min(.42,turn*.19))),run=Math.max(0,Math.min(1,(speed-570)/370));
+  const moving=Math.min(1,Math.max(speed/160,Math.min(.42,turn*.19))),run=Math.max(0,Math.min(1,(speed-230)/230));
   a.w+=(moving-a.w)*ease;a.r+=(run-a.r)*ease;a.s+=((actor.p.state==='seated'?1:0)-a.s)*ease;
   a.head+=((actor.p.look||0)-a.head)*ease;a.pitch+=((actor.p.pitch||0)-a.pitch)*ease;
-  a.phase=(a.phase+dt*(.81+Math.min(1.5,speed/650)*.73))%1;
+  a.phase=(a.phase+dt*(.81+Math.min(1.5,speed/390)*.62))%1;
   function clip(base,len,phase){const f=phase*len,k=Math.floor(f);return [(base+k%len)*n,(base+(k+1)%len)*n,f-k]}
   const idle=clip(20,5,(now*.00024)%1),sit=clip(25,5,(now*.00018)%1),walk=clip(0,10,a.phase),jog=clip(10,10,a.phase);
   const sample=(c,j)=>frames[c[0]+j]+(frames[c[1]+j]-frames[c[0]+j])*c[2];

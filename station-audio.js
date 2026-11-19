@@ -3,7 +3,19 @@
   const slider=byId('master-gain'),music=byId('music');
   let context,bus,playing=false;
   const soundtrack=new Audio('assets/orbital-nocturne.ogg');soundtrack.loop=true;soundtrack.preload='none';
-  function mix(){soundtrack.volume=Number(slider.value)/100*(window.classroomActive? .10:.46)}
+  let fadeFrame=0;
+  function mix(){
+    cancelAnimationFrame(fadeFrame);
+    const start=soundtrack.volume,end=Number(slider.value)/100*(window.classroomActive ? .10:.46);
+    if(!playing||end===0){soundtrack.volume=end;return}
+    const began=performance.now();
+    function fade(now){
+      const t=Math.min(1,(now-began)/850);
+      soundtrack.volume=start+(end-start)*t*t*(3-2*t);
+      if(t<1)fadeFrame=requestAnimationFrame(fade);
+    }
+    fadeFrame=requestAnimationFrame(fade);
+  }
   function musicState(){music.textContent=playing?'Pause station score':'Play station score';music.setAttribute('aria-pressed',String(playing))}
   function listen(){mix();soundtrack.play().then(()=>{playing=true;musicState()}).catch(()=>{playing=false;musicState()})}
   function pause(){playing=false;soundtrack.pause();musicState()}
