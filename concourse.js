@@ -124,7 +124,7 @@ function makeDoor(x,z,angle,label,tone){
     reveal.style.transform+=' rotateZ('+Math.atan2(d-b,c-a)+'rad) rotateX(90deg)';
   }
   for(const offset of [-38,38]){
-    local('portal-frame',473,355,0,-177,offset).style.setProperty('--tone',tone);
+    const jamb=local('portal-frame',473,355,0,-177,offset);jamb.dataset.side=offset<0?'back':'front';jamb.style.setProperty('--tone',tone);
     const sign=local('portal-name',500,46,0,-387,offset);
     sign.textContent=label;sign.style.backfaceVisibility='hidden';
     if(offset<0)sign.style.transform+=' rotateY(180deg)';
@@ -132,7 +132,7 @@ function makeDoor(x,z,angle,label,tone){
   const leaves=[-1,1].map(sign=>{
     const leaf=local('door-leaf',212,321,sign*106,-160,-3);
     if(sign===1)leaf.classList.add('mirror');
-    for(const key of ['front','back','edge-left','edge-right','cap']){const part=document.createElement('i');part.className='door-'+key;leaf.append(part)}
+    for(const key of ['front','back','edge-left','edge-right','cap','etch']){const part=document.createElement('i');part.className='door-'+key;leaf.append(part)}
     return {leaf,origin:leaf.style.transform,sign};
   });
   const door={x,z,ux,uz,aperture:0,leaves,label};doors.push(door);
@@ -207,9 +207,9 @@ const glow=face('reflection',1300,900,0,-2,-2420,0,90);
 glow.style.backgroundImage='url('+flagship.asset+')';
 const chairs=[], corridorX=2430, corridorHalf=245;
 let seated=null, activityUntil=0;
-function standingEye(){return (seated?105:eye)+(window.stationCity?.height||0)}
+function standingEye(){return (seated?105:eye)+(window.stationCity?.height||0)+(window.deckTraversal?.height||0)}
 function rise(){
-  visitor.look=0;
+  visitor.look=0;window.deckTraversal?.reset();
   if(!seated)return;
   visitor.x=seated.entry.x;visitor.z=seated.entry.z;seated=null;
   byId('rise').hidden=true;window.seatLearning?.stop();draw();
@@ -444,6 +444,7 @@ const movement=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','A
 window.addEventListener('keydown',e=>{
   if(e.code==='Space'&&seated&&!e.repeat){e.preventDefault();rise();return}
   if(menu.open||record.open||document.querySelector('#lesson-panel')?.open||byId('media-browser')?.open)return;
+  if(e.code==='Space'&&!e.repeat&&!(e.target.matches?.('input,select,textarea,button'))){e.preventDefault();window.deckTraversal?.jump();return}
   if(movement.includes(e.code)){e.preventDefault();keys.add(e.code)}
   if(e.code==='KeyE'&&target&&!e.repeat){e.preventDefault();openStation(target)}
 });
@@ -481,9 +482,10 @@ for(const button of document.querySelectorAll('[data-key]')){
   button.onlostpointercapture=()=>keys.delete(button.dataset.key);
 }
 function clear(x,z){
+  if(window.deckTraversal&&!window.deckTraversal.allows(x,z))return false;
   if(z<-3900&&window.liveHelm)return window.liveHelm.clear(x,z);
   if(z>gardenEnd&&window.stationCity)return window.stationCity.clear(x,z);
-  if(chairs.some(c=>Math.hypot(x-c.x,z-c.z)<39)||trees.some(t=>Math.hypot(x-t.x,z-t.z)<49))return false;
+  if((!window.deckTraversal&&chairs.some(c=>Math.hypot(x-c.x,z-c.z)<39))||trees.some(t=>Math.hypot(x-t.x,z-t.z)<49))return false;
   if(Math.abs(x)<boundary-28){
     if(z>3940){
       if(Math.abs(x)>gardenWidth-35||z>gardenEnd+80)return false;
@@ -506,12 +508,13 @@ function tick(now){
   const dt=Math.min(.04,(now-previous)/1000);previous=now;
   window.stationCity?.update(now);
   updateDoors(dt);
+  if(window.deckTraversal?.tick(dt)&&!keys.size)draw();
   if(keys.size&&!record.open&&!menu.open){
     const forward=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
     const side=0;
     visitor.yaw+=(Number(keys.has('ArrowRight')||keys.has('KeyD'))-Number(keys.has('ArrowLeft')||keys.has('KeyA')))*dt*1.45;
     const step=dt*(keys.has('ShiftLeft')||keys.has('ShiftRight')?1140:520)/Math.max(1,Math.hypot(forward,side));
-    const {x,z,yaw}=visitor;
+    const {x,z}=visitor,yaw=visitor.yaw-(visitor.look||0);
     const nx=x+step*(Math.sin(yaw)*forward+Math.cos(yaw)*side);
     const nz=z+step*(-Math.cos(yaw)*forward+Math.sin(yaw)*side);
     if(!seated&&!window.stationCity?.riding&&clear(nx,z))visitor.x=nx;

@@ -45,6 +45,15 @@ async function launch(){
     const shape=roundPath(w,h,r);shape.holes.push(roundPath(w-2*trim,h-2*trim,Math.max(1,r-trim),new T.Path()));
     return new T.Mesh(new T.ExtrudeGeometry(shape,{depth,bevelEnabled:true,bevelThickness:1.4,bevelSize:1.3,bevelSegments:2,curveSegments:12}),mat);
   }
+  function portalCasting(w,h,trim,depth,finish){
+    const shape=new T.Shape(),r=109,foot=-h/2,top=h/2;
+    shape.moveTo(-w/2,foot);shape.lineTo(-w/2,top-r);shape.quadraticCurveTo(-w/2,top,-w/2+r,top);
+    shape.lineTo(w/2-r,top);shape.quadraticCurveTo(w/2,top,w/2,top-r);shape.lineTo(w/2,foot);
+    shape.lineTo(w/2-trim,foot);shape.lineTo(w/2-trim,top-r);
+    shape.quadraticCurveTo(w/2-trim,top-trim,w/2-r,top-trim);shape.lineTo(-w/2+r,top-trim);
+    shape.quadraticCurveTo(-w/2+trim,top-trim,-w/2+trim,top-r);shape.lineTo(-w/2+trim,foot);shape.closePath();
+    return new T.Mesh(new T.ExtrudeGeometry(shape,{depth,bevelEnabled:true,bevelSize:1.6,bevelThickness:1.4,bevelSegments:3,curveSegments:20}),finish);
+  }
   function flat(w,h,mat,r=0){
     if(!r)return new T.Mesh(new T.PlaneGeometry(w,h),mat);
     const geo=new T.ShapeGeometry(roundPath(w,h,r),12),uv=geo.attributes.uv;
@@ -130,13 +139,23 @@ async function launch(){
       else if(k.contains('galaxy-window')||k.contains('end-vista')||k.contains('side-window')){
         o=new T.Group();o.add(flat(w,h,skyMat,Math.min(65,h*.30)),edged(w,h,Math.min(65,h*.30),8,materials.rail));
       }else if(k.contains('skylight')){o=edged(w,h,1,1.3,materials.rail)}
-      else if(k.contains('arch-reveal'))o=flat(w,h,materials.bronze);
-      else if(k.contains('portal-frame')||k.contains('pass-rim')){
+      else if(k.contains('training-tread'))o=flat(w,h,mapRepeat(materials.stone,'assets/ivory-marble.webp',w,h,920),5);
+      else if(k.contains('training-riser'))o=flat(w,h,materials.bronze,2);
+      else if(k.contains('arch-reveal'))return;
+      else if(k.contains('portal-frame')){
+        o=new T.Group();const back=el.dataset.side==='back';
+        if(back)o.add(portalCasting(w,h,24,76,materials.ivory));
+        const band=portalCasting(w-7,h-4,4,3,materials.brass);band.position.set(0,-2,back?-3:1);o.add(band);
+        const seal=portalCasting(w-38,h-19,5,3,materials.gasket);seal.position.set(0,-9.5,back?-3:1);o.add(seal);
+      }
+      else if(k.contains('pass-rim')){
         o=edged(w,h,Math.min(94,w*.17),17,materials.ivory);const glow=edged(w-25,h-25,66,3,materials.gold);glow.position.z=5;o.add(glow);
       }else if(k.contains('door-leaf')){
         o=new T.Group();const rim=edged(w,h,18,10,materials.brass,20);rim.position.z=-10;o.add(rim);
         const pane=flat(w-18,h-19,physical(0x9cc8cd,.09,.14,{transparent:true,opacity:.18,depthWrite:false,clearcoat:.9}),11);
         o.add(pane);
+        const emblem=flat(w*.56,h*.22,new T.MeshBasicMaterial({map:tex('assets/crew/deck-etch.svg'),side:T.DoubleSide,transparent:true,opacity:.82,depthWrite:false}));
+        emblem.position.set(0,13,4);o.add(emblem);
         for(const [yy,hh] of [[-h*.38,h*.24],[h*.45,h*.1]]){
           const slab=new T.Mesh(new T.BoxGeometry(w-10,hh,18),materials.ivory);slab.position.y=yy;o.add(slab);
           const line=new T.Mesh(new T.BoxGeometry(w-9,3,21),materials.brass);line.position.y=yy+hh/2-2;o.add(line)
@@ -241,7 +260,7 @@ async function launch(){
       if(!o){const g=new T.BufferGeometry();g.setIndex(new T.Uint16BufferAttribute(data.indices,1));g.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(data.count*3),3));g.setAttribute('uv',new T.Float32BufferAttribute(Float32Array.from(data.uv,(v,i)=>i%2?1-v/65535:v/65535),2));if(!data.gpuMap){data.gpuMap=new T.CanvasTexture(data.canvas);data.gpuMap.colorSpace=T.SRGBColorSpace}o=new T.Mesh(g,physical(0xffffff,.06,.62,{map:data.gpuMap,alphaTest:.34}));o.userData.uniform=uniform;o.frustumCulled=false;scene.add(o);pilots.set(id,o)}
       const p=o.geometry.attributes.position,points=animateOfficer(a,data,performance.now());
       for(let j=0;j<points.length;j++)p.array[j]=points[j]*.0119;
-      p.needsUpdate=true;o.geometry.computeVertexNormals();o.position.set(a.x,a.p.height||0,a.z);o.rotation.y=-(a.yaw??a.p.yaw);
+      p.needsUpdate=true;o.geometry.computeVertexNormals();o.position.set(a.x,a.alt??a.p.height??0,a.z);o.rotation.y=-(a.yaw??a.p.yaw);
     }
   }
   syncFaces();scene.background=new T.Color(0x08121b);

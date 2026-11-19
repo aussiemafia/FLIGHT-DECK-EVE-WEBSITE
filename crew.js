@@ -23,7 +23,7 @@
   }
   function pose(){
     if(bridge)return {x,z,yaw,deck:'bridge',seat:seated?'helm-'+Math.abs(seated.x)+'-'+Math.abs(seated.z):'',state:seated?'seated':panel.open?'reading':keys.size?'walking':'standing'};
-    return {...visitor,yaw:visitor.yaw-(visitor.look||0),look:visitor.look||0,pitch:visitor.pitch,height:window.stationCity?.height||0,deck:'concourse',seat:seated?.id||'',state:seated?'seated':record.open?'reading':activityUntil>Date.now()?'projecting':keys.size?'walking':'standing'};
+    return {...visitor,...window.deckTraversal?.pose(),yaw:visitor.yaw-(visitor.look||0),look:visitor.look||0,pitch:visitor.pitch,height:(window.stationCity?.height||0)+(window.deckTraversal?.height||0),deck:'concourse',seat:seated?.id||'',state:seated?'seated':record.open?'reading':activityUntil>Date.now()?'projecting':keys.size?'walking':'standing'};
   }
   function makeAvatar(p){
     const node=document.createElement('div');
@@ -41,6 +41,7 @@
       let actor=peers.get(p.id);
       if(!actor){actor=makeAvatar(p);peers.set(p.id,actor)}
       const elapsed=Math.max(.12,(performance.now()-actor.updated)/1000),delta=Math.atan2(Math.sin(p.yaw-actor.p.yaw),Math.cos(p.yaw-actor.p.yaw));
+      if(p.hop&&p.hop!==actor.hop){actor.hop=p.hop;actor.takeoff=performance.now()-Math.min(.32,p.elapsed||0)*1000;actor.launch=p.base||0}
       actor.speed=Math.min(1400,Math.hypot(p.x-actor.p.x,p.z-actor.p.z)/elapsed);
       actor.turnRate=Math.abs(delta)/elapsed;actor.fromYaw=actor.yaw??p.yaw;
       actor.travelTime=Math.min(1100,Math.max(180,elapsed*1000));actor.fromX=actor.x;actor.fromZ=actor.z;actor.updated=performance.now();actor.p=p;
@@ -78,8 +79,11 @@
         const dx=me.x-actor.x,dz=me.z-actor.z,facing=Math.atan2(dx,dz);
         const obscured=bridge?displayCompartment(me.x,me.z)!==displayCompartment(actor.x,actor.z):!sightLine(me.x,me.z,actor.x,actor.z);
         actor.node.hidden=obscured||Math.hypot(dx,dz)<38;if(actor.node.hidden)continue;
+        const tau=(now-(actor.takeoff??-10000))/1000;
+        actor.airBlend=tau>=0&&tau<.96?Math.sin(Math.PI*tau/.96):0;
+        actor.alt=actor.airBlend>0?Math.max(p.ground||0,(actor.launch||0)+449*tau-470*tau*tau):(p.height||0);
         const scale=bridge?2.36:1;
-        actor.node.style.transform='translate3d('+actor.x+'px,'+(bridge?414:-(p.height||0))+'px,'+actor.z+'px) rotateY('+facing+'rad) scale('+scale+')';
+        actor.node.style.transform='translate3d('+actor.x+'px,'+(bridge?414:-actor.alt)+'px,'+actor.z+'px) rotateY('+facing+'rad) scale('+scale+')';
         window.renderPilot?.(actor,facing+actor.yaw,Math.hypot(dx,dz)/scale,now);
       }
     }

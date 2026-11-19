@@ -19,7 +19,8 @@ function animateOfficer(actor,data,now){
   for(let j=0;j<n;j++){
     const neutral=sample(idle,j),stride=sample(walk,j),travel=stride+(sample(jog,j)-stride)*a.r;
     const standing=neutral+(travel-neutral)*a.w;
-    arr[j]=standing+(sample(sit,j)-standing)*a.s+mouth*(data.mesh[11*n+j]-data.mesh[10*n+j]);
+    const air=(actor.airBlend||0)*.55,flight=travel+(data.mesh[8*n+j]-travel)*air;
+    arr[j]=standing+(sample(sit,j)-standing)*a.s+(flight-travel)*air+mouth*(data.mesh[11*n+j]-data.mesh[10*n+j]);
   }
   for(const j of data.headPoints){hx+=arr[j];hy+=arr[j+1];hz+=arr[j+2]}
   const ct=data.headPoints.length||1;hx/=ct;hy=hy/ct-950;hz/=ct;
