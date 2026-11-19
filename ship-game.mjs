@@ -1,4 +1,5 @@
-import {loadStewardParts,stewardModel} from './robot-rig.mjs';
+import {loadAlcove} from './alcove.mjs';
+import {loadStewardParts,stewardModel} from './robot-rig.mjs?v=22';
 import {hearthFire} from './hearth-shader.mjs';
 import * as T from './assets/engine/three.mjs';
 
@@ -171,7 +172,7 @@ async function launch(){
   const waterUniform={clock:{value:0},pano:{value:panorama},shift:globeUniform.shift};
   const water=new T.ShaderMaterial({uniforms:waterUniform,side:T.DoubleSide,vertexShader:'varying vec3 wp;varying vec2 vuv;void main(){vec4 p=modelMatrix*vec4(position,1.);wp=p.xyz;vuv=uv;gl_Position=projectionMatrix*viewMatrix*p;}',
     fragmentShader:'varying vec3 wp;varying vec2 vuv;uniform sampler2D pano;uniform float clock,shift;void main(){vec2 p=wp.xz;float a=sin(p.x*.039+clock)*.018+cos(p.y*.047-clock*.8)*.016;float b=cos((p.x+p.y)*.028+clock*1.2)*.024;vec3 v=normalize(wp-cameraPosition);vec3 n=normalize(vec3(a,1.,b));vec3 r=reflect(v,n);vec2 uv=vec2(fract(.5+atan(r.x,-r.z)/6.283185+shift),.5+asin(r.y)/3.141593);vec3 sky=texture2D(pano,uv).rgb;float fres=pow(1.-abs(dot(v,n)),2.);gl_FragColor=vec4(mix(vec3(.018,.094,.092),sky,.23+.72*fres)+pow(max(0.,dot(r,normalize(vec3(-.4,.27,-.8)))),44.)*vec3(1.,.69,.32),1.);\n#include <colorspace_fragment>\n}'});
-  const stewardRig=await loadStewardParts();
+  const [stewardRig,alcove]=await Promise.all([loadStewardParts(),loadAlcove()]);
   const stewardFinishes=[physical(0xf6f2e6,.47,.21,{clearcoat:.9,clearcoatRoughness:.13}),physical(0xd5aa58,.88,.20,{clearcoat:.55}),physical(0x262d30,.42,.37),physical(0x192b32,.71,.115,{clearcoat:.95})];
   function make(el){
     const g=el.geometry,k=el.classList,w=g.w,h=g.h;
@@ -181,7 +182,8 @@ async function launch(){
       const seat=chairs.find(c=>c.node===el);if(!seat)return;
       o=new T.Mesh(chairGeometry,chairFinishes[rooms.indexOf(seat.room)]||chairMaterials);o.position.set(seat.x,0,seat.z);o.rotation.y=-seat.facing;o.userData.seat=seat;
     }else{
-      if(k.contains('academy-steward')){
+      if(k.contains('blender-alcove')){o=alcove.clone();
+      }else if(k.contains('academy-steward')){
         o=stewardModel(stewardRig,stewardFinishes);
       }else if(k.contains('continuous-return')){o=curvedHull(el,h);
       }else if(k.contains('helm-fascia')||k.contains('helm-cap')||k.contains('helm-line')){
@@ -288,7 +290,7 @@ async function launch(){
       }else if(k.contains('hearth-flame')){
         o=hearthFire(w,h,waterUniform.clock);
       }else o=flat(w,h,k.contains('gallery')?materials.ivory:materials.bronze);
-      pose(el,o);
+      pose(el,o);if(k.contains('blender-alcove'))o.scale.set(...el.alcoveScale);
       if(k.contains('galaxy-window')||k.contains('end-vista')||k.contains('side-window'))o.translateZ(12);
     }
     if(k.contains('screen')||k.contains('simulation')||k.contains('sim-wing')){
@@ -303,7 +305,7 @@ async function launch(){
     const grad=g.createRadialGradient(62,185,3,64,132,124);grad.addColorStop(0,'#fff7c5');grad.addColorStop(.22,'#ffd86f');grad.addColorStop(.49,'#e8853199');grad.addColorStop(1,'#d8741c00');
     g.fillStyle=grad;g.beginPath();g.moveTo(64,248);g.bezierCurveTo(2,219,16,133,68,9);g.bezierCurveTo(57,74,132,171,92,224);g.closePath();g.fill();fireMap=new T.CanvasTexture(c);fireMap.colorSpace=T.SRGBColorSpace;return fireMap}
   function dispose(o){scene.remove(o);o.traverse(n=>{
-    if(!n.isMesh||n.geometry===chairGeometry)return;n.geometry.dispose();
+    if(!n.isMesh||n.userData.sharedAlcove||n.geometry===chairGeometry)return;n.geometry.dispose();
     const mat=n.material;if(!Array.isArray(mat)&&!Object.values(materials).includes(mat)&&mat!==skyMat&&mat!==canopyGlass&&mat!==apertureMaterial&&mat!==water&&![...finishes.values()].includes(mat)){if(mat.map&&!Array.from(textures.values()).includes(mat.map)&&mat.map!==fireMap)mat.map.dispose();mat.dispose()}
   })}
   function syncFaces(){

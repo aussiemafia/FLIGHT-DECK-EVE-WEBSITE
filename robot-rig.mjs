@@ -21,7 +21,7 @@ export async function loadStewardParts(){
 export function stewardModel(rig,materials){
   const group=new T.Group(),bones=rig.poses[0].map(()=>new T.Group());
   group.add(...bones);for(const p of rig.parts)bones[p.bone].add(new T.Mesh(p.geometry,materials[p.finish]));
-  const q=new T.Quaternion(),v=new T.Vector3();
+  const q=group.quaternion.clone(),v=new T.Vector3();
   group.userData.animate=motion=>{
     const frame=motion.phase*8/Math.PI,base=Math.floor(frame)%16,t=frame%1;
     for(let i=0;i<bones.length;i++){

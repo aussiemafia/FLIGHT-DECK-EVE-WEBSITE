@@ -27,8 +27,8 @@
   function closeFilm(){iframe?.remove();iframe=null;film.hidden=false}
   function stop(){audioStop();closeFilm();film.pause();film.removeAttribute('src');film.load();anchor?.classList.remove('lesson-glass','playing-in-glass');board.remove();anchor=null;room=null;document.dispatchEvent(new Event('lessonchange'))}
   function showFilm(){
-    closeFilm();filmBegin=room.route==='estimate'?oreIndex*8:0;
-    const src=room.route==='estimate'?'assets/lessons/ore-assays.mp4?v=specimen17':'assets/exhibits/'+local[room.route]+'.mp4';
+    closeFilm();filmBegin=room.route==='estimate'?(oreIndex%7)*8:0;
+    const src=room.route==='estimate'?'assets/lessons/ore-reel-'+Math.floor(oreIndex/7)+'.mp4':'assets/exhibits/'+local[room.route]+'.mp4?v=hd22';
     if(film.getAttribute('src')!==src)film.src=src;
     film.currentTime=filmBegin;film.loop=room.route!=='estimate';film.play().catch(()=>{});
   }

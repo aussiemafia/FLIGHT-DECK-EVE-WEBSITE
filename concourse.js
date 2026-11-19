@@ -72,7 +72,7 @@ function exhibit(station,w,h,x,y,z,angle,hero=false) {
   screen.append(img,caption);
   const films={story:'transit',wormholes:'transit',ships:'fortizar',systems:'transit',estimate:'ore',drifters:'crystal',fits:'fortizar',sites:'fortizar','blue-loot':'crystal',dscan:'fortizar'};
   const video=document.createElement('video');video.loop=true;video.muted=true;video.playsInline=true;video.preload='none';
-  video.dataset.src='assets/exhibits/'+(films[station.route]||'transit')+'.mp4';screen.insertBefore(video,caption);
+  video.dataset.src='assets/exhibits/'+(films[station.route]||'transit')+'.mp4?v=hd22';screen.insertBefore(video,caption);
   interactive.set(screen,{name:station.name+' · Screen media',media:true,room:rooms.includes(station)?station:undefined,action:()=>window.stationMediaMenu?.(screen,station)});station.screen=screen;
 }
 const boundary=1360, roomEnd=3260, roomHalf=615;
@@ -108,7 +108,7 @@ function renderSimulation(room){
   if(currentRoom===room&&!reduced.matches){
     const video=document.createElement('video');
     video.muted=true;video.loop=true;video.playsInline=true;
-    video.src='assets/exhibits/'+program.film+'.mp4';
+    video.src='assets/exhibits/'+program.film+'.mp4?v=hd22';
     room.projection.append(video);room.video=video;
     video.play().catch(()=>{});
   }
@@ -401,13 +401,14 @@ for(const [i,room] of rooms.entries()){
     renderSimulation(room);
     exhibit(room,278,145,side*(roomEnd-300),-184,z+420,angle);
   }else{
-    exhibit(room,885,297,side*(roomEnd-79),-247,z,angle);
+    exhibit(room,798,284,side*(roomEnd-118),-247,z,angle);
     const model=face('holo-model',330,230,side*(roomEnd-590),-190,z-182,angle);
     model.style.backgroundImage='url(archive/assets/'+models[i]+'-cutout.webp)';
     face('emitter',300,300,side*(roomEnd-590),-5,z-182,0,90).style.setProperty('--tone',tone);
     const console=textFace('console',255,72,side*(roomEnd-670),-126,z+182,angle,room.name);
     interactive.set(console,room);
   }
+  installAlcove(room.projection||room.screen);
   const holo=textFace('course-holo',345,122,side*(boundary+645),-155,z-175,angle,room.name+' · '+(room.route==='estimate'?'Identify an ore':teaching[i][0]));
   interactive.set(holo,{name:'Explore '+room.name,action:()=>window.startStationLesson(room)});
   curvedRoomEnds(side,roomEnd,z,roomHalf,450,235);
