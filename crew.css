@@ -44,3 +44,7 @@
 .hull-return .hull-band.finish-bronze{background:#726450}
 .hull-return .hull-band.finish-rail{background:#54564e}
 .hull-return .hull-band.finish-brass{background:#b39b70}
+
+.helm-fascia{background:linear-gradient(#9b978d,#575955 11%,#252a2e 45%,#363937 84%,#b0a283)}
+.helm-cap{background:linear-gradient(#646761,#303638 75%,#b3a48a)}
+.helm-line{background:#eed5a3}

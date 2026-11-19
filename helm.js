@@ -14,17 +14,30 @@
   glazedAtrium(2340,back-top,(top+back)/2,480,690,3);
   face('bay-shell',2340,695,0,-347,top);
   starWindow(2040,420,0,-350,top+8,0);
+  // One curved console sill carries the three instruments below the forward glazing.
+  const helmCurve=x=>top+363+.00039*x*x;
+  for(let j=0;j<24;j++){
+    const a=-825+j*68.75,b=a+68.75,x=(a+b)/2,z=(helmCurve(a)+helmCurve(b))/2;
+    const heading=-Math.atan2(helmCurve(b)-helmCurve(a),b-a)*180/Math.PI;
+    const span=Math.hypot(b-a,helmCurve(b)-helmCurve(a))+1.3;
+    face('helm-fascia',span,89,x,-45,z,heading);
+    face('helm-cap',span,112,x,-90,z-53,heading,90);
+    face('helm-line',span,3,x,-74,z+2,heading);
+  }
   for(const [x,name,route,img] of [[-575,'Navigation','systems','wormhole'],[0,'Flight operations','ships','porpoise'],[575,'Fleet intelligence','dscan','fortizar']]){
     const station={name,route,image:img};
-    exhibit(station,370,155,x,-148,top+438,0);
-    face('base',320,70,x,-35,top+438);
-    addSeat(x,top+718,0);
+    const z=helmCurve(x),heading=-Math.atan(.00078*x)*180/Math.PI;
+    exhibit(station,370,138,x,-155,z-28,heading);
+    station.screen.geometry.rx=12*Math.PI/180;station.screen.style.transform+=' rotateX(12deg)';
+    addSeat(x,z+305,heading*Math.PI/-180);
+
   }
+  curvedRoomEnds(1,2800,-5040,710,510,265);
   const cinemaDoor=makeDoor(1170,-5040,-90,'Screening theatre','#edc991');
   face('chamber-floor',1630,1420,1985,0,-5040,0,90);face('chamber-lid',1630,1420,1985,-510,-5040,0,90);
   for(const s of [-1,1])face('city-wall',1630,510,1985,-255,-5040+s*710,s===1?180:0);
   face('city-wall',1420,510,2800,-255,-5040,-90);
-  const display=face('simulation theatre-screen',1140,398,2776,-267,-5040,-90);
+  const display=face('simulation theatre-screen',1000,365,2717,-267,-5040,-90);
   const film=document.createElement('video');film.loop=true;film.muted=true;film.playsInline=true;film.preload='metadata';
   const films=['fortizar','transit','crystal','ore'];let movie=0,paused=false;film.src='assets/exhibits/fortizar.mp4';display.append(film);
   for(const x of [1550,1850,2150])for(const z of [-5370,-5150,-4930,-4710])addSeat(x,z,Math.PI/2);
@@ -49,6 +62,7 @@
       if(x<1210)return Math.abs(z+5040)<178&&passageOpen(cinemaDoor,x,z);
       return true;
     }
+    if(Math.abs(x)<845&&Math.abs(z-helmCurve(x)+48)<83)return false;
     return z>top+50&&x>-1120&&(z<-3945||Math.abs(x)<175&&passageOpen(gates[0].door,x,z));
   }};
   if(location.hash==='#bridge')go();

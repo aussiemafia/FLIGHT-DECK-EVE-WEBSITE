@@ -182,6 +182,9 @@ async function launch(){
         for(const side of [-1,1]){const lamp=new T.Mesh(new T.SphereGeometry(3.6,14,8),materials.blue);lamp.position.set(side*9,36,-19);o.add(lamp);
           const leg=shell([[6,-39],[9,-37],[7,-24],[4,-16],[7,-10],[7,-2]],materials.rail);leg.position.set(side*12,-24,0);leg.name='leg'+side;o.add(leg);
           const arm=shell([[3,-18],[6,-15],[7,2],[6,14],[2,17]],materials.ivory);arm.position.set(side*33,-2,0);arm.rotation.z=side*.14;o.add(arm)}
+      }else if(k.contains('helm-fascia')||k.contains('helm-cap')||k.contains('helm-line')){
+        const mat=k.contains('helm-line')?materials.gold:k.contains('helm-cap')?materials.rail:materials.gasket;
+        o=new T.Mesh(new T.BoxGeometry(w,h,k.contains('helm-fascia')?12:3),mat);
       }else if(k.contains('orbital-spire')){
         o=new T.Group();
         // Tapered elliptical towers with recessed horizontal window bands.
