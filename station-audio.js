@@ -2,6 +2,10 @@
 (()=>{
   const slider=byId('master-gain'),music=byId('music');
   let context,bus,playing=false,clock,timer,chord=0,musicBus;
+  const lights=byId('deck-light');let night=false;
+  try{night=localStorage.getItem('station-night')==='on'}catch{}
+  function lightMode(){document.body.classList.toggle('night-watch',night);lights.setAttribute('aria-pressed',String(night));lights.textContent=night?'Raise lights':'Dim lights'}
+  lights.onclick=()=>{night=!night;lightMode();try{localStorage.setItem('station-night',night?'on':'off')}catch{}};lightMode();
   function init(){
     if(!context){context=new AudioContext();bus=context.createGain();bus.connect(context.destination);
       musicBus=context.createGain();musicBus.connect(bus);bus.gain.value=Number(slider.value)/100}

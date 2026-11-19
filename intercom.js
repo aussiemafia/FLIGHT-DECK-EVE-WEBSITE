@@ -10,7 +10,7 @@
   try{muted=localStorage.getItem('expanse-intercom-muted')==='yes'}catch{}
   function controls(){
     button.textContent=playing?'Stop intercom':currentRoom?'Room guide':'Ship intercom';
-    mute.textContent=muted?'Enable voice':'Mute voice';
+    mute.textContent=muted?'Unmute guide':'Mute guide';
     mute.setAttribute('aria-pressed',String(muted));
   }
   function stop(){
@@ -48,8 +48,8 @@
   document.getElementById('viewport').addEventListener('pointerdown',arrive,{once:true});
   window.addEventListener('keydown',e=>{if(!welcomed&&['KeyW','KeyA','KeyS','KeyD','ArrowUp'].includes(e.code))arrive()});
   button.onclick=()=>playing?stop():speak(currentRoom);
-  mute.onclick=()=>{muted=!muted;stop();try{localStorage.setItem('expanse-intercom-muted',muted?'yes':'no')}catch{}controls()};
+  mute.onclick=()=>{muted=!muted;stop();document.dispatchEvent(new Event('guidemute'));try{localStorage.setItem('expanse-intercom-muted',muted?'yes':'no')}catch{}controls()};
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
-  window.addEventListener('pagehide',stop);window.stopShipIntercom=stop;document.addEventListener('stationvolume',()=>{if(audio)audio.volume=window.shipAudio.volume});
+  window.addEventListener('pagehide',stop);window.guideMuted=()=>muted;window.stopShipIntercom=stop;document.addEventListener('stationvolume',()=>{if(audio)audio.volume=window.shipAudio.volume});
   window.updateIntercom=controls;controls();
 })();

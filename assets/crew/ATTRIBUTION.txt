@@ -5,3 +5,4 @@ The Cesium logo belongs to Cesium. Mesh converted to sampled animation poses for
 The current male and female crew are adaptations of Microsoft Rocketbox Adult 01 characters, © 2020 Microsoft, MIT. Original body and facial rigs, skin, eyes and hair are retained. Officer textures, walking, standing, seating and mouth poses are adapted for the Flight Deck.
 https://github.com/microsoft/Microsoft-Rocketbox
 See ROCKETBOX-LICENSE.txt.
+Walking, running, breathing and seated cycles are sampled from the Microsoft Rocketbox male and female animation sets. The two dress uniforms are custom 3D adaptations of EVE Online's Imperial and Republic Commander dress jackets. The fitting-room item images are CCP Games artwork, from https://images.evetech.net/types/58934/icon and https://images.evetech.net/types/58936/icon.

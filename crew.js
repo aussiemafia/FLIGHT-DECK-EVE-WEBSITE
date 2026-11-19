@@ -5,10 +5,25 @@
   const token=crypto.randomUUID(),peers=new Map(),bridge=document.getElementById('world')!==null;
   const root=document.getElementById(bridge?'world':'hall'),status=document.getElementById('crew-status');
   let active=true,timer=0,ownId='',lastSnapshot=0,failures=0;
-  const uniform=document.getElementById('uniform');if(uniform){try{uniform.value=localStorage.getItem('deck-uniform')||'imperial'}catch{}uniform.onchange=()=>{try{localStorage.setItem('deck-uniform',uniform.value)}catch{}}}
+  const uniform=document.getElementById('uniform'),body=document.getElementById('pilot-body'),tone=document.getElementById('pilot-tone');
+  if(uniform){
+    const choices=[[uniform,'deck-uniform'],[body,'deck-body'],[tone,'deck-tone']];
+    const refresh=()=>{document.getElementById('jacket-reference').src='assets/crew/'+(uniform.value==='tribal'?'republic':'imperial')+'-jacket.png'};
+    for(const [input,key] of choices){
+      let saved;try{saved=localStorage.getItem(key)}catch{}
+      const options=Array.from(input.options,o=>o.value);
+      input.value=options.includes(saved)?saved:options[Math.floor(Math.random()*options.length)];
+      try{localStorage.setItem(key,input.value)}catch{}
+      input.onchange=()=>{try{localStorage.setItem(key,input.value)}catch{}refresh()};
+    }
+    refresh();const preview={preview:true,canvas:document.getElementById('pilot-preview'),p:{id:'preview',state:'standing'}};
+    setInterval(()=>{if(!document.getElementById('wardrobe').open||!menu.open)return;
+      Object.assign(preview.p,{body:body.value,tone:Number(tone.value),uniform:uniform.value});preview.updated=performance.now();
+      window.renderPilot?.(preview,Math.PI+.11,360,performance.now())},100);
+  }
   function pose(){
     if(bridge)return {x,z,yaw,deck:'bridge',seat:seated?'helm-'+Math.abs(seated.x)+'-'+Math.abs(seated.z):'',state:seated?'seated':panel.open?'reading':keys.size?'walking':'standing'};
-    return {...visitor,height:window.stationCity?.height||0,deck:'concourse',seat:seated?.id||'',state:seated?'seated':record.open?'reading':activityUntil>Date.now()?'projecting':keys.size?'walking':'standing'};
+    return {...visitor,yaw:visitor.yaw-(visitor.look||0),look:visitor.look||0,pitch:visitor.pitch,height:window.stationCity?.height||0,deck:'concourse',seat:seated?.id||'',state:seated?'seated':record.open?'reading':activityUntil>Date.now()?'projecting':keys.size?'walking':'standing'};
   }
   function makeAvatar(p){
     const node=document.createElement('div');
@@ -25,7 +40,10 @@
       seen.add(p.id);
       let actor=peers.get(p.id);
       if(!actor){actor=makeAvatar(p);peers.set(p.id,actor)}
-      actor.fromX=actor.x;actor.fromZ=actor.z;actor.updated=performance.now();actor.p=p;
+      const elapsed=Math.max(.12,(performance.now()-actor.updated)/1000),delta=Math.atan2(Math.sin(p.yaw-actor.p.yaw),Math.cos(p.yaw-actor.p.yaw));
+      actor.speed=Math.min(1400,Math.hypot(p.x-actor.p.x,p.z-actor.p.z)/elapsed);
+      actor.turnRate=Math.abs(delta)/elapsed;actor.fromYaw=actor.yaw??p.yaw;
+      actor.travelTime=Math.min(1100,Math.max(180,elapsed*1000));actor.fromX=actor.x;actor.fromZ=actor.z;actor.updated=performance.now();actor.p=p;
       actor.node.dataset.pose=p.state;
       actor.tag.textContent='Pilot '+p.id.slice(-4).toUpperCase()+(p.state==='standing'?'':' · '+p.state);
     }
@@ -35,7 +53,7 @@
     if(!active)return;
     const cancel=new AbortController();const timeout=setTimeout(()=>cancel.abort(),8000);
     try{
-      const response=await fetch(endpoint,{method:'POST',body:JSON.stringify({token,...pose(),uniform:uniform?.value,voice:window.crewRadio?.epoch,talking:window.crewRadio?.talking}),signal:cancel.signal,credentials:'omit',cache:'no-store'});
+      const response=await fetch(endpoint,{method:'POST',body:JSON.stringify({token,...pose(),uniform:uniform?.value,body:body?.value,tone:Number(tone?.value)||0,voice:window.crewRadio?.epoch,talking:window.crewRadio?.talking}),signal:cancel.signal,credentials:'omit',cache:'no-store'});
       if(!response.ok)throw Error('Crew service');
       const data=await response.json();if(!Array.isArray(data.crew))throw Error('Crew unavailable');
       ownId=data.id;lastSnapshot=performance.now();failures=0;update(data.crew);window.crewRadio?.nearby(ownId,data.crew);
@@ -54,14 +72,15 @@
     if(!document.hidden&&peers.size){
       const me=pose();
       for(const actor of peers.values()){
-        const p=actor.p,t=Math.min(1,(now-actor.updated)/850);
+        const p=actor.p,t=Math.min(1,(now-actor.updated)/(actor.travelTime||450));
+        const yawDelta=Math.atan2(Math.sin(p.yaw-actor.fromYaw),Math.cos(p.yaw-actor.fromYaw));actor.yaw=actor.fromYaw+yawDelta*t;
         actor.x=actor.fromX+(p.x-actor.fromX)*t;actor.z=actor.fromZ+(p.z-actor.fromZ)*t;
         const dx=me.x-actor.x,dz=me.z-actor.z,facing=Math.atan2(dx,dz);
         const obscured=bridge?displayCompartment(me.x,me.z)!==displayCompartment(actor.x,actor.z):!sightLine(me.x,me.z,actor.x,actor.z);
         actor.node.hidden=obscured||Math.hypot(dx,dz)<38;if(actor.node.hidden)continue;
         const scale=bridge?2.36:1;
         actor.node.style.transform='translate3d('+actor.x+'px,'+(bridge?414:-(p.height||0))+'px,'+actor.z+'px) rotateY('+facing+'rad) scale('+scale+')';
-        window.renderPilot?.(actor,facing+p.yaw,Math.hypot(dx,dz)/scale,now);
+        window.renderPilot?.(actor,facing+actor.yaw,Math.hypot(dx,dz)/scale,now);
       }
     }
     if(active)requestAnimationFrame(drawCrew);

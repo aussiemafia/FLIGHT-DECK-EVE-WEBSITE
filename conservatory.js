@@ -48,7 +48,12 @@ function mountLayeredGrove(){
       if(dist>6100||dx*sn-dz*cs<-530||!sightLine(x,z,tr.x,tr.z))continue;
       const rot=i*1.671,c=Math.cos(rot),s=Math.sin(rot),sz=tr.scale;
       function point(p){return project(tr.x+sz*(p[0]*c-p[2]*s),sz*p[1],tr.z+sz*(p[0]*s+p[2]*c))}
-      for(const part of parts){
+      const palm=isPalm(tr);
+      if(palm)for(const leaf of palmParts.leaflets){
+        const verts=leaf.slice(0,4).map(p=>point([p[0]+(reduced.matches?0:Math.sin(now*.0008+p[2]*.03)*.9),p[1],p[2]]));
+        if(verts.every(Boolean))draws.push({verts,shade:leaf[4],d:verts[0].d});
+      }
+      for(const part of palm?palmParts.limbs:parts){
         if(part.a){
           const a=point(part.a),b=point(part.b);
           if(a&&b)draws.push({a,b,r:Math.max(.45,part.r*sz*(a.k+b.k)),d:(a.d+b.d)/2});
@@ -66,7 +71,9 @@ function mountLayeredGrove(){
     }
     draws.sort((a,b)=>b.d-a.d);
     for(const item of draws){
-      if(item.a){
+      if(item.verts){const v=item.verts;ctx.setTransform(res,0,0,res,0,0);ctx.fillStyle=['#506542','#66805a','#394d38','#79855b'][item.shade];
+        ctx.beginPath();ctx.moveTo(v[0].x,v[0].y);for(const p of v.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();ctx.fill();
+      }else if(item.a){
         const {a,b,r}=item;ctx.setTransform(res,0,0,res,0,0);ctx.lineCap='round';ctx.lineWidth=r;ctx.strokeStyle='#534539';
         ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
         if(r>2){ctx.lineWidth=r*.43;ctx.strokeStyle='#8c7760';ctx.beginPath();ctx.moveTo(a.x-r*.13,a.y);ctx.lineTo(b.x-r*.07,b.y);ctx.stroke()}

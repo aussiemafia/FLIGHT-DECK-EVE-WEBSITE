@@ -26,6 +26,25 @@ function face(kind,w,h,x,y,z,ry=0,rx=0,rz=0) {
   Object.assign(node.style,{width:w+'px',height:h+'px',left:(-w/2)+'px',top:(-h/2)+'px',
     transform:`translate3d(${x}px,${y}px,${z}px) rotateY(${ry}deg) rotateX(${rx}deg) rotateZ(${rz}deg) scale3d(${scale},${scale},${scale})`});
   node.geometry={w:w*scale,h:h*scale,x,y,z,ry:ry*Math.PI/180,rx:rx*Math.PI/180};
+  if(['wall','bay-shell','city-wall','chamber-lid','roof'].includes(kind)){
+    node.classList.add('solid-panel');
+    node.style.setProperty('--panel-depth',(28/scale)+'px');
+    for(const name of ['back','left','right','top','bottom']){
+      const side=document.createElement('i');side.className='panel-'+name;node.append(side);
+    }
+  }
+  if(kind==='chamber-lid'){
+    node.classList.add('vaulted');
+    const rise=Math.min(w*.12,144);
+    for(let i=0;i<16;i++){
+      const a=i/16,b=(i+1)/16,za=rise*Math.sin(Math.PI*a),zb=rise*Math.sin(Math.PI*b),dx=w/16;
+      const panel=document.createElement('b');panel.className='vault-skin';
+      const len=Math.hypot(dx,zb-za)+.65;
+      Object.assign(panel.style,{width:len+'px',height:h+'px',left:((a+b)*w/2-len/2)+'px',top:'0',
+        transform:'translateZ('+((za+zb)/2)+'px) rotateY('+(-Math.atan2(zb-za,dx))+'rad)'});
+      node.append(panel)
+    }
+  }
   hall.append(node);
   return node;
 }
@@ -43,7 +62,7 @@ function exhibit(station,w,h,x,y,z,angle,hero=false) {
   const films={story:'transit',wormholes:'transit',ships:'fortizar',systems:'transit',estimate:'ore',drifters:'crystal',fits:'fortizar',sites:'fortizar','blue-loot':'crystal',dscan:'fortizar'};
   const video=document.createElement('video');video.loop=true;video.muted=true;video.playsInline=true;video.preload='none';
   video.dataset.src='assets/exhibits/'+(films[station.route]||'transit')+'.mp4';screen.insertBefore(video,caption);
-  interactive.set(screen,station);
+  interactive.set(screen,{name:station.name+' · Screen media',room:rooms.includes(station)?station:undefined,action:()=>window.stationMediaMenu?.(screen,station)});station.screen=screen;
 }
 const boundary=1360, roomEnd=3260, roomHalf=615;
 const doors=[], chamberNodes=new Map();
@@ -83,6 +102,7 @@ function renderSimulation(room){
     video.play().catch(()=>{});
   }
 }
+visitor.look=0;
 let currentRoom=null;
 function makeDoor(x,z,angle,label,tone){
   const rad=angle*Math.PI/180,ux=Math.cos(rad),uz=-Math.sin(rad);
@@ -189,18 +209,20 @@ const chairs=[], corridorX=2430, corridorHalf=245;
 let seated=null, activityUntil=0;
 function standingEye(){return (seated?105:eye)+(window.stationCity?.height||0)}
 function rise(){
+  visitor.look=0;
   if(!seated)return;
   visitor.x=seated.entry.x;visitor.z=seated.entry.z;seated=null;
-  byId('rise').hidden=true;draw();
+  byId('rise').hidden=true;window.seatLearning?.stop();draw();
 }
 function addSeat(x,z,facing,room=null){
   const chair=face('flight-seat',123,161,x,-67,z);
+  const hue=room?[-5,22,-28,16,40,-14,26,6][rooms.indexOf(room)]||0:0;chair.style.setProperty('--upholstery-hue',hue+'deg');
   const seat={node:chair,x,z,facing,room,id:'s'+Math.round(x)+'z'+Math.round(z)};
   chairs.push(seat);
   interactive.set(chair,{room,seatId:seat.id,name:'Sit in observation chair',action:()=>{
     if(seated||Math.hypot(visitor.x-x,visitor.z-z)>640||window.flightCrew?.occupied(seat.id))return;
-    seat.entry={x:visitor.x,z:visitor.z};seated=seat;
-    Object.assign(visitor,{x,z,yaw:facing,pitch:.02});keys.clear();byId('rise').hidden=false;
+    visitor.look=0;seat.entry={x:visitor.x,z:visitor.z};seated=seat;
+    Object.assign(visitor,{x,z,yaw:facing,pitch:.02});keys.clear();byId('rise').hidden=false;window.seatLearning?.start(seat);
   }});
 }
 function turnChairs(){
@@ -420,9 +442,9 @@ function draw(){
 byId('interact').onclick=()=>{if(target)openStation(target)};
 const movement=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'];
 window.addEventListener('keydown',e=>{
-  if(menu.open||record.open||document.querySelector('#lesson-panel')?.open)return;
+  if(e.code==='Space'&&seated&&!e.repeat){e.preventDefault();rise();return}
+  if(menu.open||record.open||document.querySelector('#lesson-panel')?.open||byId('media-browser')?.open)return;
   if(movement.includes(e.code)){e.preventDefault();keys.add(e.code)}
-  if(e.code==='KeyE'&&seated&&!e.repeat){rise();return}
   if(e.code==='KeyE'&&target&&!e.repeat){e.preventDefault();openStation(target)}
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));
@@ -433,12 +455,19 @@ view.addEventListener('pointerdown',e=>{
   drag={id:e.pointerId,x:e.clientX,y:e.clientY,distance:0,station:pick(e.clientX,e.clientY)};
   view.setPointerCapture(e.pointerId);view.focus();
 });
+byId('mouse-look').onclick=async()=>{menu.close();try{await view.requestPointerLock()}catch{view.focus()}};
+document.addEventListener('mousemove',e=>{if(document.pointerLockElement!==view)return;
+  const old=visitor.look||0;visitor.look=Math.max(-Math.PI/2,Math.min(Math.PI/2,old+e.movementX*.0023));
+  visitor.yaw+=visitor.look-old;visitor.pitch=Math.max(-.95,Math.min(.95,visitor.pitch-e.movementY*.0023));draw()});
 view.addEventListener('pointermove',e=>{
+  if(document.pointerLockElement===view)return;
   if(drag?.id!==e.pointerId)return;
   const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
   drag.distance+=Math.abs(dx)+Math.abs(dy);
   drag.x=e.clientX;drag.y=e.clientY;
-  visitor.yaw+=dx*.003;
+  const previousLook=visitor.look||0;
+  visitor.look=Math.max(-Math.PI/2,Math.min(Math.PI/2,previousLook+dx*.003));
+  visitor.yaw+=visitor.look-previousLook;
   visitor.pitch=Math.max(-1.1,Math.min(1.1,visitor.pitch-dy*.003));draw();
 });
 view.addEventListener('pointerup',e=>{
@@ -479,8 +508,8 @@ function tick(now){
   updateDoors(dt);
   if(keys.size&&!record.open&&!menu.open){
     const forward=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
-    const side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
-    visitor.yaw+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.45;
+    const side=0;
+    visitor.yaw+=(Number(keys.has('ArrowRight')||keys.has('KeyD'))-Number(keys.has('ArrowLeft')||keys.has('KeyA')))*dt*1.45;
     const step=dt*(keys.has('ShiftLeft')||keys.has('ShiftRight')?1140:520)/Math.max(1,Math.hypot(forward,side));
     const {x,z,yaw}=visitor;
     const nx=x+step*(Math.sin(yaw)*forward+Math.cos(yaw)*side);

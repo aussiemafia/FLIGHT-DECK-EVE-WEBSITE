@@ -67,7 +67,7 @@
         for(const end of [-1,1])face('bay-shell',room.depth,430,cx,-215,z+end*room.half,end===1?180:0);
         face('bay-shell',room.half*2,430,far,-215,z,angle);
         exhibit({name,route},room.half*1.45,250,far-side*12,-235,z,angle);
-        const screen=hall.lastElementChild;screen.querySelector('img').src='assets/exhibits/'+['wormhole','ore','porpoise','ice','class5','flare'][Math.min(5,Math.floor(i/5))]+'.webp';
+        const screen=hall.lastElementChild;room.screen=screen;screen.querySelector('img').src='assets/exhibits/'+['wormhole','ore','porpoise','ice','class5','flare'][Math.min(5,Math.floor(i/5))]+'.webp';
         const desk=label('learning-panel',395,211,cx,-180,z-room.half+10,0,lesson);
         interactive.set(desk,{name,route});
         for(const offset of [-160,160])addSeat(cx,z+offset,side*Math.PI/2);

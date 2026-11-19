@@ -33,7 +33,7 @@ async function launch(){
     gold:new T.MeshStandardMaterial({color:0xffdf9d,emissive:0xffbb60,emissiveIntensity:1.5}),
     blue:new T.MeshStandardMaterial({color:0xb8f6ed,emissive:0x8de9d9,emissiveIntensity:1.4})
   };
-  scene.add(new T.HemisphereLight(0xfff0d8,0x776c61,1.68));
+  const ambient=new T.HemisphereLight(0xfff0d8,0x776c61,1.68);scene.add(ambient);
   const sun=new T.DirectionalLight(0xffe1ad,2.05);sun.position.set(-2300,3100,-1400);scene.add(sun,sun.target);
   const cool=new T.DirectionalLight(0xc1e0ee,.85);cool.position.set(1450,850,2250);scene.add(cool,cool.target);
   const fill=new T.PointLight(0xffdbab,90000,2600,1.6);scene.add(fill);
@@ -68,6 +68,7 @@ async function launch(){
     for(let g=0;g<ng;g++){const n=dv.getUint32(o,true);o+=4;geom.addGroup(indices.length,n,g);for(let j=0;j<n;j++,o+=2)indices.push(dv.getUint16(o,true))}
     geom.setIndex(indices);geom.computeVertexNormals();return geom})();
   const chairMaterials=[materials.gasket,materials.rail,materials.ivory,materials.fabric,materials.leather,materials.bronze,materials.gold,materials.blue];
+  const chairFinishes=[0x255452,0x695442,0x3d5069,0x76593d,0x58485c,0x37555c,0x735342,0x4e5e4a].map(c=>chairMaterials.map((m,i)=>i===3?physical(c,.09,.44,{clearcoat:.24}):m));
   const mirrorY=new T.Matrix4().makeScale(1,-1,1);
   function pose(el,obj){
     const dom=new DOMMatrix(el.style.transform);
@@ -109,9 +110,19 @@ async function launch(){
     let o;
     if(k.contains('flight-seat')){
       const seat=chairs.find(c=>c.node===el);if(!seat)return;
-      o=new T.Mesh(chairGeometry,chairMaterials);o.position.set(seat.x,0,seat.z);o.rotation.y=-seat.facing;o.userData.seat=seat;
+      o=new T.Mesh(chairGeometry,chairFinishes[rooms.indexOf(seat.room)]||chairMaterials);o.position.set(seat.x,0,seat.z);o.rotation.y=-seat.facing;o.userData.seat=seat;
     }else{
-      if(k.contains('rib'))o=rib(w,h);
+      if(k.contains('academy-steward')){
+        o=new T.Group();
+        const shell=(pts,mat)=>new T.Mesh(new T.LatheGeometry(pts.map(([x,y])=>new T.Vector2(x,y)),40),mat);
+        o.add(shell([[8,-32],[20,-25],[27,-10],[29,4],[24,15],[13,19]],materials.ivory));
+        o.add(shell([[26,4],[29,5],[28,8],[25,9]],materials.brass));
+        const head=shell([[10,22],[19,26],[22,35],[21,43],[17,50],[8,54],[0,55]],materials.ivory);
+        o.add(head,shell([[21.5,32],[22.7,34],[22,39]],materials.gasket));
+        for(const side of [-1,1]){const lamp=new T.Mesh(new T.SphereGeometry(3.6,14,8),materials.blue);lamp.position.set(side*9,36,-19);o.add(lamp);
+          const leg=shell([[6,-39],[9,-37],[7,-24],[4,-16],[7,-10],[7,-2]],materials.rail);leg.position.set(side*12,-24,0);leg.name='leg'+side;o.add(leg);
+          const arm=shell([[3,-18],[6,-15],[7,2],[6,14],[2,17]],materials.ivory);arm.position.set(side*33,-2,0);arm.rotation.z=side*.14;o.add(arm)}
+      }else if(k.contains('rib'))o=rib(w,h);
       else if(k.contains('pool')||k.contains('planter-rim')||k.contains('lift-platform')||k.contains('emitter')||k.contains('hearth-base')){
         const group=new T.Group(),r=Math.min(w,h)*.44;
         group.add(flat(w,h,k.contains('pool')?water:k.contains('hearth-base')?materials.leather:materials.gasket,r),edged(w,h,r,Math.min(10,r*.18),materials.bronze));o=group;
@@ -145,6 +156,10 @@ async function launch(){
         if(k.contains('bay-shell')||k.contains('city-wall')||k.contains('wall')){
           o=new T.Mesh(new T.BoxGeometry(w,h,27),[materials.brass,materials.brass,materials.brass,materials.brass,finish,finish]);
           for(const sy of [-1,1]){const rail=new T.Mesh(new T.BoxGeometry(w,4,29),materials.brass);rail.position.y=sy*(h/2-4);o.add(rail)}
+        }else if(k.contains('chamber-lid')){
+          const geo=new T.PlaneGeometry(w,h,36,1),vertices=geo.attributes.position;
+          for(let j=0;j<vertices.count;j++)vertices.setZ(j,Math.min(w*.12,144)*Math.cos(Math.PI*vertices.getX(j)/w));
+          geo.computeVertexNormals();o=new T.Mesh(geo,finish);
         }else o=flat(w,h,finish);
       }else if(k.contains('console')||k.contains('portal-name')||k.contains('city-direction')||k.contains('learning-panel')){
         o=new T.Group();const area=flat(w,h,new T.MeshBasicMaterial({map:textMap(el,w,h),toneMapped:false,side:k.contains('city-direction')?T.FrontSide:T.DoubleSide}),7);
@@ -183,7 +198,23 @@ async function launch(){
   }
   // Preserve the original chair's machined frame, upholstery, armrests and embedded keys.
   // The grove uses one shared branch mesh and one cutout-leaf mesh for every tree.
-  let grove=null;
+  let grove=null,palmModel=null;
+  function makePalm(){
+    if(palmModel)return palmModel.clone();
+    const pos=[],colors=[],wood=[];const green=[0x405c37,0x637b45,0x354c38,0x718153].map(c=>new T.Color(c));
+    const cv=p=>new T.Vector3(p[0],-p[1],p[2]);
+    for(const leaf of palmParts.leaflets)for(const j of [0,1,2,0,2,3]){pos.push(...cv(leaf[j]).toArray());colors.push(...green[leaf[4]].toArray())}
+    for(const l of palmParts.limbs){
+      const a=cv(l.a),b=cv(l.b),axis=b.clone().sub(a).normalize(),u=new T.Vector3().crossVectors(axis,new T.Vector3(0,0,1)).normalize(),v=new T.Vector3().crossVectors(axis,u);
+      const ring=(pt,i)=>pt.clone().addScaledVector(u,l.r*Math.cos(i*Math.PI/3)).addScaledVector(v,l.r*Math.sin(i*Math.PI/3)).toArray();
+      for(let i=0;i<6;i++){const p=ring(a,i),q=ring(a,i+1),r=ring(b,i+1),s=ring(b,i);wood.push(...p,...q,...r,...p,...r,...s)}
+    }
+    palmModel=new T.Group();
+    for(const [points,mat] of [[wood,physical(0x88705a,.04,.8)],[pos,physical(0xffffff,.04,.58,{vertexColors:true})]]){
+      const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(points,3));if(points===pos)geo.setAttribute('color',new T.Float32BufferAttribute(colors,3));geo.computeVertexNormals();palmModel.add(new T.Mesh(geo,mat))
+    }
+    return palmModel.clone();
+  }
   function updateForest(){
     if(!grove&&window.groveGeometry){
       grove=['wood','leaves'].map(key=>{const a=window.groveGeometry[key],pos=[],norm=[],uv=[],wind=[];
@@ -196,7 +227,7 @@ async function launch(){
     if(!grove)return;
     for(const [t,o] of forest)if(!trees.includes(t)){scene.remove(o);forest.delete(t)}
     for(const [i,t] of trees.entries())if(!forest.has(t)){
-      const group=new T.Group();for(const {g,m} of grove)group.add(new T.Mesh(g,m));
+      const palm=isPalm(t),group=palm?makePalm():new T.Group();if(!palm)for(const {g,m} of grove)group.add(new T.Mesh(g,m));group.userData.palm=palm;
       group.position.set(t.x,0,t.z);group.rotation.y=i*1.67;group.scale.setScalar(t.scale);scene.add(group);forest.set(t,group);
     }
   }
@@ -207,16 +238,10 @@ async function launch(){
       const uniform=uniformFor(a);loadUniform(uniform);const data=uniformModels.get(uniform);if(!data)continue;
       let o=pilots.get(id);
       if(o&&o.userData.uniform!==uniform){o.geometry.dispose();o.material.dispose();scene.remove(o);pilots.delete(id);o=null}
-      if(!o){const g=new T.BufferGeometry();g.setIndex(new T.Uint16BufferAttribute(data.indices,1));g.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(data.count*3),3));g.setAttribute('uv',new T.Float32BufferAttribute(Float32Array.from(data.uv,(v,i)=>i%2?1-v/65535:v/65535),2));o=new T.Mesh(g,physical(0xffffff,.10,.54,{map:tex('assets/crew/'+uniform+'.webp'),alphaTest:.34}));o.userData.uniform=uniform;o.frustumCulled=false;scene.add(o);pilots.set(id,o)}
-      const mode=a.p.state,phase=performance.now()*.007%8,k=mode==='walking'?Math.floor(phase):mode==='seated'?8:mode==='reading'||mode==='projecting'?9:10,next=mode==='walking'?(k+1)%8:k,t=mode==='walking'?phase%1:0;
-      const p=o.geometry.attributes.position,arr=p.array,len=arr.length;
-      const mouth=Math.round((window.crewRadio?.level(id)||0)*16)/16;
-      if(o.userData.k!==k||o.userData.mouth!==mouth||mode==='walking'){
-        o.userData.mouth=mouth;
-        for(let j=0;j<len;j++)arr[j]=(data.mesh[k*len+j]*(1-t)+data.mesh[next*len+j]*t+mouth*(data.mesh[11*len+j]-data.mesh[10*len+j]))*.0119;
-        p.needsUpdate=true;o.geometry.computeVertexNormals();o.userData.k=k;
-      }
-      o.position.set(a.x,(a.p.height||0)-(mode==='seated'?29:0),a.z);o.rotation.y=-a.p.yaw;
+      if(!o){const g=new T.BufferGeometry();g.setIndex(new T.Uint16BufferAttribute(data.indices,1));g.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(data.count*3),3));g.setAttribute('uv',new T.Float32BufferAttribute(Float32Array.from(data.uv,(v,i)=>i%2?1-v/65535:v/65535),2));if(!data.gpuMap){data.gpuMap=new T.CanvasTexture(data.canvas);data.gpuMap.colorSpace=T.SRGBColorSpace}o=new T.Mesh(g,physical(0xffffff,.06,.62,{map:data.gpuMap,alphaTest:.34}));o.userData.uniform=uniform;o.frustumCulled=false;scene.add(o);pilots.set(id,o)}
+      const p=o.geometry.attributes.position,points=animateOfficer(a,data,performance.now());
+      for(let j=0;j<points.length;j++)p.array[j]=points[j]*.0119;
+      p.needsUpdate=true;o.geometry.computeVertexNormals();o.position.set(a.x,a.p.height||0,a.z);o.rotation.y=-(a.yaw??a.p.yaw);
     }
   }
   syncFaces();scene.background=new T.Color(0x08121b);
@@ -224,21 +249,36 @@ async function launch(){
   function step(now){
     if(!active||document.hidden)return;
     if(now-lastSync>350){syncFaces();updateForest();videoFrame();lastSync=now}
-    if(now-lastCrew>70){crew();lastCrew=now}
+    if(now-lastCrew>32){crew();lastCrew=now}
     const f=parseFloat(view.style.perspective),size=innerWidth+'x'+innerHeight;
     if(size!==lastSize){render.setPixelRatio(Math.min(1.65,devicePixelRatio||1));render.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.fov=2*Math.atan(innerHeight/(2*f))*180/Math.PI;cam.updateProjectionMatrix();lastSize=size}
     const {x,z,yaw,pitch}=visitor;cam.position.set(x,standingEye(),z);cam.rotation.order='YXZ';cam.rotation.set(pitch,-yaw,0,'YXZ');
     firmament.position.copy(cam.position);sun.position.set(x-1700,2700,z-1300);sun.target.position.set(x,0,z);cool.position.set(x+1100,800,z+850);cool.target.position.set(x,0,z);
-    fill.position.set(x,330,z-220);
+    const night=document.body.classList.contains('night-watch');ambient.intensity=night?.30:1.68;sun.intensity=night?.28:2.05;cool.intensity=night?.26:.85;scene.environmentIntensity=night?.29:.89;
+    fill.intensity=night?35000:90000;fill.position.set(x,330,z-220);
+    if(!reduced.matches)for(const [tree,o] of forest)if(o.userData.palm)o.rotation.z=.009*Math.sin(now*.00048+tree.z);
     waterUniform.clock.value=reduced.matches?0:now*.001;
     const mode=byId('outside').selectedIndex;globeUniform.shift.value=[0,.32,-.29][mode]||0;
     globeUniform.tint.value.set([0xffffff,0xffddba,0xc7e9ff][mode]||0xffffff);
     for(const [el,o] of models){
       const g=el.geometry;o.visible=!el.hidden&&Math.hypot(x-g.x,z-g.z)<Math.max(7000,Math.max(g.w,g.h)*.6+4000);
       if(!o.visible)continue;
+      if(el.classList.contains('academy-steward')){
+        o.position.set(g.x,74,g.z);o.rotation.y=-Number(el.dataset.heading||0);
+        for(const s of [-1,1])o.getObjectByName('leg'+s).rotation.x=s*Number(el.dataset.stride||0)*.32;
+      }
       if(o.userData.seat){o.visible=seated!==o.userData.seat;continue}
       if(el.classList.contains('door-leaf')||el.classList.contains('lift-platform'))pose(el,o);
 
+      if(o.userData.lesson!==el.dataset.lecture){
+        o.userData.lesson=el.dataset.lecture;let plate=o.userData.lessonPlate;
+        if(plate){plate.material.map.dispose();plate.material.dispose();plate.geometry.dispose();o.remove(plate);o.userData.lessonPlate=null}
+        if(el.dataset.lecture){
+          const msg=document.createElement('div');msg.innerHTML='<strong>Flight Academy</strong><p></p>';msg.lastChild.textContent=el.dataset.lecture;
+          const pw=g.w*.93,ph=g.h*.35;plate=flat(pw,ph,new T.MeshBasicMaterial({map:textMap(msg,pw,ph),toneMapped:false}),4);
+          plate.position.set(0,-g.h*.27,9);o.add(plate);o.userData.lessonPlate=plate
+        }
+      }
       if(o.userData.words!==undefined&&o.userData.words!==el.textContent){
         const m=o.children[0].material;m.map.dispose();m.map=textMap(el,g.w,g.h);o.userData.words=el.textContent;
       }
