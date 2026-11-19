@@ -183,7 +183,7 @@
   }
   const destinations=byId('destinations');
   districts.forEach((d,n)=>{
-    const button=document.createElement('button');button.textContent=d[0];destinations.append(button);
+    const button=document.createElement('button');button.textContent=d[0];if(n===0)button.id='visit-rotunda';destinations.append(button);
     button.onclick=()=>{menu.close();rise();ride=null;elevation=0;
       Object.assign(visitor,{look:0,x:n===0?0:170,z:mids(5*n+(n===5?1:2))-(n===0?680:470),yaw:n===0?Math.PI:Math.PI+.23,pitch:.055});
       stream();draw();update(performance.now())};
@@ -195,10 +195,6 @@
     Object.assign(visitor,{x:widthAt(3)-460,z:mids(3),yaw:-Math.PI/2,pitch:0});
     stream();draw();update(performance.now());
   };
-  if(location.hash==='#navigation-rotunda'){
-    const entry=[...destinations.querySelectorAll('button')].find(b=>b.textContent===districts[0][0]);
-    requestAnimationFrame(()=>entry.click());
-  }
   byId('elevator').onclick=()=>{const lift=liftHere();if(lift)board(lift)};
   window.stationCity={start,end,clear,update,stream,get height(){return elevation},get riding(){return !!ride},
     reset(){ride=null;elevation=0},classroomAt(x,z){
