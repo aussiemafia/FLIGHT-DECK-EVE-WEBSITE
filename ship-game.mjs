@@ -4,9 +4,9 @@ import * as T from './assets/engine/three.mjs';
 // Keep the navigation, collision volumes and station actions common to both renderers.
 async function launch(){
   const canvas=document.createElement('canvas');canvas.id='ship-game';
-  const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,powerPreference:'high-performance'});
+  const gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});
   if(!gl)return;
-  const render=new T.WebGLRenderer({canvas,context:gl,antialias:true,alpha:false});
+  const render=new T.WebGLRenderer({canvas,context:gl,antialias:true,alpha:true});
   render.outputColorSpace=T.SRGBColorSpace;render.toneMapping=T.ACESFilmicToneMapping;render.toneMappingExposure=1.16;
   const scene=new T.Scene(),cam=new T.PerspectiveCamera(60,1,4,110000),loader=new T.TextureLoader();
   const textures=new Map(),owned=new Map(),models=new Map(),pilots=new Map(),forest=new Map();
@@ -99,6 +99,11 @@ async function launch(){
     const group=new T.Group();group.add(flat(w,h,materials.rail));
     const line=flat(Math.max(2,w-2),Math.max(2,h-2),color==='cool'?materials.blue:materials.gold);line.position.z=1;group.add(line);return group;
   }
+  // Write a depth-tested transparent aperture for cross-origin iframe playback.
+  // The real DOM player sits beneath the canvas in the matching world transform.
+  const apertureMaterial=new T.ShaderMaterial({side:T.DoubleSide,
+    vertexShader:'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:'void main(){gl_FragColor=vec4(0.);}'});
   const videoObjects=[];
   function display(el,w,h){
     const group=new T.Group();const video=el.querySelector('video'),img=el.querySelector('img');
@@ -220,6 +225,11 @@ async function launch(){
       pose(el,o);
       if(k.contains('galaxy-window')||k.contains('end-vista')||k.contains('side-window'))o.translateZ(12);
     }
+    if(k.contains('screen')||k.contains('simulation')||k.contains('sim-wing')){
+      const inset=k.contains('screen')?10:14;
+      const aperture=flat(w-inset*2,h-inset*2,apertureMaterial,10);
+      aperture.position.z=9;aperture.renderOrder=2;aperture.visible=false;o.add(aperture);o.userData.aperture=aperture;
+    }
     o.userData.el=el;models.set(el,o);scene.add(o);
   }
   let fireMap;
@@ -228,7 +238,7 @@ async function launch(){
     g.fillStyle=grad;g.beginPath();g.moveTo(64,248);g.bezierCurveTo(2,219,16,133,68,9);g.bezierCurveTo(57,74,132,171,92,224);g.closePath();g.fill();fireMap=new T.CanvasTexture(c);fireMap.colorSpace=T.SRGBColorSpace;return fireMap}
   function dispose(o){scene.remove(o);o.traverse(n=>{
     if(!n.isMesh||n.geometry===chairGeometry)return;n.geometry.dispose();
-    const mat=n.material;if(!Array.isArray(mat)&&!Object.values(materials).includes(mat)&&mat!==skyMat&&mat!==water&&![...finishes.values()].includes(mat)){if(mat.map&&!Array.from(textures.values()).includes(mat.map)&&mat.map!==fireMap)mat.map.dispose();mat.dispose()}
+    const mat=n.material;if(!Array.isArray(mat)&&!Object.values(materials).includes(mat)&&mat!==skyMat&&mat!==apertureMaterial&&mat!==water&&![...finishes.values()].includes(mat)){if(mat.map&&!Array.from(textures.values()).includes(mat.map)&&mat.map!==fireMap)mat.map.dispose();mat.dispose()}
   })}
   function syncFaces(){
     for(const [el,o] of models)if(!el.isConnected){dispose(o);models.delete(el)}
@@ -247,17 +257,19 @@ async function launch(){
   let grove=null,palmModel=null;
   function makePalm(){
     if(palmModel)return palmModel.clone();
-    const pos=[],colors=[],wood=[];const green=[0x405c37,0x637b45,0x354c38,0x718153].map(c=>new T.Color(c));
-    const cv=p=>new T.Vector3(p[0],-p[1],p[2]);
-    for(const leaf of palmParts.leaflets)for(const j of [0,1,2,0,2,3]){pos.push(...cv(leaf[j]).toArray());colors.push(...green[leaf[4]].toArray())}
-    for(const l of palmParts.limbs){
-      const a=cv(l.a),b=cv(l.b),axis=b.clone().sub(a).normalize(),u=new T.Vector3().crossVectors(axis,new T.Vector3(0,0,1)).normalize(),v=new T.Vector3().crossVectors(axis,u);
-      const ring=(pt,i)=>pt.clone().addScaledVector(u,l.r*Math.cos(i*Math.PI/3)).addScaledVector(v,l.r*Math.sin(i*Math.PI/3)).toArray();
-      for(let i=0;i<6;i++){const p=ring(a,i),q=ring(a,i+1),r=ring(b,i+1),s=ring(b,i);wood.push(...p,...q,...r,...p,...r,...s)}
-    }
     palmModel=new T.Group();
-    for(const [points,mat] of [[wood,physical(0x88705a,.04,.8)],[pos,physical(0xffffff,.04,.58,{vertexColors:true})]]){
-      const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(points,3));if(points===pos)geo.setAttribute('color',new T.Float32BufferAttribute(colors,3));geo.computeVertexNormals();palmModel.add(new T.Mesh(geo,mat))
+    for(const [data,url,foliage] of [[palmParts.wood,'assets/maple-bark.webp',false],[palmParts.leaves,'assets/palm-frond.webp',true]]){
+      const pos=[],uv=[],norm=[],flex=[];
+      for(let i=0;i<data.length;i+=9){
+        pos.push(data[i],-data[i+1],data[i+2]);norm.push(data[i+3],-data[i+4],data[i+5]);uv.push(data[i+6],1-data[i+7]);flex.push(data[i+8]);
+      }
+      const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(pos,3));geo.setAttribute('normal',new T.Float32BufferAttribute(norm,3));geo.setAttribute('uv',new T.Float32BufferAttribute(uv,2));
+      const mat=physical(0xffffff,0,foliage?.63:.89,{map:tex(url),alphaTest:foliage?.28:0});
+      if(foliage){
+        geo.setAttribute('wind',new T.Float32BufferAttribute(flex,1));
+        mat.onBeforeCompile=s=>{s.uniforms.breeze=waterUniform.clock;s.vertexShader='attribute float wind;uniform float breeze;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.x+=wind*2.1*sin(breeze*.65+position.z*.012);')};
+      }
+      palmModel.add(new T.Mesh(geo,mat));
     }
     return palmModel.clone();
   }
@@ -284,11 +296,12 @@ async function launch(){
       const uniform=uniformFor(a);loadUniform(uniform);const data=uniformModels.get(uniform);if(!data)continue;
       let o=pilots.get(id);
       if(o&&o.userData.uniform!==uniform){o.geometry.dispose();o.material.dispose();scene.remove(o);pilots.delete(id);o=null}
-      if(!o){const g=new T.BufferGeometry();g.setIndex(new T.Uint16BufferAttribute(data.indices,1));g.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(data.count*3),3));g.setAttribute('uv',new T.Float32BufferAttribute(Float32Array.from(data.uv,(v,i)=>i%2?1-v/65535:v/65535),2));if(!data.gpuMap){data.gpuMap=new T.CanvasTexture(data.canvas);data.gpuMap.colorSpace=T.SRGBColorSpace}o=new T.Mesh(g,physical(0xffffff,.06,.62,{map:data.gpuMap,alphaTest:.34}));o.userData.uniform=uniform;o.frustumCulled=false;scene.add(o);pilots.set(id,o)}
+      if(!o){const g=new T.BufferGeometry();g.setIndex(new T.Uint16BufferAttribute(data.indices,1));g.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(data.count*3),3));g.setAttribute('uv',new T.Float32BufferAttribute(Float32Array.from(data.uv,(v,i)=>i%2?1-v/65535:v/65535),2));if(!data.gpuMap){data.gpuMap=new T.CanvasTexture(data.canvas);data.gpuMap.colorSpace=T.SRGBColorSpace;data.gpuMap.anisotropy=Math.min(8,render.capabilities.getMaxAnisotropy());data.gpuNormal=new T.CanvasTexture(data.surface);data.gpuNormal.needsUpdate=true}o=new T.Mesh(g,physical(0xffffff,.015,.79,{map:data.gpuMap,normalMap:data.gpuNormal,alphaTest:.34}));o.userData.uniform=uniform;o.frustumCulled=false;scene.add(o);pilots.set(id,o)}
       o.visible=Math.hypot(visitor.x-a.x,visitor.z-a.z)>60;
       if(!o.visible)continue;
+      if(o.userData.aperture)o.userData.aperture.visible=el.classList.contains('playing-in-glass');
       const p=o.geometry.attributes.position,points=animateOfficer(a,data,performance.now());
-      for(let j=0;j<points.length;j++)p.array[j]=points[j]*.0119;
+      for(let j=0;j<points.length;j++)p.array[j]=points[j]*data.worldScale;
       p.needsUpdate=true;o.geometry.computeVertexNormals();o.position.set(a.x,a.alt??a.p.height??0,a.z);o.rotation.y=-(a.yaw??a.p.yaw);
     }
   }
@@ -311,6 +324,7 @@ async function launch(){
     for(const [el,o] of models){
       const g=el.geometry;o.visible=!el.hidden&&Math.hypot(x-g.x,z-g.z)<Math.max(7000,Math.max(g.w,g.h)*.6+4000);
       if(!o.visible)continue;
+      if(o.userData.aperture)o.userData.aperture.visible=el.classList.contains('playing-in-glass');
       if(el.classList.contains('academy-steward')){
         o.position.set(g.x,74,g.z);o.rotation.y=-Number(el.dataset.heading||0);
         for(const s of [-1,1])o.getObjectByName('leg'+s).rotation.x=s*Number(el.dataset.stride||0)*.32;

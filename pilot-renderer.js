@@ -20,9 +20,9 @@ async function loadUniform(key){
   if(uniformModels.has(key))return;
   uniformModels.set(key,null);
   try{
-    const base='assets/crew/',[body,suit,tone]=key.split('-'),image=new Image(),mask=new Image();
-    image.src=base+body+'-'+suit+'.webp?v=academy7';mask.src=base+body+'-skin.webp';
-    const [buf,,motions]=await Promise.all([fetch(base+key.split('-')[0]+'.mesh').then(r=>{if(!r.ok)throw Error();return r.arrayBuffer()}),image.decode(),motionFor(body),mask.decode()]);
+    const base='assets/crew/',[body,suit,tone]=key.split('-'),image=new Image(),mask=new Image(),surface=new Image();
+    image.src=base+body+'-'+suit+'.webp?v=academy7';mask.src=base+body+'-skin.webp';surface.src=base+body+'-surface.webp';
+    const [buf,,motions]=await Promise.all([fetch(base+key.split('-')[0]+'.mesh').then(r=>{if(!r.ok)throw Error();return r.arrayBuffer()}),image.decode(),motionFor(body),mask.decode(),surface.decode()]);
     const [count,ic,frames]=new Uint32Array(buf,0,3),indices=new Uint16Array(buf,12,ic),off=12+ic*2;
     const uv=new Uint16Array(buf,off,count*2),mesh=new Int16Array(buf,off+count*4);
     const c=document.createElement('canvas');c.width=image.width;c.height=image.height;const ctx=c.getContext('2d');ctx.drawImage(image,0,0);
@@ -33,7 +33,20 @@ async function loadUniform(key){
     const palette=[[1.08,1.08,1.08],[1,1,1],[.88,.79,.71],[.77,.64,.53],[.58,.44,.36],[.42,.31,.26]][Number(tone)];
     for(let i=0;i<pixels.data.length;i+=4){const weight=coverage[i]/255;for(let k=0;k<3;k++)pixels.data[i+k]*=1+weight*(palette[k]-1)}
     ctx.putImageData(pixels,0,0);
-    uniformModels.set(key,{canvas:c,motion,headPoints,neck,indices,uv,mesh,count,frames,tex:pixels.data,tw:c.width,th:c.height});
+    // Use the authored tangent normals to light the cloth in the software renderer.
+    const shade=document.createElement('canvas');shade.width=c.width;shade.height=c.height;
+    const light=shade.getContext('2d');light.drawImage(surface,0,0,c.width,c.height);
+    const normals=light.getImageData(0,0,c.width,c.height).data;
+    const software=new Uint8ClampedArray(pixels.data);
+    for(let y=0;y<c.height/2;y++)for(let x=0;x<c.width/2;x++){
+      const i=4*(y*c.width+x);
+      const nx=(normals[i]-128)/127,ny=(normals[i+1]-128)/127;
+      const factor=Math.max(.62,Math.min(1.36,1+nx*.46+ny*.55));
+      for(let k=0;k<3;k++)software[i+k]*=factor;
+    }
+    const eyeVertexHeight=body==='male'?16851:16115;
+    const worldScale=165/eyeVertexHeight;
+    uniformModels.set(key,{canvas:c,motion,headPoints,neck,indices,uv,mesh,count,frames,tex:software,surface,worldScale,tw:c.width,th:c.height});
   }catch{setTimeout(()=>uniformModels.delete(key),3000)}
 }
 window.renderPilot=(()=>{
@@ -43,14 +56,16 @@ window.renderPilot=(()=>{
     if(now-(actor.lastRender||0)<(dist>1500?150:65))return;
     actor.lastRender=now;
     const c=actor.canvas,mode=actor.p.state;
-    const h=Math.min(640,Math.max(96,Math.ceil(220*innerHeight/Math.max(180,dist)/32)*32)),w=Math.ceil(h*.76);
+    const focal=parseFloat(document.getElementById('viewport')?.style.perspective)||innerHeight*.82;
+    const pixelsTall=actor.preview?Math.max(360,actor.canvas.clientHeight):195*focal/Math.max(20,dist);
+    const h=Math.min(1200,Math.max(112,Math.ceil(pixelsTall*Math.min(1.5,devicePixelRatio||1)/32)*32)),w=Math.ceil(h*.76);
     if(c.width!==w||c.height!==h){c.width=w;c.height=h;actor.image=null}
     const {count,indices,uv,tex,tw,th}=data,cs=Math.cos(angle),sn=Math.sin(angle);
-    const points=animateOfficer(actor,data,now),scale=h*.53;
+    const points=animateOfficer(actor,data,now),scale=actor.preview?h*.53:h*data.worldScale*10000/195;
     const screen=actor.coords?.length===count*3?actor.coords:(actor.coords=new Float32Array(count*3));
     for(let k=0;k<count*3;k+=3){
       const x=points[k]/10000,y=points[k+1]/10000,z=points[k+2]/10000;
-      screen[k]=w*.5+(x*cs-z*sn)*scale;screen[k+1]=h*.98-y*scale;screen[k+2]=x*sn+z*cs;
+      screen[k]=w*.5+(x*cs-z*sn)*scale;screen[k+1]=h*(actor.preview?.98:1)-y*scale;screen[k+2]=x*sn+z*cs;
     }
     const ctx=c.getContext('2d'),im=actor.image||(actor.image=ctx.createImageData(w,h)),out=im.data;
     const zb=actor.zbuffer?.length===w*h?actor.zbuffer:(actor.zbuffer=new Float32Array(w*h));zb.fill(-Infinity);out.fill(0);
@@ -66,10 +81,19 @@ window.renderPilot=(()=>{
         const dx=px+.5-x,dy=py+.5-y,h1=(dx*by-dy*bx)/det,h2=(ax*dy-ay*dx)/det;
         if(h1<0||h2<0||h1+h2>1)continue;
         const depth=z+az*h1+bz*h2,index=py*w+px;if(depth<=zb[index])continue;
-        const tx=Math.min(tw-1,Math.max(0,Math.round((u0+du*h1+eu*h2)*(tw-1)/65535)));
-        const ty=Math.min(th-1,Math.max(0,Math.round((v0+dv*h1+ev*h2)*(th-1)/65535)));
-        const src=(ty*tw+tx)*4,dst=index*4,kLight=.92+.16*(1-py/h);
-        if(tex[src+3]<90)continue;zb[index]=depth;out[dst]=tex[src]*kLight;out[dst+1]=tex[src+1]*kLight;out[dst+2]=tex[src+2]*kLight;out[dst+3]=255;
+        const tx=Math.min(tw-1,Math.max(0,(u0+du*h1+eu*h2)*(tw-1)/65535));
+        const ty=Math.min(th-1,Math.max(0,(v0+dv*h1+ev*h2)*(th-1)/65535));
+        const ix=Math.floor(tx),iy=Math.floor(ty),fx=tx-ix,fy=ty-iy;
+        const tl=(iy*tw+ix)*4,tr=tl+(ix<tw-1?4:0),bl=tl+(iy<th-1?tw*4:0),br=bl+tr-tl;
+        if(tex[tl+3]<90)continue;
+        const dst=index*4,kLight=.92+.16*(1-py/h);
+        zb[index]=depth;
+        for(let ch=0;ch<3;ch++){
+          const a=tex[tl+ch]+(tex[tr+ch]-tex[tl+ch])*fx;
+          const b=tex[bl+ch]+(tex[br+ch]-tex[bl+ch])*fx;
+          out[dst+ch]=(a+(b-a)*fy)*kLight;
+        }
+        out[dst+3]=255;
       }
     }
     ctx.putImageData(im,0,0);

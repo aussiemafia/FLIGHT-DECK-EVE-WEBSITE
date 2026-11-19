@@ -8,6 +8,8 @@ function mountLayeredGrove(){
   const layer=document.createElement('canvas');layer.id='conservatory';byId('viewport').append(layer);
   const ctx=layer.getContext('2d');if(!ctx)return;
   const atlas=new Image();atlas.src='assets/maple-foliage.webp';
+  const barkAtlas=new Image();barkAtlas.src='assets/maple-bark.webp';
+  const palmAtlas=new Image();palmAtlas.src='assets/palm-frond.webp';
   let seed=7219;
   function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
   const parts=[];
@@ -49,14 +51,14 @@ function mountLayeredGrove(){
       const rot=i*1.671,c=Math.cos(rot),s=Math.sin(rot),sz=tr.scale;
       function point(p){return project(tr.x+sz*(p[0]*c-p[2]*s),sz*p[1],tr.z+sz*(p[0]*s+p[2]*c))}
       const palm=isPalm(tr);
-      if(palm)for(const leaf of palmParts.leaflets){
-        const verts=leaf.slice(0,4).map(p=>point([p[0]+(reduced.matches?0:Math.sin(now*.0008+p[2]*.03)*.9),p[1],p[2]]));
-        if(verts.every(Boolean))draws.push({verts,shade:leaf[4],d:verts[0].d});
+      if(palm&&palmAtlas.naturalWidth)for(const patch of palmParts.patches){
+        const verts=patch.coords.map(p=>point([p[0]+(reduced.matches?0:patch.u*2*Math.sin(now*.00065+i+p[2]*.012)),p[1],p[2]]));
+        if(verts.every(Boolean))draws.push({verts,u:patch.u,v:patch.v,d:verts.reduce((sum,p)=>sum+p.d,0)/4});
       }
       for(const part of palm?palmParts.limbs:parts){
         if(part.a){
           const a=point(part.a),b=point(part.b);
-          if(a&&b)draws.push({a,b,r:Math.max(.45,part.r*sz*(a.k+b.k)),d:(a.d+b.d)/2});
+          if(a&&b)draws.push({a,b,r:Math.max(.45,part.r*sz*(a.k+b.k)),barkOffset:palm?Math.abs(part.a[1])/216:null,d:(a.d+b.d)/2});
         }else{
           const {p,w:radius,t,tile,tilt}=part;
           const sway=reduced.matches?0:Math.sin(now*.00064+i+p[1]*.009)*1.8;
@@ -71,8 +73,10 @@ function mountLayeredGrove(){
     }
     draws.sort((a,b)=>b.d-a.d);
     for(const item of draws){
-      if(item.verts){const v=item.verts;ctx.setTransform(res,0,0,res,0,0);ctx.fillStyle=['#506542','#66805a','#394d38','#79855b'][item.shade];
-        ctx.beginPath();ctx.moveTo(v[0].x,v[0].y);for(const p of v.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();ctx.fill();
+      if(item.verts){
+        const [a,b,,d]=item.verts,w=palmAtlas.naturalWidth,h=palmAtlas.naturalHeight;
+        ctx.setTransform((b.x-a.x)*res,(b.y-a.y)*res,(d.x-a.x)*res,(d.y-a.y)*res,a.x*res,a.y*res);
+        ctx.drawImage(palmAtlas,item.u*w,item.v*h,w/8,h/2,0,0,1.006,1.003);
       }else if(item.a){
         const {a,b,r}=item;ctx.setTransform(res,0,0,res,0,0);const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1;
         const nx=-dy/len,ny=dx/len,r0=r*.54,r1=r*.44;
@@ -80,6 +84,11 @@ function mountLayeredGrove(){
         shade.addColorStop(0,'#423932');shade.addColorStop(.35,'#87745e');shade.addColorStop(.65,'#a58c70');shade.addColorStop(1,'#534739');
         ctx.fillStyle=shade;ctx.beginPath();ctx.moveTo(a.x-nx*r0,a.y-ny*r0);
         ctx.lineTo(b.x-nx*r1,b.y-ny*r1);ctx.lineTo(b.x+nx*r1,b.y+ny*r1);ctx.lineTo(a.x+nx*r0,a.y+ny*r0);ctx.closePath();ctx.fill();
+        if(item.barkOffset!==null&&r>3&&barkAtlas.naturalWidth){
+          const sy=(1-item.barkOffset)*.92*barkAtlas.height,sh=barkAtlas.height/42;
+          ctx.setTransform(nx*r*res,ny*r*res,dx*res,dy*res,a.x*res,a.y*res);
+          ctx.globalAlpha=.44;ctx.drawImage(barkAtlas,0,sy,barkAtlas.width,sh,-.48,0,.96,1.02);ctx.globalAlpha=1;
+        }
       }else{
         const {centre:c,side:s,up:u,tile}=item;
         ctx.setTransform((s.x-c.x)*res,(s.y-c.y)*res,(c.x-u.x)*res,(c.y-u.y)*res,c.x*res,c.y*res);
@@ -167,7 +176,7 @@ function mountLayeredGrove(){
   }
   function bind(b){gl.bindBuffer(gl.ARRAY_BUFFER,b.id);let offset=0;
     [3,3,2,1].forEach((size,i)=>{gl.enableVertexAttribArray(attributes[i]);gl.vertexAttribPointer(attributes[i],size,gl.FLOAT,false,36,offset*4);offset+=size})}
-  const trunkMesh=buffer(wood),leafMesh=buffer(leaves);
+  const trunkMesh=buffer(wood),leafMesh=buffer(leaves),palmWood=buffer(palmParts.wood),palmLeaves=buffer(palmParts.leaves);
   const depth=[];
   for(const el of hall.querySelectorAll('.bay-shell,.door-leaf,.chamber-lid,.chamber-floor,.floor,.galaxy-window,.end-vista,.screen,.simulation,.learning-panel,.console')){
     if(el.classList.contains('door-leaf'))continue; // moving leaves handled below
@@ -185,7 +194,7 @@ function mountLayeredGrove(){
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);return tex;
   }
-  Promise.all([texture('assets/maple-bark.webp'),texture('assets/maple-foliage.webp')]).then(([bark,canopy])=>{
+  Promise.all([texture('assets/maple-bark.webp'),texture('assets/maple-foliage.webp'),texture('assets/palm-frond.webp')]).then(([bark,canopy,frond])=>{
     byId('viewport').append(canvas);document.body.classList.add('mesh-garden');
     canvas.addEventListener('webglcontextlost',()=>{canvas.hidden=true;mountLayeredGrove()},{once:true});
     gl.enable(gl.DEPTH_TEST);
@@ -205,9 +214,10 @@ function mountLayeredGrove(){
       gl.uniform1f(u.time,reduced.matches?0:now/1000);gl.uniform1f(u.phase,0);gl.uniform1f(u.leaves,0);
       gl.uniform1f(u.treeScale,1);gl.uniform2f(u.spin,1,0);gl.uniform3f(u.base,0,0,0);gl.bindTexture(gl.TEXTURE_2D,bark);
       gl.colorMask(false,false,false,false);bind(depthMesh);gl.drawArrays(gl.TRIANGLES,0,depthMesh.count);gl.colorMask(true,true,true,true);
-      for(const [mesh,tex,material] of [[trunkMesh,bark,0],[leafMesh,canopy,1]]){
+      for(const [mesh,tex,material] of [[trunkMesh,bark,0],[leafMesh,canopy,1],[palmWood,bark,0],[palmLeaves,frond,1]]){
         bind(mesh);gl.bindTexture(gl.TEXTURE_2D,tex);gl.uniform1f(u.leaves,material);
         for(const [i,t] of trees.entries()){
+          if(isPalm(t)!==(mesh===palmWood||mesh===palmLeaves))continue;
           const dx=t.x-x,dz=t.z-z;if(Math.hypot(dx,dz)>6600||dx*Math.sin(yaw)-dz*Math.cos(yaw)<-220)continue;
           if(Math.abs(x)>boundary+200&&!sightLine(x,z,t.x,t.z))continue;
           gl.uniform1f(u.treeScale,t.scale);gl.uniform2f(u.spin,Math.cos(i*1.61),Math.sin(i*1.61));gl.uniform1f(u.phase,i*1.77);

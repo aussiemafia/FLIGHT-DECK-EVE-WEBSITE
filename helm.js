@@ -30,7 +30,7 @@
   for(const x of [1550,1850,2150])for(const z of [-5370,-5150,-4930,-4710])addSeat(x,z,Math.PI/2);
   window.theatreScreen=display;window.theatreDoor=cinemaDoor;
   const toggle={name:'Play or pause screening',action:()=>{if(window.stationCinema){window.stationCinema.toggle();return}paused=!paused;if(paused)film.pause();else film.play().catch(()=>{})}};
-  interactive.set(display,toggle);
+  interactive.set(display,{name:'Screening theatre · Screen media',media:true,action:()=>window.stationMediaMenu?.(display,null)});
   const console=textFace('console',230,72,2440,-116,-5040,-90,'Next screening');
   interactive.set(console,{name:'Next screening',action:()=>{if(window.stationCinema){window.stationCinema.next();return}movie=(movie+1)%films.length;film.src='assets/exhibits/'+films[movie]+'.mp4';paused=false;film.play().catch(()=>{})}});
   function inCinema(){return visitor.x>1170&&Math.abs(visitor.z+5040)<710}

@@ -72,7 +72,7 @@ function exhibit(station,w,h,x,y,z,angle,hero=false) {
   const films={story:'transit',wormholes:'transit',ships:'fortizar',systems:'transit',estimate:'ore',drifters:'crystal',fits:'fortizar',sites:'fortizar','blue-loot':'crystal',dscan:'fortizar'};
   const video=document.createElement('video');video.loop=true;video.muted=true;video.playsInline=true;video.preload='none';
   video.dataset.src='assets/exhibits/'+(films[station.route]||'transit')+'.mp4';screen.insertBefore(video,caption);
-  interactive.set(screen,{name:station.name+' · Screen media',room:rooms.includes(station)?station:undefined,action:()=>window.stationMediaMenu?.(screen,station)});station.screen=screen;
+  interactive.set(screen,{name:station.name+' · Screen media',media:true,room:rooms.includes(station)?station:undefined,action:()=>window.stationMediaMenu?.(screen,station)});station.screen=screen;
 }
 const boundary=1360, roomEnd=3260, roomHalf=615;
 const doors=[], chamberNodes=new Map();
@@ -345,6 +345,9 @@ for(const [i,room] of rooms.entries()){
     room.wings=[-1,1].map(sign=>face('sim-wing',415,380,side*(roomEnd-157),-220,z+sign*489,angle+side*sign*44));
     const selector=room.selector=textFace('console',312,68,side*(roomEnd-455),-125,z,angle,'');
     interactive.set(selector,{name:'Cycle simulation',room,action:()=>{room.program=(room.program+1)%simulations.length;renderSimulation(room)}});
+    for(const surface of [room.projection,...room.wings]){
+      interactive.set(surface,{name:room.name+' · Screen media',media:true,room,action:()=>window.stationMediaMenu?.(surface,room)});
+    }
     renderSimulation(room);
     exhibit(room,278,145,side*(roomEnd-300),-184,z+420,angle);
   }else{
@@ -476,6 +479,7 @@ window.addEventListener('keydown',e=>{
     e.preventDefault();
     if(!keys.has(code)){advanceMovement(performance.now());keys.add(code)}
   }
+  if(e.code==='KeyE'&&target?.media&&!e.repeat){e.preventDefault();openStation(target);return}
   if(e.code==='KeyE'&&!seated&&!e.repeat&&window.seatLearning?.chair()){e.preventDefault();window.seatLearning.take();return}
   if(e.code==='KeyE'&&target&&!e.repeat){e.preventDefault();openStation(target)}
 });
@@ -616,7 +620,7 @@ function sightLine(ax,az,bx,bz){
 
 
 function activeDisplays(){
-  for(const video of hall.querySelectorAll('.screen video')){
+  for(const video of hall.querySelectorAll('.screen > video')){
     const screen=video.parentElement,g=screen.geometry;
     const dx=g.x-visitor.x,dz=g.z-visitor.z;
     const showing=!document.hidden&&!screen.hidden&&Math.hypot(dx,dz)<(screen.classList.contains('flagship')?6500:2600)&&dx*Math.sin(visitor.yaw)-dz*Math.cos(visitor.yaw)>0;
