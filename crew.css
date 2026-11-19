@@ -26,3 +26,12 @@
 .in-glass-player iframe,.in-glass-player>div,.in-glass-player video{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain;background:#080c0d}
 .in-glass-player video[hidden]{display:none}
 .hardware-station .playing-in-glass .in-glass-player{visibility:visible}
+.lesson-glass{container-type:size}
+.lesson-glass .classroom-display{visibility:visible;pointer-events:auto;position:absolute;inset:0;z-index:4;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:1cqh;padding:3cqh 2cqw;background:#10242a;color:#edf4ec;text-align:left;line-height:1.15;font:500 5.5cqh/1.15 system-ui,sans-serif;overflow:hidden;letter-spacing:0;text-transform:none}
+.course-main{display:grid;grid-template-columns:1fr 1fr;gap:2cqw;min-height:0}
+.course-column{min-height:0;overflow:auto}.classroom-display h2{font:600 8cqh/1.1 Oxanium,sans-serif;color:#f1d69f;margin:0 0 2cqh}.lesson-body p{margin:1.5cqh 0}.lesson-body p:last-child{color:#a9e1d3}
+.film-column{display:grid;grid-template-rows:minmax(0,1fr) auto;min-height:0}.classroom-display .film-column :is(video,iframe){position:static;width:100%;height:100%;min-height:0;border:0;object-fit:contain;pointer-events:auto;background:#091419}.classroom-display video[hidden]{display:none}
+.classroom-display button{background:#1b383e;color:#ecf5ef;border:1px solid #617c77;border-radius:1cqh;font:inherit;padding:1cqh .8cqw;cursor:pointer}.classroom-display button:hover,.classroom-display button:focus-visible,.classroom-display button[aria-pressed=true]{border-color:#f0c989;background:#315452}
+.lesson-nav,.film-buttons{display:flex;align-items:center;gap:.4cqw}.lesson-nav button{display:flex;align-items:center;justify-content:center;gap:.4cqw;flex:auto}.lesson-nav i{width:9cqh;height:9cqh;background:url(assets/lessons/ore-specimens.webp) no-repeat;background-size:700% 400%}.film-buttons{justify-content:center;font-size:4.6cqh}
+.orbital-spire{border-radius:55% 55% 44% 44%;background:linear-gradient(90deg,#101c25,#7996a0a8 36%,#24333a9e 65%,#0d1922),repeating-linear-gradient(0deg,#15323b 0 15px,#9fcdcf 15px 18px,#28353b 18px 32px);box-shadow:inset 4px 0 9px #dfc39a}
+.course-holo{display:grid;place-items:center;text-align:center;padding:18px;border-block:2px solid #a4ebe29c;background:linear-gradient(90deg,transparent,#194955a6 22% 78%,transparent);color:#eafef9;font:600 26px/1.2 Oxanium,sans-serif;text-shadow:0 1px 4px #142e33;backface-visibility:visible}

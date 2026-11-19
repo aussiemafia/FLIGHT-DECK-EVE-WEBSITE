@@ -310,8 +310,15 @@ for(const side of [-1,1]){
 const gardenStart=3900,gardenEnd=5550,gardenWidth=900;
 face('chamber-floor',gardenWidth*2,gardenEnd-gardenStart,0,0,(gardenEnd+gardenStart)/2,0,90);
 for(const side of [-1,1]){
-  face('bay-shell',gardenEnd-gardenStart,410,side*gardenWidth,-205,(gardenEnd+gardenStart)/2,-side*90);
-  starWindow(1270,308,side*(gardenWidth-12),-226,4715,-side*90,side+1);
+  if(side<0){
+    face('bay-shell',gardenEnd-gardenStart,410,side*gardenWidth,-205,(gardenEnd+gardenStart)/2,-side*90);
+    starWindow(1270,308,side*(gardenWidth-12),-226,4715,-side*90,side+1);
+  }else{
+    for(const [a,b] of [[gardenStart,4470],[4990,gardenEnd]]){
+      face('bay-shell',b-a,410,gardenWidth,-205,(a+b)/2,-90);
+      starWindow(b-a-52,260,gardenWidth-15,-216,(a+b)/2,-90,1);
+    }
+  }
   face('pool',390,850,side*585,-3,4710,0,90);
   for(const z of [4335,5060])tree(side*650,z);
   for(const z of [4560,4710,4860])addSeat(side*286,z,side*Math.PI/2);
@@ -323,6 +330,21 @@ face('bay-shell',425,280,0,-460,gardenEnd,180);
 const gardenExit=makeDoor(0,gardenEnd,180,'Stellar promenade','#90dfdb');
 gates.push({sign:2,door:gardenExit,url:'bridge.html#holodeck'});
 const gardenDestination={name:'Celestial garden',garden:true};
+const terraceDoor=makeDoor(gardenWidth,4730,-90,'Orbital garden terrace','#a3e8ce');
+face('chamber-floor',1550,1240,1675,0,4730,0,90);
+for(const side of [-1,1]){
+  face('balustrade',1550,102,1675,-51,4730+side*620,side>0?180:0);
+  face('pool',590,210,1720,-4,4730+side*365,0,90);
+  tree(1430,4730+side*370);tree(2140,4730+side*415);
+  addSeat(1870,4730+side*170,side>0?0:Math.PI);
+}
+face('balustrade',1240,102,2450,-51,4730,-90);
+strip(6,1210,2310,4730,'#bce8df');
+for(let i=0;i<11;i++){
+  const tz=4730+(i-5)*590,tx=3610+490*Math.cos(i*1.7),h=370+760*(.5+.5*Math.sin(i*2.47));
+  const tower=face('orbital-spire',210+(i%3)*45,h,tx,-h/2+180,tz,-90);
+  tower.dataset.seed=i;
+}
 const teaching=[
  ['Wormhole signatures','Scan cosmic signatures with probes. Bookmark both sides of a connection before exploring beyond it.'],
  ['Reading a hull','A ship’s silhouette tells only part of its story. Compare its role, bonuses and fittings in the ship archive.'],
@@ -384,6 +406,18 @@ for(const [i,room] of rooms.entries()){
     const console=textFace('console',255,72,side*(roomEnd-670),-126,z+182,angle,room.name);
     interactive.set(console,room);
   }
+  const holo=textFace('course-holo',345,122,side*(boundary+645),-155,z-175,angle,room.name+' · '+(room.route==='estimate'?'Identify an ore':teaching[i][0]));
+  interactive.set(holo,{name:'Explore '+room.name,action:()=>window.startStationLesson(room)});
+  // Quarter-circle returns blend the back wall into each side of the classroom.
+  for(const end of [-1,1]){
+    const radius=205;
+    for(let j=0;j<8;j++){
+      const a=(j+.5)*Math.PI/16,px=side*(roomEnd-radius+radius*Math.cos(a)),pz=z+end*(roomHalf-radius+radius*Math.sin(a));
+      const heading=Math.atan2(-side*Math.cos(a),-end*Math.sin(a))*180/Math.PI;
+      face('bay-shell',2*radius*Math.tan(Math.PI/32)+1,450,px,-225,pz,heading);
+    }
+  }
+  for(const off of [-126,126])addSeat(side*(roomEnd-580),z+off,side*Math.PI/2,room);
   let n=nodesBefore.nextElementSibling;const nodes=[];
   while(n){nodes.push(n);n=n.nextElementSibling}
   chamberNodes.set(room,nodes);
@@ -399,7 +433,7 @@ function refreshRoom(){
     if(old?.projection)renderSimulation(old);
     if(next?.projection)renderSimulation(next);
   }
-  const area=visitor.z>gardenEnd?null:visitor.z<-3900?(window.liveHelm?.inCinema()?'Screening theatre':'Flight bridge'):next?.name||(visitor.z>gardenStart?'Celestial garden':Math.abs(visitor.x)>boundary?'Gallery passage':'Grand Concourse');
+  const area=visitor.z>gardenEnd?null:visitor.z<-3900?(window.liveHelm?.inCinema()?'Screening theatre':'Flight bridge'):next?.name||(visitor.z>gardenStart?(visitor.x>gardenWidth?'Orbital garden terrace':'Celestial garden'):Math.abs(visitor.x)>boundary?'Gallery passage':'Grand Concourse');
   const readout=document.querySelector('.location strong');if(area&&readout.textContent!==area)readout.textContent=area;
   for(const [room,nodes] of chamberNodes){
     const onWing=visitor.x*room.side>boundary-100;
@@ -484,6 +518,10 @@ function cullCompatibilityScene(){
 function draw(){
   cullCompatibilityScene();
   refreshRoom();turnChairs();
+  for(const el of hall.querySelectorAll('.course-holo,.holo-model')){
+    const g=el.geometry;if(el.deckCulled)continue;
+    g.ry=Math.atan2(visitor.x-g.x,visitor.z-g.z);el.style.transform='translate3d('+g.x+'px,'+g.y+'px,'+g.z+'px) rotateY('+g.ry+'rad)';
+  }
 
   const focal=Math.min(innerWidth*.87,innerHeight*.82);
   view.style.perspective=focal+'px';
@@ -507,7 +545,6 @@ window.addEventListener('keydown',e=>{
     e.preventDefault();
     if(!keys.has(code)){advanceMovement(performance.now());keys.add(code)}
   }
-  if(e.code==='KeyE'&&target?.media&&!e.repeat){e.preventDefault();openStation(target);return}
   if(e.code==='KeyE'&&!seated&&!e.repeat&&window.seatLearning?.chair()){e.preventDefault();window.seatLearning.take();return}
   if(e.code==='KeyE'&&target&&!e.repeat){e.preventDefault();openStation(target)}
 });
@@ -567,6 +604,11 @@ function clear(x,z){
   if(z<-3900&&window.liveHelm)return window.liveHelm.clear(x,z);
   if(z>gardenEnd&&window.stationCity)return window.stationCity.clear(x,z);
   if((!window.deckTraversal&&chairs.some(c=>Math.hypot(x-c.x,z-c.z)<39))||trees.some(t=>Math.hypot(x-t.x,z-t.z)<49))return false;
+  if(z>gardenStart&&z<gardenEnd&&x>=gardenWidth-40){
+    if(x>2410||Math.abs(z-4730)>580)return false;
+    if(x<gardenWidth+45)return Math.abs(z-4730)<178&&passageOpen(terraceDoor,x,z);
+    return !trees.some(t=>Math.hypot(x-t.x,z-t.z)<49);
+  }
   if(Math.abs(x)<boundary-28){
     if(z>3940){
       if(Math.abs(x)>gardenWidth-35||z>gardenEnd+80)return false;
@@ -579,6 +621,7 @@ function clear(x,z){
   }
   const room=rooms.find(r=>r.side===Math.sign(x)&&Math.abs(z-r.z)<roomHalf-32);
   if(Math.abs(x)>roomEnd-45)return false;
+  if(room&&Math.hypot(Math.max(0,Math.abs(x)-roomEnd+205),Math.max(0,Math.abs(z-room.z)-roomHalf+205))>176)return false;
   if(!room)return Math.abs(Math.abs(x)-corridorX)<corridorHalf-28&&z>-2500&&z<2200;
   if(Math.abs(z-room.z)>roomHalf-48 && Math.abs(Math.abs(x)-corridorX)>corridorHalf-28)return false;
   if(Math.abs(x)<boundary+40)return Math.abs(z-room.z)<180&&passageOpen(room.door,x,z);

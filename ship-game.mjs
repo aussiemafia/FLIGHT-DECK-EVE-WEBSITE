@@ -64,7 +64,7 @@ async function launch(){
   function textMap(el,w,h){
     const c=document.createElement('canvas');c.width=Math.min(1536,Math.max(320,Math.round(w*2)));c.height=Math.max(36,Math.round(c.width*h/w));
     const g=c.getContext('2d'),strong=el.querySelector('strong'),words=(strong?.textContent||el.textContent||'').trim();
-    g.fillStyle='#142b2e';g.fillRect(0,0,c.width,c.height);
+    g.fillStyle=el.classList.contains('course-holo')?'rgba(12,58,64,.25)':'#142b2e';g.fillRect(0,0,c.width,c.height);
     const inset=c.width*.055;let size=Math.min(c.height*.5,c.width*.112,108);
     g.font='600 '+size+'px Oxanium, sans-serif';while(g.measureText(words).width>c.width-inset*2&&size>12){size-=1;g.font='600 '+size+'px Oxanium, sans-serif'}
     g.fillStyle='#f2dfb9';g.textBaseline='middle';g.textAlign=strong?'left':'center';g.fillText(words,strong?inset:c.width/2,strong?c.height*.20:c.height*.50);
@@ -156,6 +156,19 @@ async function launch(){
         for(const side of [-1,1]){const lamp=new T.Mesh(new T.SphereGeometry(3.6,14,8),materials.blue);lamp.position.set(side*9,36,-19);o.add(lamp);
           const leg=shell([[6,-39],[9,-37],[7,-24],[4,-16],[7,-10],[7,-2]],materials.rail);leg.position.set(side*12,-24,0);leg.name='leg'+side;o.add(leg);
           const arm=shell([[3,-18],[6,-15],[7,2],[6,14],[2,17]],materials.ivory);arm.position.set(side*33,-2,0);arm.rotation.z=side*.14;o.add(arm)}
+      }else if(k.contains('orbital-spire')){
+        o=new T.Group();
+        // Tapered elliptical towers with recessed horizontal window bands.
+        const ring=(radius,level,mat,thick)=>{
+          const mesh=new T.Mesh(new T.SphereGeometry(1,32,12),mat);
+          mesh.scale.set(radius,thick,radius*.77);mesh.position.y=level;o.add(mesh);
+        };
+        const body=new T.Mesh(new T.SphereGeometry(1,36,36),materials.rail);
+        body.scale.set(w*.51,h*.53,w*.39);o.add(body);
+        for(let j=1;j<14;j++){
+          const level=(j/14-.5)*h,r=w*.52*Math.sqrt(1-Math.pow(level/(h*.53),2));
+          ring(r,level,j%3===0?materials.brass:materials.blue,3.6);
+        }
       }else if(k.contains('vault-frame')){
         const spring=Number(el.dataset.spring),r=Math.max(17,Math.min(34,w*.009)),half=w/2-r,rise=h-spring-r;
         const pts=[new T.Vector3(-half,-h/2,0),new T.Vector3(-half,spring-h/2,0)];
@@ -232,6 +245,8 @@ async function launch(){
             cap.rotation.x=Math.PI/2;cap.position.y=end*h/2;o.add(cap);
           }
         }else o=flat(w,h,finish);
+      }else if(k.contains('course-holo')){
+        o=flat(w,h,new T.MeshBasicMaterial({map:textMap(el,w,h),transparent:true,depthWrite:false,side:T.DoubleSide,toneMapped:false}),8);
       }else if(k.contains('console')||k.contains('portal-name')||k.contains('city-direction')||k.contains('learning-panel')){
         o=new T.Group();const area=flat(w,h,new T.MeshBasicMaterial({map:textMap(el,w,h),toneMapped:false,side:k.contains('city-direction')?T.FrontSide:T.DoubleSide}),7);
         o.add(area,edged(w,h,8,3,materials.bronze));o.userData.words=el.textContent;
@@ -320,7 +335,6 @@ async function launch(){
       if(!o){const g=new T.BufferGeometry();g.setIndex(new T.Uint16BufferAttribute(data.indices,1));g.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(data.count*3),3));g.setAttribute('uv',new T.Float32BufferAttribute(Float32Array.from(data.uv,(v,i)=>i%2?1-v/65535:v/65535),2));if(!data.gpuMap){data.gpuMap=new T.CanvasTexture(data.canvas);data.gpuMap.colorSpace=T.SRGBColorSpace;data.gpuMap.anisotropy=Math.min(8,render.capabilities.getMaxAnisotropy());data.gpuNormal=new T.CanvasTexture(data.surface);data.gpuNormal.needsUpdate=true}o=new T.Mesh(g,physical(0xffffff,.015,.79,{map:data.gpuMap,normalMap:data.gpuNormal,alphaTest:.34}));o.userData.uniform=uniform;o.frustumCulled=false;scene.add(o);pilots.set(id,o)}
       o.visible=Math.hypot(visitor.x-a.x,visitor.z-a.z)>60;
       if(!o.visible)continue;
-      if(o.userData.aperture)o.userData.aperture.visible=el.classList.contains('playing-in-glass');
       const p=o.geometry.attributes.position,points=animateOfficer(a,data,performance.now());
       for(let j=0;j<points.length;j++)p.array[j]=points[j]*data.worldScale;
       p.needsUpdate=true;o.geometry.computeVertexNormals();o.position.set(a.x,a.alt??a.p.height??0,a.z);o.rotation.y=-(a.yaw??a.p.yaw);
@@ -365,7 +379,7 @@ async function launch(){
       if(o.userData.words!==undefined&&o.userData.words!==el.textContent){
         const m=o.children[0].material;m.map.dispose();m.map=textMap(el,g.w,g.h);o.userData.words=el.textContent;
       }
-      if(el.classList.contains('holo-model'))o.rotation.y=Math.atan2(x-g.x,z-g.z);
+      if(el.classList.contains('holo-model')||el.classList.contains('course-holo'))o.rotation.y=Math.atan2(x-g.x,z-g.z);
       if(el.classList.contains('simulation')&&frame%12===0){
         const video=el.querySelector('video'),mat=o.children[0].material;
         if(video?.readyState>=2&&o.userData.film!==video){const vt=new T.VideoTexture(video);vt.colorSpace=T.SRGBColorSpace;mat.map=vt;mat.needsUpdate=true;o.userData.film=video}
