@@ -22,10 +22,11 @@ async function launch(){
     return new T.MeshPhysicalMaterial({color,metalness,roughness,side:T.DoubleSide,...more});
   }
   const materials={
+    brass:physical(0xc79d52,.91,.24,{clearcoat:.25}),
     bronze:physical(0xb39772,.73,.29,{clearcoat:.42}),rail:physical(0x96836c,.80,.25),
     ivory:physical(0xe4d7c4,.32,.28,{clearcoat:.48}),gasket:physical(0x272b29,.48,.40),
     hull:physical(0xded5c7,.43,.39,{map:tex('assets/bronze-cladding.webp'),clearcoat:.27}),
-    stone:physical(0xf5efe5,.29,.27,{map:tex('assets/smoked-stone.webp'),clearcoat:.49,clearcoatRoughness:.24}),
+    stone:physical(0xfffbf4,.055,.23,{map:tex('assets/ivory-marble.webp'),clearcoat:.63,clearcoatRoughness:.16}),
     fabric:physical(0x344c4e,.10,.43,{clearcoat:.21}),leather:physical(0x945b43,.11,.42,{clearcoat:.23}),
     glass:physical(0xbdd5d4,.32,.16,{transparent:true,opacity:.29,depthWrite:false}),
     gold:new T.MeshStandardMaterial({color:0xffdf9d,emissive:0xffbb60,emissiveIntensity:1.5}),
@@ -123,7 +124,14 @@ async function launch(){
         o=new T.Group();const skin=physical(0xc4bba9,.41,.30,{map:tex('assets/station-door.svg')});
         const sheet=flat(w,h,skin,8);if(k.contains('mirror'))sheet.scale.x=-1;o.add(sheet);
       }else if(k.contains('floor')||k.contains('chamber-floor')||k.contains('city-floor')||k.contains('upper-deck')){
-        o=flat(w,h,mapRepeat(materials.stone,'assets/smoked-stone.webp',w,h,480));
+        o=flat(w,h,mapRepeat(materials.stone,'assets/ivory-marble.webp',w,h,920));
+        for(const side of [-1,1]){
+          for(const [offset,thickness] of [[0,5],[13,2]]){
+            const inlay=flat(thickness,h,materials.brass);
+            inlay.position.set(side*(w*.35+offset),0,1.1);
+            o.add(inlay);
+          }
+        }
       }else if(k.contains('bay-shell')||k.contains('city-wall')||k.contains('chamber-lid')||k.contains('roof')||k.contains('wall')||k.contains('city-eave')){
         o=flat(w,h,mapRepeat(materials.hull,'assets/bronze-cladding.webp',w,h,k.contains('roof')?760:650));
       }else if(k.contains('console')||k.contains('portal-name')||k.contains('city-direction')||k.contains('learning-panel')){
