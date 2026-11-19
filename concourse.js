@@ -558,11 +558,12 @@ byId('interact').onclick=()=>{if(target)openStation(target)};
 const movement=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'];
 window.addEventListener('keydown',e=>{
   if(e.code==='Space'&&seated&&!e.repeat){e.preventDefault();rise();return}
-  if(menu.open||record.open||document.querySelector('#lesson-panel')?.open||byId('media-browser')?.open)return;
-  if(e.code==='Space'&&!e.repeat&&!(e.target.matches?.('input,select,textarea,button'))){e.preventDefault();window.deckTraversal?.jump();return}
+  if(document.querySelector('dialog[open]')||e.target.closest?.('input,select,textarea,[contenteditable=true]'))return;
+  if(e.code==='Space'&&!e.repeat&&(!e.target.closest?.('button')||document.pointerLockElement===view)){e.preventDefault();window.deckTraversal?.jump();return}
   const code=movementCode(e);
   if(movement.includes(code)&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!e.target.closest?.('input,select,textarea,[contenteditable=true]')){
     e.preventDefault();
+    if(!seated)view.focus({preventScroll:true});
     if(!keys.has(code)){advanceMovement(performance.now());keys.add(code)}
   }
   if(e.code==='KeyE'&&!seated&&!e.repeat&&window.seatLearning?.chair()){e.preventDefault();window.seatLearning.take();return}
@@ -588,7 +589,7 @@ byId('mouse-look').onclick=()=>{menu.close();enterMouseLook()};
 function aim(dx,dy){
   const old=visitor.look||0;
   visitor.look=Math.max(-Math.PI/2,Math.min(Math.PI/2,old+dx));
-  visitor.yaw+=visitor.look-old;
+  visitor.yaw+=seated?visitor.look-old:dx;
   visitor.pitch=Math.max(-1.1,Math.min(1.1,visitor.pitch-dy));
   draw();
 }
@@ -655,10 +656,11 @@ function movementCode(e){
 function moveStep(dt){
     const forward=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
     const side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
-    visitor.yaw+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.45;
+    if(!seated)visitor.yaw+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.45;
     const step=dt*(keys.has('ShiftLeft')||keys.has('ShiftRight')?485:185)/Math.max(1,Math.hypot(forward,side));
     const {x,z}=visitor;
-    const yaw=visitor.yaw-(visitor.look||0);
+    const yaw=visitor.yaw;
+    if(!seated&&(forward||side))visitor.look*=Math.exp(-9*dt);
     const nx=x+step*(Math.sin(yaw)*forward+Math.cos(yaw)*side);
     const nz=z+step*(-Math.cos(yaw)*forward+Math.sin(yaw)*side);
     if(!seated&&!window.stationCity?.riding&&clear(nx,z))visitor.x=nx;
