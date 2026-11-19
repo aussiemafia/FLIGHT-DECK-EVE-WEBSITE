@@ -21,10 +21,8 @@
   }
   function drawHearth(cx,z){
     face('hearth-base',330,170,cx,-6,z,0,90);
-    for(let j=0;j<5;j++){
-      const flame=face('hearth-flame',42+j%2*16,56+j%3*10,cx-92+j*45,-50,z+j%2*9);
-      flame.style.animationDelay=-j*.71+'s';
-    }
+    face('hearth-flame',271,112,cx,-65,z);
+    for(const side of [-1,1])face('hearth-rail',332,12,cx,-17,z+side*65);
     for(const s of [-1,1])face('hearth-glass',340,90,cx,-57,z+s*57);
     for(const off of [-225,225])addSeat(cx+off,z+72,off<0?Math.PI/2:-Math.PI/2);
   }
@@ -54,7 +52,7 @@
     const preceding=hall.lastElementChild,chairStart=chairs.length,treeStart=trees.length,doorStart=doors.length;
     const z=mids(i),width=widthAt(i),[name,,tone,route,lesson]=district(i);
     const tall=width>2200?1190:710, slab=z-bay/2;
-    const room=classrooms.has(i)?roomSpecs(i):null;
+    const room=classrooms.has(i)?{...roomSpecs(i),name,route}:null;
     face('city-floor',width*2,bay+2,0,0,z,0,90);
     for(const side of [-1,1]){
       const angle=-side*90;

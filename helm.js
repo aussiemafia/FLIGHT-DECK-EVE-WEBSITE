@@ -28,10 +28,11 @@
   const film=document.createElement('video');film.loop=true;film.muted=true;film.playsInline=true;film.preload='metadata';
   const films=['fortizar','transit','crystal','ore'];let movie=0,paused=false;film.src='assets/exhibits/fortizar.mp4';display.append(film);
   for(const x of [1550,1850,2150])for(const z of [-5370,-5150,-4930,-4710])addSeat(x,z,Math.PI/2);
-  const toggle={name:'Play or pause screening',action:()=>{paused=!paused;if(paused)film.pause();else film.play().catch(()=>{})}};
+  window.theatreScreen=display;window.theatreDoor=cinemaDoor;
+  const toggle={name:'Play or pause screening',action:()=>{if(window.stationCinema){window.stationCinema.toggle();return}paused=!paused;if(paused)film.pause();else film.play().catch(()=>{})}};
   interactive.set(display,toggle);
   const console=textFace('console',230,72,2440,-116,-5040,-90,'Next screening');
-  interactive.set(console,{name:'Next screening',action:()=>{movie=(movie+1)%films.length;film.src='assets/exhibits/'+films[movie]+'.mp4';paused=false;film.play().catch(()=>{})}});
+  interactive.set(console,{name:'Next screening',action:()=>{if(window.stationCinema){window.stationCinema.next();return}movie=(movie+1)%films.length;film.src='assets/exhibits/'+films[movie]+'.mp4';paused=false;film.play().catch(()=>{})}});
   function inCinema(){return visitor.x>1170&&Math.abs(visitor.z+5040)<710}
   setInterval(()=>{if(!inCinema()||document.hidden)film.pause();else if(!paused&&film.paused)film.play().catch(()=>{})},600);
   const theatre=document.createElement('button');theatre.textContent='Screening theatre';byId('destinations').prepend(theatre);

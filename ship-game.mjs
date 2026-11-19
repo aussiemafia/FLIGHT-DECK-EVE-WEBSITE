@@ -1,3 +1,4 @@
+import {hearthFire} from './hearth-shader.mjs';
 import * as T from './assets/engine/three.mjs';
 
 // Keep the navigation, collision volumes and station actions common to both renderers.
@@ -40,9 +41,9 @@ async function launch(){
     r=Math.min(r,w/2-.01,h/2-.01);const x=-w/2,y=-h/2;
     shape.moveTo(x+r,y);shape.lineTo(-x-r,y);shape.quadraticCurveTo(-x,y,-x,y+r);shape.lineTo(-x,-y-r);shape.quadraticCurveTo(-x,-y,-x-r,-y);shape.lineTo(x+r,-y);shape.quadraticCurveTo(x,-y,x,-y-r);shape.lineTo(x,y+r);shape.quadraticCurveTo(x,y,x+r,y);shape.closePath();return shape;
   }
-  function edged(w,h,r,trim,mat){
+  function edged(w,h,r,trim,mat,depth=4){
     const shape=roundPath(w,h,r);shape.holes.push(roundPath(w-2*trim,h-2*trim,Math.max(1,r-trim),new T.Path()));
-    return new T.Mesh(new T.ExtrudeGeometry(shape,{depth:4,bevelEnabled:true,bevelThickness:1.4,bevelSize:1.3,bevelSegments:2,curveSegments:12}),mat);
+    return new T.Mesh(new T.ExtrudeGeometry(shape,{depth,bevelEnabled:true,bevelThickness:1.4,bevelSize:1.3,bevelSegments:2,curveSegments:12}),mat);
   }
   function flat(w,h,mat,r=0){
     if(!r)return new T.Mesh(new T.PlaneGeometry(w,h),mat);
@@ -118,11 +119,18 @@ async function launch(){
       else if(k.contains('galaxy-window')||k.contains('end-vista')||k.contains('side-window')){
         o=new T.Group();o.add(flat(w,h,skyMat,Math.min(65,h*.30)),edged(w,h,Math.min(65,h*.30),8,materials.rail));
       }else if(k.contains('skylight')){o=edged(w,h,1,1.3,materials.rail)}
+      else if(k.contains('arch-reveal'))o=flat(w,h,materials.bronze);
       else if(k.contains('portal-frame')||k.contains('pass-rim')){
         o=edged(w,h,Math.min(94,w*.17),17,materials.ivory);const glow=edged(w-25,h-25,66,3,materials.gold);glow.position.z=5;o.add(glow);
       }else if(k.contains('door-leaf')){
-        o=new T.Group();const skin=physical(0xc4bba9,.41,.30,{map:tex('assets/station-door.svg')});
-        const sheet=flat(w,h,skin,8);if(k.contains('mirror'))sheet.scale.x=-1;o.add(sheet);
+        o=new T.Group();const rim=edged(w,h,18,10,materials.brass,20);rim.position.z=-10;o.add(rim);
+        const pane=flat(w-18,h-19,physical(0x9cc8cd,.09,.14,{transparent:true,opacity:.18,depthWrite:false,clearcoat:.9}),11);
+        o.add(pane);
+        for(const [yy,hh] of [[-h*.38,h*.24],[h*.45,h*.1]]){
+          const slab=new T.Mesh(new T.BoxGeometry(w-10,hh,18),materials.ivory);slab.position.y=yy;o.add(slab);
+          const line=new T.Mesh(new T.BoxGeometry(w-9,3,21),materials.brass);line.position.y=yy+hh/2-2;o.add(line)
+        }
+
       }else if(k.contains('floor')||k.contains('chamber-floor')||k.contains('city-floor')||k.contains('upper-deck')){
         o=flat(w,h,mapRepeat(materials.stone,'assets/ivory-marble.webp',w,h,920));
         for(const side of [-1,1]){
@@ -133,7 +141,11 @@ async function launch(){
           }
         }
       }else if(k.contains('bay-shell')||k.contains('city-wall')||k.contains('chamber-lid')||k.contains('roof')||k.contains('wall')||k.contains('city-eave')){
-        o=flat(w,h,mapRepeat(materials.hull,'assets/bronze-cladding.webp',w,h,k.contains('roof')?760:650));
+        const finish=mapRepeat(materials.hull,'assets/bronze-cladding.webp',w,h,k.contains('roof')?760:650);
+        if(k.contains('bay-shell')||k.contains('city-wall')||k.contains('wall')){
+          o=new T.Mesh(new T.BoxGeometry(w,h,27),[materials.brass,materials.brass,materials.brass,materials.brass,finish,finish]);
+          for(const sy of [-1,1]){const rail=new T.Mesh(new T.BoxGeometry(w,4,29),materials.brass);rail.position.y=sy*(h/2-4);o.add(rail)}
+        }else o=flat(w,h,finish);
       }else if(k.contains('console')||k.contains('portal-name')||k.contains('city-direction')||k.contains('learning-panel')){
         o=new T.Group();const area=flat(w,h,new T.MeshBasicMaterial({map:textMap(el,w,h),toneMapped:false,side:k.contains('city-direction')?T.FrontSide:T.DoubleSide}),7);
         o.add(area,edged(w,h,8,3,materials.bronze));o.userData.words=el.textContent;
@@ -143,7 +155,7 @@ async function launch(){
         const url=el.style.backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];if(!url)return;
         o=flat(w,h,new T.MeshBasicMaterial({map:tex(url),transparent:true,alphaTest:.05,side:T.DoubleSide,depthWrite:false}),3);o.userData.img=url;
       }else if(k.contains('hearth-flame')){
-        o=flat(w,h,new T.MeshBasicMaterial({map:flameTex(),transparent:true,depthWrite:false,side:T.DoubleSide,blending:T.AdditiveBlending}));
+        o=hearthFire(w,h,waterUniform.clock);
       }else o=flat(w,h,k.contains('gallery')?materials.ivory:materials.bronze);
       pose(el,o);
     }
@@ -189,15 +201,19 @@ async function launch(){
     }
   }
   function crew(){
-    const data=window.pilotGeometry,peers=window.flightCrew?.peers;if(!data||!peers)return;
+    const peers=window.flightCrew?.peers;if(!peers)return;
     for(const [id,o] of pilots)if(!peers.has(id)){o.geometry.dispose();o.material.dispose();scene.remove(o);pilots.delete(id)}
     for(const [id,a] of peers){
+      const uniform=uniformFor(a);loadUniform(uniform);const data=uniformModels.get(uniform);if(!data)continue;
       let o=pilots.get(id);
-      if(!o){const g=new T.BufferGeometry();g.setIndex(new T.Uint16BufferAttribute(data.indices,1));g.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(data.count*3),3));g.setAttribute('uv',new T.Float32BufferAttribute(Float32Array.from(data.uv,(v,i)=>i%2?1-v/65535:v/65535),2));o=new T.Mesh(g,physical(0xffffff,.10,.54,{map:tex('assets/crew/pilot.jpg')}));o.frustumCulled=false;scene.add(o);pilots.set(id,o)}
-      const mode=a.p.state,phase=performance.now()*.007%8,k=mode==='walking'?Math.floor(phase):mode==='seated'?8:mode==='reading'||mode==='projecting'?9:2,next=mode==='walking'?(k+1)%8:k,t=mode==='walking'?phase%1:0;
+      if(o&&o.userData.uniform!==uniform){o.geometry.dispose();o.material.dispose();scene.remove(o);pilots.delete(id);o=null}
+      if(!o){const g=new T.BufferGeometry();g.setIndex(new T.Uint16BufferAttribute(data.indices,1));g.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(data.count*3),3));g.setAttribute('uv',new T.Float32BufferAttribute(Float32Array.from(data.uv,(v,i)=>i%2?1-v/65535:v/65535),2));o=new T.Mesh(g,physical(0xffffff,.10,.54,{map:tex('assets/crew/'+uniform+'.webp'),alphaTest:.34}));o.userData.uniform=uniform;o.frustumCulled=false;scene.add(o);pilots.set(id,o)}
+      const mode=a.p.state,phase=performance.now()*.007%8,k=mode==='walking'?Math.floor(phase):mode==='seated'?8:mode==='reading'||mode==='projecting'?9:10,next=mode==='walking'?(k+1)%8:k,t=mode==='walking'?phase%1:0;
       const p=o.geometry.attributes.position,arr=p.array,len=arr.length;
-      if(o.userData.k!==k||mode==='walking'){
-        for(let j=0;j<len;j++)arr[j]=(data.mesh[k*len+j]*(1-t)+data.mesh[next*len+j]*t)*.0119;
+      const mouth=Math.round((window.crewRadio?.level(id)||0)*16)/16;
+      if(o.userData.k!==k||o.userData.mouth!==mouth||mode==='walking'){
+        o.userData.mouth=mouth;
+        for(let j=0;j<len;j++)arr[j]=(data.mesh[k*len+j]*(1-t)+data.mesh[next*len+j]*t+mouth*(data.mesh[11*len+j]-data.mesh[10*len+j]))*.0119;
         p.needsUpdate=true;o.geometry.computeVertexNormals();o.userData.k=k;
       }
       o.position.set(a.x,(a.p.height||0)-(mode==='seated'?29:0),a.z);o.rotation.y=-a.p.yaw;
@@ -222,7 +238,7 @@ async function launch(){
       if(!o.visible)continue;
       if(o.userData.seat){o.visible=seated!==o.userData.seat;continue}
       if(el.classList.contains('door-leaf')||el.classList.contains('lift-platform'))pose(el,o);
-      if(el.classList.contains('hearth-flame'))o.scale.y=1+.14*Math.sin(now*.004+g.x);
+
       if(o.userData.words!==undefined&&o.userData.words!==el.textContent){
         const m=o.children[0].material;m.map.dispose();m.map=textMap(el,g.w,g.h);o.userData.words=el.textContent;
       }

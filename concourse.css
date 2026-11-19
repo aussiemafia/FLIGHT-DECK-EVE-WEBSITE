@@ -51,3 +51,14 @@ header,footer{position:fixed;left:0;right:0;display:flex;justify-content:space-b
 .floor{--stone-span:230px;--inlay:1.25px;--gap:3.25px}
 
 .city-direction{backface-visibility:hidden}
+
+.arch-reveal{background:linear-gradient(0deg,#c9a25e,#655541 5%,#a18b6f 32%,#574b40 52%,#a28c76 87%,#e4c583)}
+.door-leaf,.door-leaf.mirror,.door-leaf.unsealed{background:none;border:0;filter:none;box-shadow:none;border-radius:0;transform-style:preserve-3d}
+.door-leaf:after,.door-leaf.mirror:after{display:none}.door-leaf i{position:absolute;display:block}
+.door-front,.door-back{inset:0;border:7px solid #b49764;border-radius:14px;background:linear-gradient(166deg,transparent 28%,#f1ffff22 29%,transparent 36%),linear-gradient(0deg,#9e8e76,#e7e0ce 22%,#c7a76f 23%,#a8d6db21 24% 89%,#b49963 90%,#d9d2c2 92%);box-shadow:inset 0 0 0 2px #f2d7a3}
+.door-front{transform:translateZ(10px)}.door-back{transform:translateZ(-10px)}
+.door-edge-left,.door-edge-right{top:2%;height:96%;width:20px;background:linear-gradient(90deg,#80683e,#eed7a2,#665639);transform:rotateY(90deg)}
+.door-edge-left{left:-10px}.door-edge-right{right:-10px}.door-cap{width:100%;height:20px;top:-10px;background:#b09770;transform:rotateX(90deg)}
+
+.hearth-flame{border:0;border-radius:0;box-shadow:none;filter:none;background:transparent url(assets/hearth-fire.webp) 0 0/600% 600% no-repeat;animation:none;mix-blend-mode:screen}
+.hearth-rail{background:linear-gradient(#57493a,#e7c98d,#70583e)}.bay-shell,.city-wall{border-block:3px solid #b79a64}

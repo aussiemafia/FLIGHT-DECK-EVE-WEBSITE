@@ -89,7 +89,21 @@ function makeDoor(x,z,angle,label,tone){
   function local(kind,w,h,u,y,offset=0){
     return face(kind,w,h,x+u*ux+offset*Math.sin(rad),y,z+u*uz+offset*Math.cos(rad),angle);
   }
-  for(const offset of [-12,12]){
+  // The arch reveal spans both faces of the bulkhead.
+  const points=[[-211,0],[-211,-219]];
+  for(let i=0;i<=12;i++){
+    const a=Math.PI+i*Math.PI/24;points.push([-116+95*Math.cos(a),-219+95*Math.sin(a)]);
+  }
+  for(let i=0;i<=12;i++){
+    const a=-Math.PI/2+i*Math.PI/24;points.push([116+95*Math.cos(a),-219+95*Math.sin(a)]);
+  }
+  points.push([211,0]);
+  for(let i=1;i<points.length;i++){
+    const [a,b]=points[i-1],[c,d]=points[i],len=Math.hypot(c-a,d-b);if(len<.1)continue;
+    const reveal=local('arch-reveal',len+1,76,(a+c)/2,(b+d)/2);
+    reveal.style.transform+=' rotateZ('+Math.atan2(d-b,c-a)+'rad) rotateX(90deg)';
+  }
+  for(const offset of [-38,38]){
     local('portal-frame',473,355,0,-177,offset).style.setProperty('--tone',tone);
     const sign=local('portal-name',500,46,0,-387,offset);
     sign.textContent=label;sign.style.backfaceVisibility='hidden';
@@ -98,6 +112,7 @@ function makeDoor(x,z,angle,label,tone){
   const leaves=[-1,1].map(sign=>{
     const leaf=local('door-leaf',212,321,sign*106,-160,-3);
     if(sign===1)leaf.classList.add('mirror');
+    for(const key of ['front','back','edge-left','edge-right','cap']){const part=document.createElement('i');part.className='door-'+key;leaf.append(part)}
     return {leaf,origin:leaf.style.transform,sign};
   });
   const door={x,z,ux,uz,aperture:0,leaves,label};doors.push(door);
@@ -108,16 +123,17 @@ function updateDoors(dt){
     const dx=visitor.x-d.x,dz=visitor.z-d.z;
     const across=Math.abs(dx*d.ux+dz*d.uz),depth=Math.abs(-dx*d.uz+dz*d.ux);
     const goal=(across<315&&depth<440)||window.flightCrew?.nearDoor(d)?1:0;
+    if(goal!==(d.goal||0)){window.shipAudio?.door(!!goal,d);d.goal=goal}
     const next=d.aperture+Math.sign(goal-d.aperture)*Math.min(Math.abs(goal-d.aperture),dt*2);
     if(next===d.aperture)continue;
     d.aperture=next;
     for(const {leaf} of d.leaves)leaf.classList.toggle('unsealed',next>.04);
-    for(const {leaf,origin,sign} of d.leaves)leaf.style.transform=origin+' translateX('+sign*next*216+'px)';
+    for(const {leaf,origin,sign} of d.leaves)leaf.style.transform=origin+' translateX('+sign*next*next*(3-2*next)*216+'px)';
   }
 }
 function passageOpen(d,x,z){
   const dx=x-d.x,dz=z-d.z;
-  return Math.abs(-dx*d.uz+dz*d.ux)>38||Math.abs(dx*d.ux+dz*d.uz)+24<d.aperture*211;
+  return Math.abs(-dx*d.uz+dz*d.ux)>38||Math.abs(dx*d.ux+dz*d.uz)+24<(d.aperture*d.aperture*(3-2*d.aperture))*211;
 }
 face('floor',width,length,0,0,0,0,90);
 for(let i=0;i<18;i++){
@@ -326,7 +342,7 @@ function refreshRoom(){
   const readout=document.querySelector('.location strong');if(area&&readout.textContent!==area)readout.textContent=area;
   for(const [room,nodes] of chamberNodes){
     const onWing=visitor.x*room.side>boundary-100;
-    const visible=room===next||(Math.abs(visitor.z-room.z)<(onWing?2250:1150)&&Math.abs(visitor.x-room.side*boundary)<(onWing?2100:1200));
+    const visible=room===next||(Math.abs(visitor.z-room.z)<(onWing?3600:3000)&&Math.abs(visitor.x-room.side*boundary)<(onWing?3900:3100));
     if(room.visible===visible)continue;
     room.visible=visible;
     for(const node of nodes)node.hidden=!visible;
@@ -344,6 +360,7 @@ function resetAt(station){
 }
 function openStation(station){
   if(station.action){activityUntil=Date.now()+5500;station.action();draw();return}
+  if(!station.archive&&window.startStationLesson?.(station))return;
   keys.clear();
   byId('record-title').textContent=station.name;
   frame.src='archive/index.html#'+station.route;
@@ -403,7 +420,7 @@ function draw(){
 byId('interact').onclick=()=>{if(target)openStation(target)};
 const movement=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'];
 window.addEventListener('keydown',e=>{
-  if(menu.open||record.open)return;
+  if(menu.open||record.open||document.querySelector('#lesson-panel')?.open)return;
   if(movement.includes(e.code)){e.preventDefault();keys.add(e.code)}
   if(e.code==='KeyE'&&seated&&!e.repeat){rise();return}
   if(e.code==='KeyE'&&target&&!e.repeat){e.preventDefault();openStation(target)}

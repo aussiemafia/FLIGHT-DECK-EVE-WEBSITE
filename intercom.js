@@ -36,7 +36,7 @@
       }
       if(!room&&!muted){
         audio=new Audio('assets/intercom/arrival-'+(i+1)+'.mp3');
-        audio.onended=next;audio.play().catch(fallback);
+        audio.volume=window.shipAudio?.volume??.7;audio.onended=next;audio.play().catch(fallback);
       }else fallback();
     }
     play(0);
@@ -50,5 +50,6 @@
   button.onclick=()=>playing?stop():speak(currentRoom);
   mute.onclick=()=>{muted=!muted;stop();try{localStorage.setItem('expanse-intercom-muted',muted?'yes':'no')}catch{}controls()};
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
-  window.addEventListener('pagehide',stop);window.updateIntercom=controls;controls();
+  window.addEventListener('pagehide',stop);window.stopShipIntercom=stop;document.addEventListener('stationvolume',()=>{if(audio)audio.volume=window.shipAudio.volume});
+  window.updateIntercom=controls;controls();
 })();

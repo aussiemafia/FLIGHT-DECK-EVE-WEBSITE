@@ -2,3 +2,6 @@ Pilot character adapted from Cesium Man, © 2017 Cesium, CC BY 4.0.
 https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CesiumMan
 https://creativecommons.org/licenses/by/4.0/
 The Cesium logo belongs to Cesium. Mesh converted to sampled animation poses for local browser rendering. Additional sitting and exhibit poses created for The Expanse.
+The current male and female crew are adaptations of Microsoft Rocketbox Adult 01 characters, © 2020 Microsoft, MIT. Original body and facial rigs, skin, eyes and hair are retained. Officer textures, walking, standing, seating and mouth poses are adapted for the Flight Deck.
+https://github.com/microsoft/Microsoft-Rocketbox
+See ROCKETBOX-LICENSE.txt.

@@ -5,6 +5,7 @@
   const token=crypto.randomUUID(),peers=new Map(),bridge=document.getElementById('world')!==null;
   const root=document.getElementById(bridge?'world':'hall'),status=document.getElementById('crew-status');
   let active=true,timer=0,ownId='',lastSnapshot=0,failures=0;
+  const uniform=document.getElementById('uniform');if(uniform){try{uniform.value=localStorage.getItem('deck-uniform')||'imperial'}catch{}uniform.onchange=()=>{try{localStorage.setItem('deck-uniform',uniform.value)}catch{}}}
   function pose(){
     if(bridge)return {x,z,yaw,deck:'bridge',seat:seated?'helm-'+Math.abs(seated.x)+'-'+Math.abs(seated.z):'',state:seated?'seated':panel.open?'reading':keys.size?'walking':'standing'};
     return {...visitor,height:window.stationCity?.height||0,deck:'concourse',seat:seated?.id||'',state:seated?'seated':record.open?'reading':activityUntil>Date.now()?'projecting':keys.size?'walking':'standing'};
@@ -34,15 +35,15 @@
     if(!active)return;
     const cancel=new AbortController();const timeout=setTimeout(()=>cancel.abort(),8000);
     try{
-      const response=await fetch(endpoint,{method:'POST',body:JSON.stringify({token,...pose()}),signal:cancel.signal,credentials:'omit',cache:'no-store'});
+      const response=await fetch(endpoint,{method:'POST',body:JSON.stringify({token,...pose(),uniform:uniform?.value,voice:window.crewRadio?.epoch,talking:window.crewRadio?.talking}),signal:cancel.signal,credentials:'omit',cache:'no-store'});
       if(!response.ok)throw Error('Crew service');
       const data=await response.json();if(!Array.isArray(data.crew))throw Error('Crew unavailable');
-      ownId=data.id;lastSnapshot=performance.now();failures=0;update(data.crew);
+      ownId=data.id;lastSnapshot=performance.now();failures=0;update(data.crew);window.crewRadio?.nearby(ownId,data.crew);
       status.textContent=(1+peers.size)+' aboard';
       status.title='Live visitors on this deck, including you';
       if(!bridge&&seated&&[...peers.values()].some(a=>a.p.seat===seated.id&&a.p.id<ownId))rise();
     }catch{
-      failures++;status.textContent='Crew offline';status.title='Reconnecting to live visitors';
+      window.crewRadio?.disconnect();failures++;status.textContent='Crew offline';status.title='Reconnecting to live visitors';
       if(performance.now()-lastSnapshot>12000)update([]);
     }finally{
       clearTimeout(timeout);
@@ -65,7 +66,7 @@
     }
     if(active)requestAnimationFrame(drawCrew);
   }
-  window.flightCrew={peers,
+  window.flightCrew={peers,signal:payload=>fetch(endpoint.replace('/presence','/signal'),{method:'POST',body:JSON.stringify({token,...payload}),credentials:'omit',cache:'no-store'}),
     occupied:id=>[...peers.values()].some(a=>a.p.seat===id),
     nearDoor:d=>[...peers.values()].some(({x,z})=>Math.abs((x-d.x)*d.ux+(z-d.z)*d.uz)<315&&Math.abs(-(x-d.x)*d.uz+(z-d.z)*d.ux)<440)
   };
