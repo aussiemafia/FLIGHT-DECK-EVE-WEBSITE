@@ -74,8 +74,20 @@
   document.addEventListener('stationvolume',()=>voice.volume=window.shipAudio.volume);
   voice.addEventListener('play',cancelGuide);
   byId('lesson-next').onclick=()=>{if(!active)return;voice.pause();chapter=(chapter+1)%roomCourses[active].length;narrate()};
-  window.seatLearning={start(seat){const s=seat.room||find();if(s&&roomCourses[s.route])begin(s,true)},stop};
+  const sit=byId('lesson-seat');
+  function availableChair(){
+    const room=currentRoom||window.stationCity?.classroomAt(visitor.x,visitor.z);
+    if(seated||!room)return null;
+    let best=null,distance=520;
+    for(const c of chairs){if(c.room!==room&&!(room.width&&Math.abs(c.x)>room.width&&Math.abs(c.z-room.z)<room.half))continue;
+      const d=Math.hypot(visitor.x-c.x,visitor.z-c.z);if(d<distance&&!window.flightCrew?.occupied(c.id)){best=c;distance=d}}
+    return best
+  }
+  function take(){const c=availableChair();if(c)openStation(interactive.get(c.node))}
+  sit.onclick=take;
+  window.seatLearning={chair:availableChair,take,start(seat){const s=seat.room||find();if(s&&roomCourses[s.route])begin(s,true)},stop};
   setInterval(()=>{
+    sit.hidden=panel.open||menu.open||record.open||byId('media-browser').open||!availableChair();
     station=find();if(station!==lastRoom){if(station?.route!==lastRoom?.route)welcome(station);lastRoom=station}open.hidden=!station||panel.open||menu.open||record.open;
     if(station)open.textContent=(seated?'Seated lesson · ':'Listen & watch · ')+(flightLessons[station.route]?.[0]||station.name);
     if(!window.hdStation&&!reduced.matches&&!document.hidden){const f=Math.floor(performance.now()/50)%36;

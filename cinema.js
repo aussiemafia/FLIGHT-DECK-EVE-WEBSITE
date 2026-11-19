@@ -35,7 +35,7 @@
   previous.onclick=()=>change(-1);next.onclick=()=>change(1);play.onclick=toggle;refresh();
   window.stationCinema={next:()=>change(1),toggle,yieldScreen(el){if(el===anchor&&el!==window.theatreScreen){file.pause();if(ready)player.pauseVideo();anchor=window.theatreScreen;direct=false;file.hidden=true;external=null;customTitle='';near=false;wanted=false;refresh()}},
     present(el,entry){anchor=el||window.theatreScreen;customTitle=entry[0];direct=entry[2]==='file';external=direct?null:entry[3];failed=false;wanted=true;unlocked=true;
-      if(direct){if(ready)player.pauseVideo();file.src=entry[3];file.hidden=false;file.play().catch(()=>{wanted=false;refresh()})}
+      if(direct){if(ready)player.pauseVideo();file.loop=entry[3].startsWith('assets/exhibits/');file.src=entry[3];file.hidden=false;file.play().catch(()=>{wanted=false;refresh()})}
       else{file.pause();file.hidden=true;start();if(ready)player.loadVideoById(external)}
       refresh()}
   };

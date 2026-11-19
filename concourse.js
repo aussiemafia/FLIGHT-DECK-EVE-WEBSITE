@@ -446,6 +446,7 @@ window.addEventListener('keydown',e=>{
   if(menu.open||record.open||document.querySelector('#lesson-panel')?.open||byId('media-browser')?.open)return;
   if(e.code==='Space'&&!e.repeat&&!(e.target.matches?.('input,select,textarea,button'))){e.preventDefault();window.deckTraversal?.jump();return}
   if(movement.includes(e.code)){e.preventDefault();keys.add(e.code)}
+  if(e.code==='KeyE'&&!seated&&!e.repeat&&window.seatLearning?.chair()){e.preventDefault();window.seatLearning.take();return}
   if(e.code==='KeyE'&&target&&!e.repeat){e.preventDefault();openStation(target)}
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));
