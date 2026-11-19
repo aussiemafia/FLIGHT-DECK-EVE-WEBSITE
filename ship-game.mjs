@@ -116,6 +116,28 @@ async function launch(){
     const mesh=new T.Mesh(geom,profiles),back=new T.Mesh(new T.BoxGeometry(w,h,17),materials.gasket);
     back.position.z=-8.5;mesh.add(back);return mesh;
   }
+  function curvedHull(el,h){
+    const {side,end,radius}=el.arc,divisions=48,row=divisions+1,vertices=[],indices=[];
+    const finishes={shell:enamel,bronze:materials.bronze,brass:materials.brass,gasket:materials.gasket,gold:materials.gold,rail:materials.rail};
+    const layers=Object.keys(finishes),groups=layers.map(()=>[]),ds=Math.min(1,h/350);
+    for(const [y,depth] of hullSection){
+      const r=radius-depth*ds;
+      for(let j=0;j<=divisions;j++){
+        const a=j*Math.PI/(divisions*2);
+        vertices.push(side*r*Math.cos(a),(y-.5)*h,end*r*Math.sin(a));
+      }
+    }
+    for(let k=0;k<hullSection.length-1;k++){
+      const g=groups[layers.indexOf(hullSection[k][2])];
+      for(let j=0;j<divisions;j++){
+        const a=k*row+j,b=a+row;
+        if(side*end>0)g.push(a,a+1,b,a+1,b+1,b);else g.push(b,a+1,a,b,b+1,a+1);
+      }
+    }
+    const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(vertices,3));
+    groups.forEach((g,i)=>{geometry.addGroup(indices.length,g.length,i);indices.push(...g)});
+    geometry.setIndex(indices);geometry.computeVertexNormals();return new T.Mesh(geometry,Object.values(finishes));
+  }
   function rib(w,h){
     const group=new T.Group();const points=[[-.50,-.5],[-.468,-.40],[-.425,-.05],[-.34,.31],[-.22,.455],[0,.486],[.22,.455],[.34,.31],[.425,-.05],[.468,-.40],[.50,-.5]].map(([x,y])=>new T.Vector3(x*w,y*h,0));
     const path=new T.CatmullRomCurve3(points),r=Math.min(33,w*.009);
@@ -182,6 +204,7 @@ async function launch(){
         for(const side of [-1,1]){const lamp=new T.Mesh(new T.SphereGeometry(3.6,14,8),materials.blue);lamp.position.set(side*9,36,-19);o.add(lamp);
           const leg=shell([[6,-39],[9,-37],[7,-24],[4,-16],[7,-10],[7,-2]],materials.rail);leg.position.set(side*12,-24,0);leg.name='leg'+side;o.add(leg);
           const arm=shell([[3,-18],[6,-15],[7,2],[6,14],[2,17]],materials.ivory);arm.position.set(side*33,-2,0);arm.rotation.z=side*.14;o.add(arm)}
+      }else if(k.contains('continuous-return')){o=curvedHull(el,h);
       }else if(k.contains('helm-fascia')||k.contains('helm-cap')||k.contains('helm-line')){
         const mat=k.contains('helm-line')?materials.gold:k.contains('helm-cap')?materials.rail:materials.gasket;
         o=new T.Mesh(new T.BoxGeometry(w,h,k.contains('helm-fascia')?12:3),mat);
@@ -276,7 +299,7 @@ async function launch(){
       }else if(k.contains('course-holo')){
         o=flat(w,h,new T.MeshBasicMaterial({map:textMap(el,w,h),transparent:true,depthWrite:false,side:T.DoubleSide,toneMapped:false}),8);
       }else if(k.contains('console')||k.contains('portal-name')||k.contains('city-direction')||k.contains('learning-panel')){
-        o=new T.Group();const area=flat(w,h,new T.MeshBasicMaterial({map:textMap(el,w,h),toneMapped:false,side:k.contains('city-direction')?T.FrontSide:T.DoubleSide}),7);
+        o=new T.Group();const area=flat(w,h,new T.MeshBasicMaterial({map:textMap(el,w,h),toneMapped:false,side:(k.contains('city-direction')||k.contains('portal-name'))?T.FrontSide:T.DoubleSide}),7);
         o.add(area,edged(w,h,8,3,materials.bronze));o.userData.words=el.textContent;
       }else if(k.contains('path-light')||k.contains('ceiling-bar')||k.contains('stripe'))o=lightStrip(w,h,'warm');
       else if(k.contains('balustrade')||k.contains('hearth-glass'))o=flat(w,h,materials.glass,4);
@@ -379,8 +402,8 @@ async function launch(){
     if(f!==lastFocal){lastFocal=f;cam.fov=2*Math.atan(innerHeight/(2*f))*180/Math.PI;cam.updateProjectionMatrix();lastSize=size}
     const {x,z,yaw,pitch}=visitor;cam.position.set(x,standingEye(),z);cam.rotation.order='YXZ';cam.rotation.set(pitch,-yaw,0,'YXZ');
     firmament.position.copy(cam.position);sun.position.set(x-1700,2700,z-1300);sun.target.position.set(x,0,z);cool.position.set(x+1100,800,z+850);cool.target.position.set(x,0,z);
-    const night=document.body.classList.contains('night-watch');ambient.intensity=night?.30:1.68;sun.intensity=night?.28:2.05;cool.intensity=night?.26:.85;scene.environmentIntensity=night?.29:.89;
-    fill.intensity=night?35000:90000;fill.position.set(x,330,z-220);
+    const night=document.body.classList.contains('night-watch');ambient.intensity=night?.065:1.68;sun.intensity=night?.055:2.05;cool.intensity=night?.045:.85;scene.environmentIntensity=night?.075:.89;
+    fill.intensity=night?3200:90000;fill.position.set(x,330,z-220);
     if(!reduced.matches)for(const [tree,o] of forest)if(o.userData.palm)o.rotation.z=.009*Math.sin(now*.00048+tree.z);
     waterUniform.clock.value=reduced.matches?0:now*.001;
     const mode=byId('outside').selectedIndex;globeUniform.shift.value=[0,.32,-.29][mode]||0;

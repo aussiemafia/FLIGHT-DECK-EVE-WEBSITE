@@ -26,10 +26,25 @@ function cladBulkhead(node,g,scale){
 function curvedRoomEnds(side,far,z,half,height,radius){
   for(const end of [-1,1]){
     const worldX=side*(far-radius),worldZ=z+end*(half-radius);
-    for(let j=0;j<8;j++){
-      const a=(j+.5)*Math.PI/16,px=worldX+side*radius*Math.cos(a),pz=worldZ+end*radius*Math.sin(a);
-      const heading=Math.atan2(-side*Math.cos(a),-end*Math.sin(a))*180/Math.PI;
-      face('bay-shell',2*radius*Math.tan(Math.PI/32)+1,height,px,-height/2,pz,heading);
+    const turn=face('continuous-return',radius*2,height,worldX,-height/2,worldZ);
+    turn.arc={side,end,radius};const pieces=document.createDocumentFragment();
+    const divisions=12,step=Math.PI/(2*divisions),ds=Math.min(1,height/350);
+    for(let j=0;j<divisions;j++){
+      const a=(j+.5)*step,c=Math.cos(a),s=Math.sin(a),heading=Math.atan2(-side*c,-end*s);
+      for(let k=0;k<hullSection.length-1;k++){
+        const [lo,d0,finish]=hullSection[k],[hi,d1]=hullSection[k+1];
+        const r0=radius-ds*d0,r1=radius-ds*d1,mid=(r0+r1)*.5;
+        const dy=(hi-lo)*height,dz=ds*(d1-d0),h=Math.hypot(dy,dz);
+        const w=2*Math.max(r0,r1)*Math.tan(step*.5)+.6;
+        const band=document.createElement('b');band.className='hull-band finish-'+finish;
+        const taper=(r)=>Math.max(0,(1-r/Math.max(r0,r1))*50);
+        band.style.cssText='width:'+w+'px;height:'+(h+.45)+'px;left:calc(50% - '+w/2+'px);top:calc(50% - '+h/2+'px);'+
+          'clip-path:polygon('+taper(r1)+'% 0,'+(100-taper(r1))+'% 0,'+(100-taper(r0))+'% 100%,'+taper(r0)+'% 100%);'+
+          'transform:translate3d('+side*c*mid+'px,'+(0.5-(hi+lo)*.5)*height+'px,'+end*s*mid+'px) rotateY('+heading+'rad) rotateX('+(-Math.atan2(dz,dy))+'rad)';
+        if(finish==='shell'){const light=Math.round(130+14*Math.sin(heading-.55));band.style.background='rgb('+(light+7)+','+(light+4)+','+(light-3)+')'}
+        pieces.append(band);
+      }
     }
+    turn.append(pieces);
   }
 }

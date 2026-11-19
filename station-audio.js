@@ -14,7 +14,7 @@
   
   const lights=byId('deck-light');let night=false;
   try{night=localStorage.getItem('station-night')==='on'}catch{}
-  function lightMode(){document.body.classList.toggle('night-watch',night);lights.setAttribute('aria-pressed',String(night));lights.textContent=night?'Raise lights':'Dim lights'}
+  function lightMode(){document.body.classList.toggle('night-watch',night);lights.setAttribute('aria-pressed',String(night));lights.textContent=night?'Lights on':'Lights out'}
   lights.onclick=()=>{night=!night;lightMode();try{localStorage.setItem('station-night',night?'on':'off')}catch{}};lightMode();
   function init(){
     if(!context){context=new AudioContext();bus=context.createGain();bus.connect(context.destination);

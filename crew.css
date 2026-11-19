@@ -48,3 +48,9 @@
 .helm-fascia{background:linear-gradient(#9b978d,#575955 11%,#252a2e 45%,#363937 84%,#b0a283)}
 .helm-cap{background:linear-gradient(#646761,#303638 75%,#b3a48a)}
 .helm-line{background:#eed5a3}
+.continuous-return{transform-style:preserve-3d}
+.portal-name{font:600 27px/1 Oxanium,sans-serif;letter-spacing:.035em;border-radius:15px;border:2px solid #a89672;border-bottom:3px solid var(--tone,#e5c586);color:#f7f1e5;background:linear-gradient(#263235,#142125);text-shadow:none}
+body.night-watch:not(.hardware-station) #viewport{filter:none;background:#070d12}
+body.night-watch:not(.hardware-station) .face:not(.screen,.simulation,.sim-wing,.portal-name,.city-direction,.path-light,.holo-model,.course-holo,.console,.helm-line,.galaxy-window,.continuous-return,.sculpted-hull,.learning-panel){filter:brightness(.15) saturate(.72)}
+body.night-watch:not(.hardware-station) .hull-band:not(.finish-gold),body.night-watch:not(.hardware-station) .sculpted-hull>i{filter:brightness(.13) saturate(.65)}
+body.night-watch:not(.hardware-station) .finish-gold{background:#b5ae89;box-shadow:0 0 4px #e3c482}body.night-watch:not(.hardware-station) #conservatory{filter:brightness(.22)}body.night-watch:not(.hardware-station) .sky-backdrop{filter:brightness(.66)}

@@ -64,8 +64,9 @@
         const cx=side*(width+room.depth/2),far=side*(width+room.depth);
         face('chamber-floor',room.depth,room.half*2,cx,0,z,0,90);
         face('chamber-lid',room.depth,room.half*2,cx,-430,z,0,90);
-        for(const end of [-1,1])face('bay-shell',room.depth,430,cx,-215,z+end*room.half,end===1?180:0);
-        face('bay-shell',room.half*2,430,far,-215,z,angle);
+        const curve=Math.min(225,room.half*.4);
+        for(const end of [-1,1])face('bay-shell',room.depth-curve,430,cx-side*curve/2,-215,z+end*room.half,end===1?180:0);
+        face('bay-shell',(room.half-curve)*2,430,far,-215,z,angle);
         curvedRoomEnds(side,width+room.depth,z,room.half,430,Math.min(225,room.half*.4));
         exhibit({name,route},room.half*1.45,250,far-side*74,-235,z,angle);
         const screen=hall.lastElementChild;room.screen=screen;screen.querySelector('img').src='assets/exhibits/'+['wormhole','ore','porpoise','ice','class5','flare'][Math.min(5,Math.floor(i/5))]+'.webp';

@@ -136,8 +136,8 @@ function makeDoor(x,z,angle,label,tone){
   }
   for(const offset of [-38,38]){
     const jamb=local('portal-frame',473,355,0,-177,offset);jamb.dataset.side=offset<0?'back':'front';jamb.style.setProperty('--tone',tone);
-    const sign=local('portal-name',500,46,0,-387,offset);
-    sign.textContent=label;sign.style.backfaceVisibility='hidden';
+    const sign=local('portal-name',455,49,0,-379,Math.sign(offset)*85);
+    sign.textContent=label;sign.style.setProperty('--tone',tone);sign.style.backfaceVisibility='hidden';
     if(offset<0)sign.style.transform+=' rotateY(180deg)';
   }
   const leaves=[-1,1].map(sign=>{
@@ -369,7 +369,7 @@ for(const [i,room] of rooms.entries()){
   for(const end of [-1,1]){
     const hasPass=rooms.some(other=>other.side===side&&(other.z-room.z)*end>0);
     const wallZ=z+roomHalf*end;
-    const spans=hasPass?[[boundary,corridorX-corridorHalf],[corridorX+corridorHalf,roomEnd]]:[[boundary,roomEnd]];
+    const spans=hasPass?[[boundary,corridorX-corridorHalf],[corridorX+corridorHalf,roomEnd-235]]:[[boundary,roomEnd-235]];
     for(const [a,b] of spans)face('bay-shell',b-a+2,450,side*(a+b)/2,-225,wallZ,end===1?180:0);
     if(hasPass){
       face('bay-shell',corridorHalf*2+3,100,side*corridorX,-400,wallZ,end===1?180:0);
@@ -387,7 +387,7 @@ for(const [i,room] of rooms.entries()){
       interactive.set(board,room);
     }
   }
-  face('bay-shell',roomHalf*2,450,side*roomEnd,-225,z,angle);
+  face('bay-shell',2*(roomHalf-235),450,side*roomEnd,-225,z,angle);
   const isHolo=i===0||i===4;
   if(isHolo){
     room.program=i===0?0:1;

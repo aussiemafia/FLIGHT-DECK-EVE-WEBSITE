@@ -35,8 +35,8 @@
   curvedRoomEnds(1,2800,-5040,710,510,265);
   const cinemaDoor=makeDoor(1170,-5040,-90,'Screening theatre','#edc991');
   face('chamber-floor',1630,1420,1985,0,-5040,0,90);face('chamber-lid',1630,1420,1985,-510,-5040,0,90);
-  for(const s of [-1,1])face('city-wall',1630,510,1985,-255,-5040+s*710,s===1?180:0);
-  face('city-wall',1420,510,2800,-255,-5040,-90);
+  for(const s of [-1,1])face('city-wall',1365,510,1852.5,-255,-5040+s*710,s===1?180:0);
+  face('city-wall',890,510,2800,-255,-5040,-90);
   const display=face('simulation theatre-screen',1000,365,2717,-267,-5040,-90);
   const film=document.createElement('video');film.loop=true;film.muted=true;film.playsInline=true;film.preload='metadata';
   const films=['fortizar','transit','crystal','ore'];let movie=0,paused=false;film.src='assets/exhibits/fortizar.mp4';display.append(film);
