@@ -1,3 +1,4 @@
+import {loadStewardParts,stewardModel} from './robot-rig.mjs';
 import {hearthFire} from './hearth-shader.mjs';
 import * as T from './assets/engine/three.mjs';
 
@@ -170,6 +171,8 @@ async function launch(){
   const waterUniform={clock:{value:0},pano:{value:panorama},shift:globeUniform.shift};
   const water=new T.ShaderMaterial({uniforms:waterUniform,side:T.DoubleSide,vertexShader:'varying vec3 wp;varying vec2 vuv;void main(){vec4 p=modelMatrix*vec4(position,1.);wp=p.xyz;vuv=uv;gl_Position=projectionMatrix*viewMatrix*p;}',
     fragmentShader:'varying vec3 wp;varying vec2 vuv;uniform sampler2D pano;uniform float clock,shift;void main(){vec2 p=wp.xz;float a=sin(p.x*.039+clock)*.018+cos(p.y*.047-clock*.8)*.016;float b=cos((p.x+p.y)*.028+clock*1.2)*.024;vec3 v=normalize(wp-cameraPosition);vec3 n=normalize(vec3(a,1.,b));vec3 r=reflect(v,n);vec2 uv=vec2(fract(.5+atan(r.x,-r.z)/6.283185+shift),.5+asin(r.y)/3.141593);vec3 sky=texture2D(pano,uv).rgb;float fres=pow(1.-abs(dot(v,n)),2.);gl_FragColor=vec4(mix(vec3(.018,.094,.092),sky,.23+.72*fres)+pow(max(0.,dot(r,normalize(vec3(-.4,.27,-.8)))),44.)*vec3(1.,.69,.32),1.);\n#include <colorspace_fragment>\n}'});
+  const stewardRig=await loadStewardParts();
+  const stewardFinishes=[physical(0xf6f2e6,.47,.21,{clearcoat:.9,clearcoatRoughness:.13}),physical(0xd5aa58,.88,.20,{clearcoat:.55}),physical(0x262d30,.42,.37),physical(0x192b32,.71,.115,{clearcoat:.95})];
   function make(el){
     const g=el.geometry,k=el.classList,w=g.w,h=g.h;
     if(k.contains('exterior-pane')||k.contains('reflection'))return;
@@ -179,31 +182,7 @@ async function launch(){
       o=new T.Mesh(chairGeometry,chairFinishes[rooms.indexOf(seat.room)]||chairMaterials);o.position.set(seat.x,0,seat.z);o.rotation.y=-seat.facing;o.userData.seat=seat;
     }else{
       if(k.contains('academy-steward')){
-        o=new T.Group();
-        const shell=(profile,material)=>{
-          const positions=[],indices=[],segments=40;
-          for(const [radius,y] of profile){
-            for(let j=0;j<segments;j++){
-              const a=j*2*Math.PI/segments;
-              positions.push(radius*Math.sin(a),y,radius*Math.cos(a));
-            }
-          }
-          for(let row=1;row<profile.length;row++)for(let j=0;j<segments;j++){
-            const a=(row-1)*segments+j,b=(row-1)*segments+(j+1)%segments;
-            indices.push(a,b,a+segments,b,b+segments,a+segments);
-          }
-          const geometry=new T.BufferGeometry();
-          geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));
-          geometry.setIndex(indices);geometry.computeVertexNormals();
-          return new T.Mesh(geometry,material);
-        };
-        o.add(shell([[8,-32],[20,-25],[27,-10],[29,4],[24,15],[13,19]],materials.ivory));
-        o.add(shell([[26,4],[29,5],[28,8],[25,9]],materials.brass));
-        const head=shell([[10,22],[19,26],[22,35],[21,43],[17,50],[8,54],[0,55]],materials.ivory);
-        o.add(head,shell([[21.5,32],[22.7,34],[22,39]],materials.gasket));
-        for(const side of [-1,1]){const lamp=new T.Mesh(new T.SphereGeometry(3.6,14,8),materials.blue);lamp.position.set(side*9,36,-19);o.add(lamp);
-          const leg=shell([[6,-39],[9,-37],[7,-24],[4,-16],[7,-10],[7,-2]],materials.rail);leg.position.set(side*12,-24,0);leg.name='leg'+side;o.add(leg);
-          const arm=shell([[3,-18],[6,-15],[7,2],[6,14],[2,17]],materials.ivory);arm.position.set(side*33,-2,0);arm.rotation.z=side*.14;o.add(arm)}
+        o=stewardModel(stewardRig,stewardFinishes);
       }else if(k.contains('continuous-return')){o=curvedHull(el,h);
       }else if(k.contains('helm-fascia')||k.contains('helm-cap')||k.contains('helm-line')){
         const mat=k.contains('helm-line')?materials.gold:k.contains('helm-cap')?materials.rail:materials.gasket;
@@ -413,8 +392,8 @@ async function launch(){
       if(!o.visible)continue;
       if(o.userData.aperture)o.userData.aperture.visible=el.classList.contains('playing-in-glass');
       if(el.classList.contains('academy-steward')){
-        o.position.set(g.x,74,g.z);o.rotation.y=-Number(el.dataset.heading||0);
-        for(const s of [-1,1])o.getObjectByName('leg'+s).rotation.x=s*Number(el.dataset.stride||0)*.32;
+        o.position.set(g.x,0,g.z);
+        if(el.motion){o.rotation.y=-el.motion.heading;o.userData.animate(el.motion)}
       }
       if(o.userData.seat){o.visible=seated!==o.userData.seat;continue}
       if(el.classList.contains('door-leaf')||el.classList.contains('lift-platform'))pose(el,o);

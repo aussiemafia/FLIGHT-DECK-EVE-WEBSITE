@@ -118,6 +118,7 @@
     const c=candidates[0];if(!c)return;
     visitor.x=c.x-r.side*72;visitor.z=c.z;draw();openStation(interactive.get(c.node));
   }
+  window.takeClassroomLesson=enterLesson;
   const catalogue=byId('lesson-catalogue');
   for(const r of rooms)button(catalogue,r.route==='estimate'?'Identify an ore':roomCourses[r.route][0],()=>enterLesson(r));
   function take(){const c=chair();if(c)openStation(interactive.get(c.node))}
