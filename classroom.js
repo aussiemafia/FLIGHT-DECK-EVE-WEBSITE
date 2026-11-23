@@ -129,7 +129,7 @@
   Object.defineProperty(window,'classroomActive',{get:()=>!!room});
   setInterval(()=>{const r=actualRoom();
     if(room&&!seated&&r!==room&&room!==flagship)stop();
-    if(r!==lastRoom){if(r&&!room&&!window.guideMuted?.()){window.stopShipIntercom?.();speak('entry',0)}lastRoom=r}
+    if(r!==lastRoom){lastRoom=r;if(r&&!room)window.stopShipIntercom?.();} // Room entry stays quiet; lessons speak only when explicitly started.
     const blocked=menu.open||record.open||byId('media-browser').open;
     seatButton.hidden=blocked||!!room||!chair();startButton.hidden=blocked||!!room||!r||!!chair();
     if(r)startButton.textContent=chair()?'Start seated lesson':'Use classroom screen';
