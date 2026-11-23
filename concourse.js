@@ -65,7 +65,7 @@ const simulations=[
 ];
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 rooms[0].name='Exploration holodeck';
-rooms[4].name='Sleeper holodeck';
+rooms[4].name='Fleet operations holodeck';
 function textFace(type,w,h,x,y,z,angle,text){
   const panel=face(type,w,h,x,y,z,angle);
   panel.textContent=text;
@@ -330,6 +330,17 @@ const teaching=[
  ['Site intelligence','Identify the site before warping in. Use the archive to study the encounter and its triggers.'],
  ['Dividing a haul','Record the loot total and agree on shares before distributing the proceeds.']
 ];
+// Each pair gives the distance from the centreline to the port and starboard walls.
+const suiteOutline=[[boundary,218],[1580,218],[1670,321],[1790,425],[1950,517],
+  [2080,575],[corridorX-corridorHalf,roomHalf],[corridorX+corridorHalf,roomHalf],
+  [2800,592],[2940,552],[3080,498],[3190,429],[roomEnd,365]];
+function suiteWidthAt(x){
+  for(let i=1;i<suiteOutline.length;i++){
+    const [right,wide]=suiteOutline[i],[left,narrow]=suiteOutline[i-1];
+    if(x<=right)return narrow+(wide-narrow)*(x-left)/(right-left);
+  }
+  return 0;
+}
 for(const [i,room] of rooms.entries()){
   const {side,z}=room,angle=-90*side,tone=tones[i];
   room.door=makeDoor(side*boundary,z,angle,room.name,tone);
@@ -339,73 +350,67 @@ for(const [i,room] of rooms.entries()){
   const centre=side*(boundary+roomEnd)/2,depth=roomEnd-boundary;
   const chamberFloor=face('chamber-floor',depth,roomHalf*2,centre,0,z,0,90);
   chamberFloor.style.setProperty('--tone',tone);
-  // A circular pavilion within the original navigable footprint: the transparent
-  // outer floor is still walkable, while the inlaid round salon reads as one space.
-  const rotundaX=side*(boundary+depth*.58),radius=Math.min(roomHalf-62,depth*.43);
-  const disc=face('rotunda-disc',radius*2,radius*2,rotundaX,-1,z,0,90);
-  disc.dataset.suite=i;
-  const rim=face('rotunda-ring',radius*2,radius*2,rotundaX,-6,z,0,90);
-  rim.dataset.suite=i;rim.dataset.radius=radius;
-  const dome=face('rotunda-dome',radius*2,radius*2,rotundaX,-447,z,0,90);
-  dome.dataset.suite=i;dome.dataset.radius=radius;
-  // The earlier rectangular canopy is removed in favor of a segmented dome.
-  for(let spoke=0;spoke<12;spoke++){
-    const a=spoke*Math.PI/6,px=rotundaX+Math.cos(a)*radius*.91,pz=z+Math.sin(a)*radius*.91;
-    const light=face('rotunda-pillar',32,405,px,-204,pz);
-    light.dataset.suite=i;
+  const rotundaX=side*corridorX,radius=535;
+  for(const [kind,level] of [['rotunda-disc',2],['rotunda-ring',5],['rotunda-dome',450]]){
+    const node=face(kind,2*radius,2*radius,rotundaX,-level,z,0,90);
+    node.dataset.suite=i;
   }
+  // A coffer around the dome seals the entry, screen bay and cross passages.
+  const soffit=face('suite-soffit',depth,roomHalf*2,centre,-450,z,0,90);
+  soffit.dataset.aperture=rotundaX-centre;
+  soffit.dataset.radius=radius;
+  soffit.style.setProperty('--oculus-x',(depth/2+rotundaX-centre)+'px');
+  soffit.style.setProperty('--oculus-radius',radius+'px');
   for(const end of [-1,1]){
-    const hasPass=rooms.some(other=>other.side===side&&(other.z-room.z)*end>0);
-    const wallZ=z+roomHalf*end;
-    const spans=hasPass?[[boundary,corridorX-corridorHalf],[corridorX+corridorHalf,roomEnd-235]]:[[boundary,roomEnd-235]];
-    for(const [a,b] of spans)face('bay-shell',b-a+2,450,side*(a+b)/2,-225,wallZ,end===1?180:0);
-    if(hasPass){
-      face('bay-shell',corridorHalf*2+3,100,side*corridorX,-400,wallZ,end===1?180:0);
-      face('pass-rim',corridorHalf*2,350,side*corridorX,-175,wallZ,end===1?180:0);
-    }
-    starWindow(610,207,side*1770,-250,wallZ-end*10,end===1?180:0,i%3);
-    for(const lane of [-1,1])strip(7,roomHalf*2,side*corridorX+lane*(corridorHalf-36),z,tone);
-    addSeat(side*1840,z+end*365,side*Math.PI/2,room);
-    addSeat(side*1980,z+end*365,side*Math.PI/2,room);
-    if(end===-1){
-      for(let n=0;n<3;n++)face('ceiling-bar',17,roomHalf*2-50,side*(boundary+310+n*605),-444,z,0,90).style.setProperty('--tone',tone);
-      const board=face('learning-panel',450,215,side*2950,-228,wallZ+66);
-      const name=document.createElement('strong'),copy=document.createElement('p');
-      name.textContent=teaching[i][0];copy.textContent=teaching[i][1];board.append(name,copy);
-      interactive.set(board,room);
+    const hasPass=rooms.some(other=>other.side===side&&(other.z-z)*end>0);
+    for(let n=1;n<suiteOutline.length;n++){
+      const [a,u]=suiteOutline[n-1],[b,v]=suiteOutline[n];
+      const opening=a===corridorX-corridorHalf&&hasPass;
+      const h=opening?100:450,dx=side*(b-a),dz=end*(v-u);
+      const angle=Math.atan2(end*side*dz,-end*side*dx)*180/Math.PI;
+      const x=side*(a+b)/2,wallZ=z+end*(u+v)/2;
+      face('bay-shell',Math.hypot(dx,dz)+2,h,x,opening?-400:-225,wallZ,angle);
+      if(a===boundary)starWindow(165,145,x,-225,wallZ,angle,i%3);
+      if(a===2800&&end<0){
+        const rad=angle*Math.PI/180;
+        const board=face('learning-panel',235,154,x+58*Math.sin(rad),-225,wallZ+58*Math.cos(rad),angle);
+        const name=document.createElement('strong'),copy=document.createElement('p');
+        name.textContent=teaching[i][0];copy.textContent=teaching[i][1];board.append(name,copy);
+        interactive.set(board,room);
+      }
     }
   }
-  face('bay-shell',2*(roomHalf-235),450,side*roomEnd,-225,z,angle);
+  face('bay-shell',730,450,side*roomEnd,-225,z,angle);
   const isHolo=i===0||i===4;
   if(isHolo){
     room.program=i===0?0:1;
-    room.projection=face('simulation',roomHalf*2-270,345,side*(roomEnd-90),-220,z,angle);
-    room.wings=[-1,1].map(sign=>face('sim-wing',415,380,side*(roomEnd-236),-220,z+sign*471,angle+side*sign*44));
+    room.projection=face('simulation',660,345,side*(roomEnd-90),-220,z,angle);
+    room.portalX=side*(boundary+555);
+    const portal=face('training-gate',310,280,room.portalX,-140,z,angle);
+    const label=textFace('portal-name',283,31,room.portalX,-297,z,angle,'Walk through · '+(i===0?'Scout training':'Fleet training'));
     const selector=room.selector=textFace('console',312,68,side*(roomEnd-455),-125,z,angle,'');
     interactive.set(selector,{name:'Cycle simulation',room,action:()=>{room.program=(room.program+1)%simulations.length;renderSimulation(room)}});
-    for(const surface of [room.projection,...room.wings]){
+    for(const surface of [room.projection]){
       interactive.set(surface,{name:room.name+' · Screen media',media:true,room,action:()=>window.stationMediaMenu?.(surface,room)});
     }
     renderSimulation(room);
-    exhibit(room,278,145,side*(roomEnd-300),-184,z+420,angle);
+
   }else{
-    exhibit(room,798,284,side*(roomEnd-118),-247,z,angle);
-    const model=face('holo-model',330,230,side*(roomEnd-590),-190,z-182,angle);
-    model.style.backgroundImage='url(archive/assets/'+models[i]+'-cutout.webp)';
-    face('emitter',300,300,side*(roomEnd-590),-5,z-182,0,90).style.setProperty('--tone',tone);
+    exhibit(room,660,284,side*(roomEnd-118),-247,z,angle);
     const console=textFace('console',255,72,side*(roomEnd-670),-126,z+182,angle,room.name);
     interactive.set(console,room);
   }
   installAlcove(room.projection||room.screen);
   // Keep the lesson accessible from the room screen, seating and deck directory;
   // do not float a large text hologram across the seating sightline.
-  curvedRoomEnds(side,roomEnd,z,roomHalf,450,235);
+
   // Seats form a shallow radial auditorium around the central viewing screen.
-  for(const lateral of [-1,0,1]){
-    const sx=rotundaX-side*(lateral===0?100:195),sz=z+lateral*245;
-    addSeat(sx,sz,Math.atan2(side*(roomEnd-118)-sx,-(sz-z)),room);
+  for(const row of [-185,105]){
+    for(const offset of [-230,230]){
+      const sx=rotundaX+side*row,sz=z+offset;
+      addSeat(sx,sz,Math.atan2(side*(roomEnd-118)-sx,offset),room);
+    }
   }
-  for(const off of [-98,98])addSeat(side*(roomEnd-680),z+off,side*Math.PI/2,room);
   let n=nodesBefore.nextElementSibling;const nodes=[];
   while(n){
     if(n.matches('.bay-shell,.continuous-return,.chamber-floor,.promenade-shell'))suiteFinish(n,i);
@@ -619,7 +624,7 @@ function clear(x,z){
   }
   const room=rooms.find(r=>r.side===Math.sign(x)&&Math.abs(z-r.z)<roomHalf-32);
   if(Math.abs(x)>roomEnd-45)return false;
-  if(room&&Math.hypot(Math.max(0,Math.abs(x)-roomEnd+205),Math.max(0,Math.abs(z-room.z)-roomHalf+205))>176)return false;
+  if(room && Math.abs(z-room.z)>suiteWidthAt(Math.abs(x))-32)return false;
   if(!room)return Math.abs(Math.abs(x)-corridorX)<corridorHalf-28&&z>-2500&&z<2200;
   if(Math.abs(z-room.z)>roomHalf-48 && Math.abs(Math.abs(x)-corridorX)>corridorHalf-28)return false;
   if(Math.abs(x)<boundary+40)return Math.abs(z-room.z)<180&&passageOpen(room.door,x,z);
@@ -642,6 +647,10 @@ function moveStep(dt){
     const nz=z+step*(-Math.cos(yaw)*forward+Math.sin(yaw)*side);
     if(!seated&&!window.stationCity?.riding&&clear(nx,z))visitor.x=nx;
     if(!seated&&!window.stationCity?.riding&&clear(visitor.x,nz))visitor.z=nz;
+    if(currentRoom?.portalX && (x-currentRoom.portalX)*currentRoom.side<0 &&
+       (visitor.x-currentRoom.portalX)*currentRoom.side>=0 && Math.abs(visitor.z-currentRoom.z)<145){
+      window.startCampusDrill?.(currentRoom);
+    }
 }
 // Consume held time at input boundaries as well as render frames. A short tap
 // between two paints still moves, and each collision step remains small.
@@ -706,3 +715,4 @@ function activeDisplays(){
   }
 }
 setInterval(activeDisplays,850);activeDisplays();
+
