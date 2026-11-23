@@ -81,3 +81,9 @@ header,footer{position:fixed;left:0;right:0;display:flex;justify-content:space-b
 .sky-backdrop{position:absolute;inset:0;overflow:hidden;isolation:isolate;pointer-events:none;background:#101722}
 .sky-camera{position:absolute;left:50%;top:50%;transform-style:preserve-3d}
 .hardware-station .sky-backdrop{display:none}
+
+/* Circular salon rebuild: visible in the compatibility renderer too. */
+.rotunda-disc{border-radius:50%;background:radial-gradient(circle at 50% 46%,#ede5d5 0 20%,#c6b7a0 20.2% 21%,#ebe4d6 21.3% 40%,#ac966e 40.3% 41%,#e3d9c9 41.4% 61%,#9c8254 61.3% 62%,#ddd4c7 62.4% 90%,#8d7654 90.3% 100%);box-shadow:0 0 0 9px #887356,0 0 28px #4a302b55;opacity:.98}
+.rotunda-ring{border:18px solid #c8a56e;border-radius:50%;box-shadow:inset 0 0 10px #fff0c78c,0 0 14px #fff0c74e;background:transparent}
+.rotunda-dome{border-radius:50%;background:radial-gradient(circle at 46% 40%,#fff5dfd9 0 8%,#d2c6b0 27%,#7e8b85 45%,#e1d4bd 65%,#5e665f 83%,#c6a573 97%);border:24px ridge #bca077;box-shadow:inset 0 0 60px #1a293b55,0 0 40px #d6b37743}
+.rotunda-pillar{border-radius:20px;background:linear-gradient(90deg,#746453,#e7d5b3 24%,#f3eadb 47%,#a18a68 80%,#685746);border-inline:3px solid #c4a16e}
