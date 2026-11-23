@@ -1,5 +1,5 @@
 import {loadAlcove} from './alcove.mjs?v=hull27';
-import {loadStewardParts,stewardModel} from './robot-rig.mjs?v=22';
+import {loadStewardParts,stewardModel} from './robot-rig.mjs?v=deck-polish-28';
 import {hearthFire} from './hearth-shader.mjs';
 import * as T from './assets/engine/three.mjs';
 
