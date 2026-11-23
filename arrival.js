@@ -262,7 +262,8 @@ for(let i=0;i<10;i++){
   const wall=segment(corners[j].at(-1),corners[(j+1)%8][0],cx,cz,'wall',lock?'door':[2,6].includes(j)?'window':'');
   if(j===(i===0?3:4)){
    const dx=Math.sin(wall.turn),dz=Math.cos(wall.turn);
-   const surface=plane('art',edge*.57,133,wall.x+4*dx,-147,wall.z+4*dz,wall.turn).style.backgroundImage='url(assets/exhibits/'+topic[2]+'.webp)';
+   const surface=plane('art',edge*.57,133,wall.x+4*dx,-147,wall.z+4*dz,wall.turn);
+   surface.style.backgroundImage='url(assets/exhibits/'+topic[2]+'.webp)';
    const ui=makeConsole(surface,topic[0]+' teaching screen');room.terminal={ui,wx:wall.x+4*dx,wz:wall.z+4*dz,turn:wall.turn};screenButton(ui,'Study '+topic[0],()=>openCoursePanel(room));
    plane('sign',edge*.57,26,wall.x+5*dx,-45,wall.z+5*dz,wall.turn).textContent=topic[0];
   }
