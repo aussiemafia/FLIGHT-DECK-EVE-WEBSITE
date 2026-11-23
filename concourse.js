@@ -161,7 +161,7 @@ for(const side of [-1,1]){
     if(distance<=0)return;
     const span=distance/Math.ceil(distance/700);
     for(let edge=start;edge<end-1;edge+=span){
-      face('bay-shell',span+2,490,side*boundary,-245,edge+span/2,angle);
+      glazedWall(span+2,490,side*boundary,edge+span/2,angle,span*.69,218,-242);
     }
   }
   for(const room of rooms.filter(r=>r.side===side).sort((a,b)=>a.z-b.z)){
@@ -177,7 +177,7 @@ for(const sign of [-1,1]){
   const z=sign*3900,angle=sign===-1?0:180;
   for(const side of [-1,1])face('bay-shell',boundary-210,height,side*(boundary+210)/2,-height/2,z,angle);
   face('bay-shell',424,height-320,0,-(height+320)/2,z,angle);
-  face('end-vista',width-160,310,0,-542,z-sign*8,angle);
+
   const label=sign===-1?'Flight bridge':'Celestial garden';
   gates.push({sign,door:makeDoor(0,z,angle,label,'#ffda92'),url:sign===-1?'bridge.html':'bridge.html#holodeck'});
 }
@@ -225,14 +225,17 @@ function turnChairs(){
   }
 }
 let vistaNumber=0;
-function starWindow(w,h,x,y,z,angle,variant=0){
-  const rad=angle*Math.PI/180;
-  const glass=face('galaxy-window',w,h,x+48*Math.sin(rad),y,z+48*Math.cos(rad),angle);
-  const views=['assets/concourse-galaxy.webp','assets/forge/pz.webp','new-eden-nebula.webp','assets/forge/nx.webp','assets/forge/px.webp'];
-  const file=views[vistaNumber++%views.length];
-  glass.style.backgroundImage='linear-gradient(125deg,#b8eced22,transparent 30% 80%,#eabf9129),url('+file+')';
-  glass.style.backgroundPosition=(35+variant*17)+'% '+(44+variant*6)+'%';
-  return glass;
+function glazedWall(w,h,x,z,angle,opening,glassHeight,glassY){
+  const a=angle*Math.PI/180,c=Math.cos(a),sn=Math.sin(a);
+  function block(wide,high,u,y){
+    if(wide<=0||high<=0)return;
+    face('bay-shell',wide,high,x+c*u,y,z-sn*u,angle);
+  }
+  const pier=(w-opening)/2,top=glassY-glassHeight/2,bottom=glassY+glassHeight/2;
+  for(const sign of [-1,1])block(pier,h,sign*(opening+pier)/2,-h/2);
+  block(opening,h+top,0,(top-h)/2);
+  block(opening,-bottom,0,bottom/2);
+  face('pressure-glass',opening,glassHeight,x-8*sn,glassY,z-8*c,angle);
 }
 function tree(x,z){
   face('planter-rim',205,205,x,-6,z,0,90);
@@ -253,7 +256,7 @@ const trees=[];
 for(const side of [-1,1]){
   for(const z of [-3150,-120,1390,3160]){
     const reach=z<0?865:945;
-    starWindow(reach,267,side*(boundary-8),-248,z,-side*90,side+1);
+
     const poolX=side*(boundary-300);
     face('pool',290,reach*.74,poolX,-4,z,0,90);
     tree(poolX,z+reach*.20);
@@ -286,12 +289,10 @@ const gardenStart=3900,gardenEnd=5550,gardenWidth=900;
 face('chamber-floor',gardenWidth*2,gardenEnd-gardenStart,0,0,(gardenEnd+gardenStart)/2,0,90);
 for(const side of [-1,1]){
   if(side<0){
-    face('bay-shell',gardenEnd-gardenStart,410,side*gardenWidth,-205,(gardenEnd+gardenStart)/2,-side*90);
-    starWindow(1270,308,side*(gardenWidth-12),-226,4715,-side*90,side+1);
+    glazedWall(gardenEnd-gardenStart,410,side*gardenWidth,(gardenEnd+gardenStart)/2,90,1270,255,-205);
   }else{
     for(const [a,b] of [[gardenStart,4470],[4990,gardenEnd]]){
-      face('bay-shell',b-a,410,gardenWidth,-205,(a+b)/2,-90);
-      starWindow(b-a-52,260,gardenWidth-15,-216,(a+b)/2,-90,1);
+      glazedWall(b-a,410,gardenWidth,(a+b)/2,-90,b-a-95,248,-212);
     }
   }
   face('pool',390,850,side*585,-3,4710,0,90);
@@ -305,8 +306,11 @@ face('bay-shell',425,280,0,-460,gardenEnd,180);
 const gardenExit=makeDoor(0,gardenEnd,180,'Stellar promenade','#90dfdb');
 gates.push({sign:2,door:gardenExit,url:'bridge.html#holodeck'});
 const gardenDestination={name:'Celestial garden',garden:true};
+// Close the opening around the cast doorframe and carry the pressure hull above it.
+for(const sign of [-1,1])face('bay-shell',49,410,gardenWidth,-205,4730+sign*235.5,-90);
+face('bay-shell',422,89,gardenWidth,-365.5,4730,-90);
 const terraceDoor=makeDoor(gardenWidth,4730,-90,'Orbital garden terrace','#a3e8ce');
-face('chamber-floor',1550,1240,1675,0,4730,0,90);
+face('terrace-slab',1550,1240,1675,0,4730,0,90);
 for(const side of [-1,1]){
   face('balustrade',1550,102,1675,-51,4730+side*620,side>0?180:0);
   face('pool',590,210,1720,-4,4730+side*365,0,90);
@@ -369,8 +373,8 @@ for(const [i,room] of rooms.entries()){
       const h=opening?100:450,dx=side*(b-a),dz=end*(v-u);
       const angle=Math.atan2(end*side*dz,-end*side*dx)*180/Math.PI;
       const x=side*(a+b)/2,wallZ=z+end*(u+v)/2;
-      face('bay-shell',Math.hypot(dx,dz)+2,h,x,opening?-400:-225,wallZ,angle);
-      if(a===boundary)starWindow(165,145,x,-225,wallZ,angle,i%3);
+      if(a===boundary)glazedWall(Math.hypot(dx,dz)+2,h,x,wallZ,angle,165,145,-225);
+      else face('bay-shell',Math.hypot(dx,dz)+2,h,x,opening?-400:-225,wallZ,angle);
       if(a===2800&&end<0){
         const rad=angle*Math.PI/180;
         const board=face('learning-panel',235,154,x+58*Math.sin(rad),-225,wallZ+58*Math.cos(rad),angle);

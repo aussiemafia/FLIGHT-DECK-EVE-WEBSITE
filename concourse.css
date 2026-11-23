@@ -100,3 +100,6 @@ header,footer{position:fixed;left:0;right:0;display:flex;justify-content:space-b
 #campus-drill{position:fixed;z-index:12;left:50%;bottom:90px;transform:translateX(-50%);background:#112225f5;color:#faf0d8;width:min(90vw,420px);padding:16px;border:1px solid #bfa36a;border-radius:9px;font:16px/1.4 system-ui}#campus-drill button{padding:7px;margin:3px;cursor:pointer}
 header{z-index:8}header nav{pointer-events:auto}
 @media(max-width:550px){header .brand small,header #crew-status{display:none}header{align-items:flex-start}header nav{max-width:70%}}
+
+.pressure-glass{background:linear-gradient(125deg,#96c9d416,transparent 62%,#cde9df28);border:6px ridge #8e948c;backface-visibility:visible}
+.terrace-slab{background:#625d52 url('assets/ivory-marble.webp') center/680px}

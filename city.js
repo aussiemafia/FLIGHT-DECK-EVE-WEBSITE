@@ -80,7 +80,7 @@
     face('city-floor',width*2,bay+2,0,0,z,0,90);
     for(const side of [-1,1]){
       const angle=-side*90;
-      const wall=(span,centre)=>face('city-wall',span,595,side*width,-297,centre,angle);
+      const wall=(span,centre)=>glazedWall(span,595,side*width,centre,angle,Math.min(1020,span*.64),320,-310);
       if(room?.side===side){
         wall(bay/2-210,z-bay/4-105);wall(bay/2-210,z+bay/4+105);
         face('city-wall',420,275,side*width,-457,z,angle);
@@ -98,7 +98,7 @@
         interactive.set(desk,{name,route});
         for(const offset of [-160,160])addSeat(cx,z+offset,side*Math.PI/2,room);
       }else wall(bay,z);
-      starWindow(1020,320,side*(width-12),-310,z+(room?.side===side?765:0),angle,i%3);
+
       strip(8,bay,side*width*.63,z,tone);
       const balcony=face('city-eave',width*.44,bay,side*width*.83,-tall+70,z,0,90);balcony.style.setProperty('--tone',tone);
       if(i%3===1){
@@ -129,8 +129,7 @@
     }
     if(i%5===4)drawHearth(-width*.47,z);
     if(i===count-1){
-      face('city-wall',width*2,800,0,-400,end);
-      starWindow(1900,495,0,-430,end-9,180,2);
+      glazedWall(width*2,800,0,end,180,Math.min(1900,width*1.6),495,-430);
       const hatch=label('console',375,120,0,-125,end-110,180,'Private holodeck');
       interactive.set(hatch,{name:'Enter private holodeck',action:()=>resetAt(rooms[0])});
     }
@@ -204,3 +203,4 @@
       return r&&x*r.side>r.width&&x*r.side<r.width+r.depth&&Math.abs(z-r.z)<r.half?r:null
     }};
 })();
+

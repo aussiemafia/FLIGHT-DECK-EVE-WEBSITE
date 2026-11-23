@@ -193,7 +193,23 @@ async function launch(){
       const seat=chairs.find(c=>c.node===el);if(!seat)return;
       o=new T.Mesh(chairGeometry,chairFinishes[rooms.indexOf(seat.room)]||chairMaterials);o.position.set(seat.x,0,seat.z);o.rotation.y=-seat.facing;o.userData.seat=seat;
     }else{
-      if(k.contains('training-gate')){
+      if(k.contains('pressure-glass')){
+        o=new T.Group();
+        o.add(flat(w,h,canopyGlass),edged(w,h,7,6,materials.rail,23));
+      }else if(k.contains('terrace-slab')){
+        o=new T.Group();
+        const slab=new T.Mesh(new T.BoxGeometry(w,h,75),materials.hull);
+        slab.position.z=-37.5;o.add(slab,flat(w,h,mapRepeat(materials.stone,'assets/ivory-marble.webp',w,h,800)));
+      }else if(k.contains('balustrade')){
+        o=new T.Group();o.add(flat(w,h,materials.glass));
+        for(const y of [-h/2,h/2]){
+          const bar=new T.Mesh(new T.BoxGeometry(w+4,7,10),materials.rail);bar.position.y=y;o.add(bar);
+        }
+        const bays=Math.ceil(w/210);
+        for(let j=0;j<=bays;j++){
+          const post=new T.Mesh(new T.BoxGeometry(6,h,10),materials.bronze);post.position.x=w*(j/bays-.5);o.add(post);
+        }
+      }else if(k.contains('training-gate')){
         o=new T.Group();
         o.add(portalCasting(w,h,9,6,materials.blue));
       }else if(k.contains('suite-soffit')){

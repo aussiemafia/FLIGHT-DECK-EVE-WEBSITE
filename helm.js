@@ -6,14 +6,12 @@
     if(side===1){
       for(const [lo,hi] of [[top,-5250],[-4830,back]])face('city-wall',hi-lo,480,1170,-240,(lo+hi)/2,-90);
       face('city-wall',420,160,1170,-400,-5040,-90);
-    }else face('city-wall',back-top,480,side*1170,-240,(top+back)/2,-side*90);
-    if(side===-1)starWindow(1330,305,side*1153,-268,-5170,-side*90);
+    }else glazedWall(back-top,480,side*1170,(top+back)/2,-side*90,1330,305,-268);
     for(const z of [-4560,-5430])addSeat(side*718,z,side*.64);
     strip(7,back-top,side*500,(top+back)/2,'#d5ae70');
   }
   glazedAtrium(2340,back-top,(top+back)/2,480,545,3);
-  face('bay-shell',2340,695,0,-347,top);
-  starWindow(2040,420,0,-350,top+8,0);
+  glazedWall(2340,695,0,top,0,2040,420,-350);
   // One curved console sill carries the three instruments below the forward glazing.
   const helmCurve=x=>top+363+.00039*x*x;
   for(let j=0;j<24;j++){
@@ -67,3 +65,4 @@
   }};
   if(location.hash==='#bridge')go();
 })();
+
