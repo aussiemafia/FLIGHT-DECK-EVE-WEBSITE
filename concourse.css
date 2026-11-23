@@ -87,3 +87,16 @@ header,footer{position:fixed;left:0;right:0;display:flex;justify-content:space-b
 .rotunda-ring{border:18px solid #c8a56e;border-radius:50%;box-shadow:inset 0 0 10px #fff0c78c,0 0 14px #fff0c74e;background:transparent}
 .rotunda-dome{border-radius:50%;background:radial-gradient(circle at 46% 40%,#fff5dfd9 0 8%,#d2c6b0 27%,#7e8b85 45%,#e1d4bd 65%,#5e665f 83%,#c6a573 97%);border:24px ridge #bca077;box-shadow:inset 0 0 60px #1a293b55,0 0 40px #d6b37743}
 .rotunda-pillar{border-radius:20px;background:linear-gradient(90deg,#746453,#e7d5b3 24%,#f3eadb 47%,#a18a68 80%,#685746);border-inline:3px solid #c4a16e}
+
+
+.suite-soffit{background:#ada493;mask-image:radial-gradient(circle at var(--oculus-x) 50%,transparent calc(var(--oculus-radius) - 1px),black var(--oculus-radius))}
+.deck-settings{position:relative;pointer-events:auto}
+.deck-settings>summary{list-style:none;cursor:pointer;color:#fff5da;background:#222b2be8;border:1px solid #b29e79;border-radius:5px;padding:7px 11px;font:500 14px system-ui}
+.deck-settings>summary::-webkit-details-marker{display:none}
+.deck-settings .intercom-controls{position:absolute;inset:calc(100% + 8px) 0 auto auto;width:215px;padding:12px;display:grid;gap:6px;border:1px solid #a9946a;border-radius:7px;background:#182323f5;box-shadow:0 8px 24px #0007;justify-content:stretch}
+.deck-settings .intercom-controls button{text-align:left;font-size:14px}
+@media(max-width:650px){header nav{flex-wrap:wrap;justify-content:flex-end}.deck-settings>summary{font-size:12px;padding:5px 7px}}
+.training-gate{border:8px solid #80e4db;border-bottom:0;border-radius:95px 95px 0 0;box-shadow:inset 0 0 9px #92ede7,0 0 9px #70d4c6}
+#campus-drill{position:fixed;z-index:12;left:50%;bottom:90px;transform:translateX(-50%);background:#112225f5;color:#faf0d8;width:min(90vw,420px);padding:16px;border:1px solid #bfa36a;border-radius:9px;font:16px/1.4 system-ui}#campus-drill button{padding:7px;margin:3px;cursor:pointer}
+header{z-index:8}header nav{pointer-events:auto}
+@media(max-width:550px){header .brand small,header #crew-status{display:none}header{align-items:flex-start}header nav{max-width:70%}}
