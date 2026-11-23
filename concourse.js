@@ -337,8 +337,23 @@ for(const [i,room] of rooms.entries()){
   // Each chamber has its own continuous floor, hull and approach sightline.
   const nodesBefore=hall.lastElementChild;
   const centre=side*(boundary+roomEnd)/2,depth=roomEnd-boundary;
-  face('chamber-floor',depth,roomHalf*2,centre,0,z,0,90).style.setProperty('--tone',tone);
-  face('chamber-lid',depth,roomHalf*2,centre,-449,z,0,90);
+  const chamberFloor=face('chamber-floor',depth,roomHalf*2,centre,0,z,0,90);
+  chamberFloor.style.setProperty('--tone',tone);
+  // A circular pavilion within the original navigable footprint: the transparent
+  // outer floor is still walkable, while the inlaid round salon reads as one space.
+  const rotundaX=side*(boundary+depth*.58),radius=Math.min(roomHalf-62,depth*.43);
+  const disc=face('rotunda-disc',radius*2,radius*2,rotundaX,-1,z,0,90);
+  disc.dataset.suite=i;
+  const rim=face('rotunda-ring',radius*2,radius*2,rotundaX,-6,z,0,90);
+  rim.dataset.suite=i;rim.dataset.radius=radius;
+  const dome=face('rotunda-dome',radius*2,radius*2,rotundaX,-447,z,0,90);
+  dome.dataset.suite=i;dome.dataset.radius=radius;
+  // The earlier rectangular canopy is removed in favor of a segmented dome.
+  for(let spoke=0;spoke<12;spoke++){
+    const a=spoke*Math.PI/6,px=rotundaX+Math.cos(a)*radius*.91,pz=z+Math.sin(a)*radius*.91;
+    const light=face('rotunda-pillar',32,405,px,-204,pz);
+    light.dataset.suite=i;
+  }
   for(const end of [-1,1]){
     const hasPass=rooms.some(other=>other.side===side&&(other.z-room.z)*end>0);
     const wallZ=z+roomHalf*end;
@@ -385,6 +400,11 @@ for(const [i,room] of rooms.entries()){
   // Keep the lesson accessible from the room screen, seating and deck directory;
   // do not float a large text hologram across the seating sightline.
   curvedRoomEnds(side,roomEnd,z,roomHalf,450,235);
+  // Seats form a shallow radial auditorium around the central viewing screen.
+  for(const lateral of [-1,0,1]){
+    const sx=rotundaX-side*(lateral===0?100:195),sz=z+lateral*245;
+    addSeat(sx,sz,Math.atan2(side*(roomEnd-118)-sx,-(sz-z)),room);
+  }
   for(const off of [-98,98])addSeat(side*(roomEnd-680),z+off,side*Math.PI/2,room);
   let n=nodesBefore.nextElementSibling;const nodes=[];
   while(n){
