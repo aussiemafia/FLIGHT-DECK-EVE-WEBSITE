@@ -350,8 +350,8 @@ for(const [i,room] of rooms.entries()){
     }
     starWindow(610,207,side*1770,-250,wallZ-end*10,end===1?180:0,i%3);
     for(const lane of [-1,1])strip(7,roomHalf*2,side*corridorX+lane*(corridorHalf-36),z,tone);
-    addSeat(side*1840,z+end*365,end===1?Math.PI:0,room);
-    addSeat(side*1980,z+end*365,end===1?Math.PI:0,room);
+    addSeat(side*1840,z+end*365,side*Math.PI/2,room);
+    addSeat(side*1980,z+end*365,side*Math.PI/2,room);
     if(end===-1){
       for(let n=0;n<3;n++)face('ceiling-bar',17,roomHalf*2-50,side*(boundary+310+n*605),-444,z,0,90).style.setProperty('--tone',tone);
       const board=face('learning-panel',450,215,side*2950,-228,wallZ+66);
@@ -382,8 +382,8 @@ for(const [i,room] of rooms.entries()){
     interactive.set(console,room);
   }
   installAlcove(room.projection||room.screen);
-  const holo=textFace('course-holo',345,122,side*(boundary+645),-155,z-175,angle,room.name+' · '+(room.route==='estimate'?'Identify an ore':teaching[i][0]));
-  interactive.set(holo,{name:'Explore '+room.name,action:()=>window.startStationLesson(room)});
+  // Keep the lesson accessible from the room screen, seating and deck directory;
+  // do not float a large text hologram across the seating sightline.
   curvedRoomEnds(side,roomEnd,z,roomHalf,450,235);
   for(const off of [-98,98])addSeat(side*(roomEnd-680),z+off,side*Math.PI/2,room);
   let n=nodesBefore.nextElementSibling;const nodes=[];
