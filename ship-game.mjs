@@ -203,7 +203,7 @@ async function launch(){
         const canopy=new T.Mesh(new T.SphereGeometry(radius,64,24,0,Math.PI*2,0,Math.PI/2),shellMat);
         // Rotate the hemisphere toward the habitable volume; the upper surface
         // closes the ceiling over the circular salon.
-        canopy.scale.y=.23;canopy.rotation.x=-Math.PI/2;canopy.position.z=22;
+        canopy.scale.y=.23;canopy.rotation.x=Math.PI/2;canopy.position.z=22;
         group.add(canopy);
         for(let i=0;i<12;i++){
           const a=i*Math.PI/6;
@@ -215,9 +215,9 @@ async function launch(){
       }else if(k.contains('rotunda-pillar')){
         o=new T.Group();
         const tube=new T.Mesh(new T.CylinderGeometry(13,17,h,16),materials.ivory);
-        tube.rotation.x=Math.PI/2;o.add(tube);
+        o.add(tube);
         const strip=new T.Mesh(new T.CylinderGeometry(7,7,h-52,12),materials.brass);
-        strip.rotation.x=Math.PI/2;strip.position.z=4;o.add(strip);
+        strip.position.z=4;o.add(strip);
       }else if(k.contains('atlas-ring')){
         const radius=w/2,inner=radius-Number(el.dataset.band),shape=new T.Shape(),hole=new T.Path();
         shape.absarc(0,0,radius,0,Math.PI*2,false);hole.absarc(0,0,inner,0,Math.PI*2,true);shape.holes.push(hole);
