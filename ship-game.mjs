@@ -105,15 +105,17 @@ async function launch(){
   const suiteShell=suiteFinishes.map(([color])=>physical(color,.49,.28,{clearcoat:.55,clearcoatRoughness:.20}));
   const suiteFloor=suiteFinishes.map(([,color])=>{const m=materials.stone.clone();m.color.set(color);return m});
   function sculptedHull(w,h,shell=enamel){
-    const profiles=[shell,materials.bronze,materials.brass,materials.gasket,materials.gold,materials.rail];
+    const faceFinish=mapRepeat(shell,'assets/imperial/ivory.webp',1,1,1);
+    const profiles=[faceFinish,materials.bronze,materials.brass,materials.gasket,materials.gold,materials.rail];
     const finishes=['shell','bronze','brass','gasket','gold','rail'];
-    const vertices=[],groups=profiles.map(()=>[]),scale=Math.min(1,h/350),bays=Math.max(1,Math.round(w/350));
+    const vertices=[],uv=[],groups=profiles.map(()=>[]),scale=Math.min(1,h/350),bays=Math.max(1,Math.round(w/350));
     const seam=w<80?[0,1]:[0,.012,.026,.060,.18,.5,.82,.94,.974,.988,1];
     for(let bay=0;bay<bays;bay++){
       const offset=vertices.length/3;
       for(const [y,z] of hullSection){
         for(const u of seam){
           const lip=w<80?0:Math.min(1,Math.min(u,1-u)*30);
+          uv.push(u,y);
           vertices.push(((bay+u)/bays-.5)*w,(y-.5)*h,z*scale+lip*(w<80?0:5));
         }
       }
@@ -124,9 +126,10 @@ async function launch(){
       }
     }
     const geom=new T.BufferGeometry(),indices=[];geom.setAttribute('position',new T.Float32BufferAttribute(vertices,3));
+    geom.setAttribute('uv',new T.Float32BufferAttribute(uv,2));
     groups.forEach((g,i)=>{if(g.length){geom.addGroup(indices.length,g.length,i);indices.push(...g)}});
     geom.setIndex(indices);geom.computeVertexNormals();
-    const mesh=new T.Mesh(geom,profiles),back=new T.Mesh(new T.BoxGeometry(w,h,17),materials.gasket);
+    const mesh=new T.Mesh(geom,profiles),back=new T.Mesh(new T.BoxGeometry(w,h,17),mapRepeat(materials.bronze,'assets/imperial/armour.webp',w,h,430));
     back.position.z=-8.5;mesh.add(back);return mesh;
   }
   function curvedHull(el,h){
@@ -225,7 +228,7 @@ async function launch(){
         const geo=roundPlate(radius);
         const uv=geo.attributes.uv;
         for(let j=0;j<uv.count;j++)uv.setXY(j,uv.getX(j)/w+.5,uv.getY(j)/h+.5);
-        o=new T.Mesh(geo,mapRepeat(suiteFloor[el.dataset.suite],'assets/ivory-marble.webp',w,h,530));
+        o=new T.Mesh(geo,mapRepeat(materials.stone,'assets/imperial/serpentine.webp',w,h,530));
         for(const factor of [.68,.92]){
           const trim=new T.Mesh(roundPlate(radius*factor,3),materials.brass);
           trim.position.z=1;o.add(trim);
