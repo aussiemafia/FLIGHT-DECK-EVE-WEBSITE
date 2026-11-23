@@ -184,7 +184,41 @@ async function launch(){
       const seat=chairs.find(c=>c.node===el);if(!seat)return;
       o=new T.Mesh(chairGeometry,chairFinishes[rooms.indexOf(seat.room)]||chairMaterials);o.position.set(seat.x,0,seat.z);o.rotation.y=-seat.facing;o.userData.seat=seat;
     }else{
-      if(k.contains('atlas-ring')){
+      if(k.contains('rotunda-disc')){
+        const radius=w/2,mat=mapRepeat(suiteFloor[el.dataset.suite]||materials.stone,'assets/ivory-marble.webp',w,h,600);
+        o=new T.Mesh(new T.CircleGeometry(radius,96),mat);
+        // An inset concentric mosaic defines the room without floating signage.
+        for(const factor of [.91,.67,.34]){
+          const loop=new T.Mesh(new T.RingGeometry(radius*factor-2.6,radius*factor,96),materials.brass);
+          loop.position.z=1.9;o.add(loop);
+        }
+      }else if(k.contains('rotunda-ring')){
+        const radius=w/2;
+        o=new T.Mesh(new T.RingGeometry(radius-16,radius,96),materials.bronze);
+        const light=new T.Mesh(new T.RingGeometry(radius-5,radius-2,96),materials.gold);
+        light.position.z=3;o.add(light);
+      }else if(k.contains('rotunda-dome')){
+        const radius=w/2,group=new T.Group();
+        const shellMat=suiteShell[el.dataset.suite]||materials.ivory;
+        const canopy=new T.Mesh(new T.SphereGeometry(radius,64,24,0,Math.PI*2,0,Math.PI/2),shellMat);
+        // Rotate the hemisphere toward the habitable volume; the upper surface
+        // closes the ceiling over the circular salon.
+        canopy.scale.y=.23;canopy.rotation.x=-Math.PI/2;canopy.position.z=22;
+        group.add(canopy);
+        for(let i=0;i<12;i++){
+          const a=i*Math.PI/6;
+          const trim=new T.Mesh(new T.TorusGeometry(radius*.89,3.5,8,96),i%3===0?materials.gold:materials.brass);
+          trim.scale.set(1,1,.92);trim.position.z=3+i*.14;group.add(trim);
+          if(i===0)break;
+        }
+        o=group;
+      }else if(k.contains('rotunda-pillar')){
+        o=new T.Group();
+        const tube=new T.Mesh(new T.CylinderGeometry(13,17,h,16),materials.ivory);
+        tube.rotation.x=Math.PI/2;o.add(tube);
+        const strip=new T.Mesh(new T.CylinderGeometry(7,7,h-52,12),materials.brass);
+        strip.rotation.x=Math.PI/2;strip.position.z=4;o.add(strip);
+      }else if(k.contains('atlas-ring')){
         const radius=w/2,inner=radius-Number(el.dataset.band),shape=new T.Shape(),hole=new T.Path();
         shape.absarc(0,0,radius,0,Math.PI*2,false);hole.absarc(0,0,inner,0,Math.PI*2,true);shape.holes.push(hole);
         const surface={shell:materials.gasket,light:materials.blue,brass:materials.brass}[el.dataset.finish];
