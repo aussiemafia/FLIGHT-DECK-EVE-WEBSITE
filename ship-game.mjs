@@ -358,9 +358,15 @@ async function launch(){
     if(!n.isMesh||n.userData.sharedAlcove||n.geometry===chairGeometry)return;n.geometry.dispose();
     const mat=n.material;if(!Array.isArray(mat)&&!Object.values(materials).includes(mat)&&mat!==skyMat&&mat!==canopyGlass&&mat!==apertureMaterial&&mat!==water&&![...finishes.values()].includes(mat)){if(mat.map&&!Array.from(textures.values()).includes(mat.map)&&mat.map!==fireMap)mat.map.dispose();mat.dispose()}
   })}
+  const processed=new WeakSet();
   function syncFaces(){
     for(const [el,o] of models)if(!el.isConnected){dispose(o);models.delete(el)}
-    for(const el of hall.children)if(el.geometry&&!models.has(el))make(el);
+    for(const el of hall.children){
+      const g=el.geometry;
+      if(!g||processed.has(el)||el.hidden)continue;
+      if(Math.hypot(visitor.x-g.x,visitor.z-g.z)>3650+Math.max(g.w,g.h)/2)continue;
+      make(el);processed.add(el);
+    }
   }
   function videoFrame(){
     for(let i=videoObjects.length-1;i>=0;i--){
@@ -429,7 +435,7 @@ async function launch(){
     if(now-lastSync>350){syncFaces();updateForest();videoFrame();lastSync=now}
     if(now-lastCrew>32){crew();lastCrew=now}
     const f=parseFloat(view.style.perspective),size=innerWidth+'x'+innerHeight;
-    if(size!==lastSize){render.setPixelRatio(Math.min(1.65,devicePixelRatio||1));render.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;lastSize=size;lastFocal=0}
+    if(size!==lastSize){render.setPixelRatio(Math.min(devicePixelRatio||1,Math.sqrt(1700000/(innerWidth*innerHeight))));render.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;lastSize=size;lastFocal=0}
     if(f!==lastFocal){lastFocal=f;cam.fov=2*Math.atan(innerHeight/(2*f))*180/Math.PI;cam.updateProjectionMatrix();lastSize=size}
     const {x,z,yaw,pitch}=visitor;cam.position.set(x,standingEye(),z);cam.rotation.order='YXZ';cam.rotation.set(pitch,-yaw,0,'YXZ');
     firmament.position.copy(cam.position);sun.position.set(x-1700,2700,z-1300);sun.target.position.set(x,0,z);cool.position.set(x+1100,800,z+850);cool.target.position.set(x,0,z);
@@ -440,7 +446,7 @@ async function launch(){
     const mode=byId('outside').selectedIndex;globeUniform.shift.value=[0,.32,-.29][mode]||0;
     globeUniform.tint.value.set([0xffffff,0xffddba,0xc7e9ff][mode]||0xffffff);
     for(const [el,o] of models){
-      const g=el.geometry;o.visible=!el.hidden&&Math.hypot(x-g.x,z-g.z)<Math.max(7000,Math.max(g.w,g.h)*.6+4000);
+      const g=el.geometry;o.visible=!el.hidden&&Math.hypot(x-g.x,z-g.z)<3650+Math.max(g.w,g.h)/2;
       if(!o.visible)continue;
       if(o.userData.aperture)o.userData.aperture.visible=el.classList.contains('playing-in-glass');
       if(el.classList.contains('academy-steward')){
